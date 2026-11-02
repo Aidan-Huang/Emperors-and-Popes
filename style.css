@@ -268,31 +268,44 @@ body {
 .interlude-title { font-size: 21px; margin: 2px 0 8px; }
 .interlude-body p { margin: 8px 0; font-size: 15.5px; }
 
-/* ---------- 因果拼图 ---------- */
+/* ---------- 旅程复盘（拖拽排序） ---------- */
 .puzzle-intro { font-size: 14.5px; color: var(--text-dim); margin-top: 4px; }
-.chain { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
-.chain-slot {
-  display: flex; align-items: center; gap: 10px;
-  border: 1px dashed var(--line); border-radius: 12px;
-  min-height: 48px; padding: 8px 12px; font-size: 14px; color: var(--text-dim);
-  background: rgba(255,255,255,.02);
+.ord-list { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.ord-row {
+  display: flex; align-items: stretch; flex-wrap: wrap;
+  border: 1.5px solid var(--line); border-radius: 12px;
+  background: var(--panel2); overflow: hidden;
+  transition: border-color .2s, box-shadow .2s;
 }
-.chain-slot .num {
-  flex: 0 0 24px; height: 24px; border-radius: 99px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; background: var(--panel2); color: var(--text-dim);
+.ord-num {
+  flex: 0 0 32px; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--text-dim); border-right: 1px solid var(--line);
 }
-.chain-slot.filled { border-style: solid; border-color: var(--gold); color: var(--text); background: rgba(255,204,0,.06); }
-.chain-slot.filled .num { background: var(--gold); color: #1c1a05; font-weight: 700; }
-.chain-slot .arrow { color: var(--line); font-size: 18px; text-align: center; }
-.tray { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
-.tray-card {
-  background: var(--panel2); border: 1px solid var(--line); border-radius: 11px;
-  padding: 9px 12px; font-size: 13.5px; cursor: pointer;
-  transition: transform .12s;
+.ord-card { flex: 1; display: flex; align-items: center; gap: 4px; padding: 12px 2px 12px 6px; min-width: 0; }
+.ord-handle {
+  flex: 0 0 28px; text-align: center; color: var(--text-dim);
+  font-size: 17px; cursor: grab; touch-action: none;
+  user-select: none; -webkit-user-select: none; letter-spacing: -2px;
 }
-.tray-card:active { transform: scale(.96); }
-.tray-card.used { display: none; }
+.ord-text { flex: 1; font-size: 14.5px; line-height: 1.45; }
+.ord-btns { flex: 0 0 auto; display: flex; flex-direction: column; }
+.ord-btn {
+  flex: 1; width: 42px; background: transparent; border: none;
+  border-left: 1px solid var(--line); color: var(--text-dim);
+  font-size: 15px; cursor: pointer;
+}
+.ord-btn.up { border-bottom: 1px solid var(--line); }
+.ord-btn:active { background: rgba(255,255,255,.07); color: var(--gold); }
+.ord-row.dragging {
+  border-color: var(--gold); opacity: .92;
+  box-shadow: 0 8px 22px rgba(0,0,0,.45);
+  position: relative; z-index: 2;
+}
+.ord-row.ok { border-color: var(--good); }
+.ord-row.ok .ord-num { color: var(--good); font-weight: 700; }
+.ord-row.bad { border-color: #ef7d7d; }
+.ord-row.bad .ord-num { color: #ef7d7d; font-weight: 700; }
+.ord-hint { flex-basis: 100%; padding: 0 12px 10px 46px; font-size: 13px; color: #ffb3b3; border-top: 1px dashed rgba(239,125,125,.35); padding-top: 8px; }
 .puzzle-hint {
   margin-top: 12px; min-height: 24px; font-size: 14px;
   color: var(--gold); text-align: center;

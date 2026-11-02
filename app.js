@@ -41,7 +41,7 @@
     const bar = $('#topbar');
     bar.classList.toggle('hidden', name === 'home');
     $('#tb-title').textContent = ({
-      lines: '选择你的路线', game: '', puzzle: '因果拼图', ending: '结算',
+      lines: '选择你的路线', game: '', puzzle: '旅程复盘', ending: '结算',
       history: GAME_DATA.historyMode.title, gallery: '文物图鉴'
     })[name] || '权力的双人舞';
     window.scrollTo(0, 0);
@@ -84,7 +84,9 @@
   $('#overlay-backdrop').addEventListener('click', closeOverlay);
 
   $('#btn-source').addEventListener('click', () => {
-    const node = run && run.curNode;
+    // 只有正处于剧情场景（scene / 对照卡）时才显示该场景原文；其余页面一律给引导提示
+    const active = screens.find(s => $('#screen-' + s).classList.contains('active'));
+    const node = (run && run.curNode && active === 'game') ? run.curNode : null;
     if (node && node.source) {
       openOverlay(`
         <div class="modal-card">
@@ -97,7 +99,7 @@
       openOverlay(`
         <div class="modal-card">
           <div class="modal-title">📄 书中原文</div>
-          <p class="modal-src">进入一条路线后，点这里可以查看当前场景在《The Shortest History of Europe》第六章中的原文段落。</p>
+          <p class="modal-src">这一页没有对应的原文段落。进入一条路线的剧情后，再点这里，就能查看当前场景在《The Shortest History of Europe》第六章中的原文。</p>
           <button class="btn small" id="ov-close">知道了</button>
         </div>`);
     }
@@ -367,52 +369,109 @@
     show('puzzle');
   }
 
-  /* ---------------- 因果拼图 ---------------- */
+  /* ---------------- 旅程复盘（单列表拖拽排序） ---------------- */
   function renderPuzzle() {
     const p = GAME_DATA.puzzles[run.lineId];
-    run.puzzle = { placed: 0, order: shuffle(p.items.map((_, i) => i)) };
     const el = $('#screen-puzzle');
-    let slots = '';
-    p.items.forEach((it, i) => {
-      slots += `<div class="chain-slot" data-k="${i}"><span class="num">${i + 1}</span><span class="slot-label">？</span></div>`;
-      if (i < p.items.length - 1) slots += `<div class="arrow" style="text-align:center;color:#37456b">↓</div>`;
-    });
-    let tray = '';
-    run.puzzle.order.forEach(itemIdx => {
-      tray += `<button class="tray-card" data-item="${itemIdx}">${esc(p.items[itemIdx].label)}</button>`;
-    });
     el.innerHTML = `
       <h2 class="scene-title">${esc(p.title)}</h2>
       <p class="puzzle-intro">${esc(p.intro)}</p>
-      <div class="card"><div class="chain">${slots}</div></div>
-      <div class="tray">${tray}</div>
+      <div class="ord-list" id="ord-list">
+        ${shuffle(p.items.map((_, i) => i)).map(i => `
+          <div class="ord-row" data-item="${i}">
+            <span class="ord-num"></span>
+            <div class="ord-card">
+              <span class="ord-handle" title="拖动调整顺序">⋮⋮</span>
+              <span class="ord-text">${esc(p.items[i].label)}</span>
+            </div>
+            <div class="ord-btns">
+              <button class="ord-btn up" aria-label="上移">↑</button>
+              <button class="ord-btn down" aria-label="下移">↓</button>
+            </div>
+          </div>`).join('')}
+      </div>
       <div class="puzzle-hint" id="puzzle-hint"></div>
-      <button class="btn" id="btn-puzzle-done" style="display:none">完成拼图，查看结算 →</button>`;
-    $$('.tray-card', el).forEach(c => c.onclick = () => tryPlace(+c.dataset.item));
-  }
+      <button class="btn ghost" id="btn-check">✓ 检查顺序</button>
+      <button class="btn" id="btn-puzzle-done" style="display:none">复盘完成，查看结算 →</button>`;
 
-  function tryPlace(itemIdx) {
-    const p = GAME_DATA.puzzles[run.lineId];
-    const st = run.puzzle;
-    const k = st.placed;
-    if (itemIdx === k) {
-      const slot = $(`#screen-puzzle .chain-slot[data-k="${k}"]`);
-      slot.classList.add('filled');
-      $('.slot-label', slot).textContent = p.items[k].label;
-      $(`.tray-card[data-item="${itemIdx}"]`).classList.add('used');
-      st.placed++;
-      $('#puzzle-hint').textContent = k < p.items.length - 1 ? '✔ 正确！继续下一环。' : '✔ 全部正确！';
-      if (st.placed >= p.items.length) {
-        $('#btn-puzzle-done').style.display = 'block';
-        $('#btn-puzzle-done').onclick = () => { renderEnding(); show('ending'); };
+    const list = $('#ord-list');
+    const renumber = () => $$('.ord-row', list).forEach((r, i) => $('.ord-num', r).textContent = i + 1);
+    const clearMarks = () => {
+      $$('.ord-row', list).forEach(r => { r.classList.remove('ok', 'bad'); const h = $('.ord-hint', r); if (h) h.remove(); });
+    };
+    renumber();
+
+    // ↑↓ 按钮
+    $$('.ord-btn', el).forEach(b => b.onclick = () => {
+      const row = b.closest('.ord-row');
+      if (b.classList.contains('up') && row.previousElementSibling) {
+        list.insertBefore(row, row.previousElementSibling);
+      } else if (b.classList.contains('down') && row.nextElementSibling) {
+        list.insertBefore(row.nextElementSibling, row);
+      } else return;
+      clearMarks(); renumber();
+      $('#puzzle-hint').textContent = '';
+      row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+
+    // 拖拽排序
+    let drag = null;
+    list.addEventListener('pointerdown', e => {
+      const handle = e.target.closest('.ord-handle');
+      if (!handle) return;
+      e.preventDefault();
+      drag = handle.closest('.ord-row');
+      drag.classList.add('dragging');
+    });
+    window.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const rows = $$('.ord-row', list).filter(r => r !== drag);
+      let target = null;
+      for (const r of rows) {
+        const rc = r.getBoundingClientRect();
+        if (e.clientY < rc.top + rc.height / 2) { target = r; break; }
       }
-    } else {
+      if (target) list.insertBefore(drag, target);
+      else list.appendChild(drag);
+      renumber();
+    });
+    const endDrag = () => {
+      if (!drag) return;
+      drag.classList.remove('dragging');
+      drag = null;
+      clearMarks();
+      $('#puzzle-hint').textContent = '';
+    };
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+
+    // 检查
+    $('#btn-check').onclick = () => {
+      const rows = $$('.ord-row', list);
+      let wrong = 0;
+      rows.forEach((row, pos) => {
+        const ok = +row.dataset.item === pos;
+        row.classList.toggle('ok', ok);
+        row.classList.toggle('bad', !ok);
+        if (!ok) {
+          wrong++;
+          const d = document.createElement('div');
+          d.className = 'ord-hint';
+          d.textContent = '💡 这一格对应的是：' + p.items[pos].hint;
+          row.appendChild(d);
+        }
+      });
       const hint = $('#puzzle-hint');
-      hint.textContent = '✘ 顺序不对。提示：' + p.items[k].hint;
-      hint.classList.remove('shake');
-      void hint.offsetWidth;
-      hint.classList.add('shake');
-    }
+      if (wrong === 0) {
+        hint.textContent = '✔ 全部正确！这条千年因果线，你已经亲手走了一遍。';
+        $('#btn-check').style.display = 'none';
+        $('#btn-puzzle-done').style.display = 'block';
+      } else {
+        hint.textContent = `还有 ${wrong} 处顺序不对——看看红框里的提示，调整后再查一次。`;
+        hint.classList.remove('shake'); void hint.offsetWidth; hint.classList.add('shake');
+      }
+    };
+    $('#btn-puzzle-done').onclick = () => { renderEnding(); show('ending'); };
   }
 
   /* ---------------- 结算 ---------------- */
