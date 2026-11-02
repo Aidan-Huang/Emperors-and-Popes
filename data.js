@@ -62,7 +62,12 @@ const GAME_DATA = {
       quote: { en: 'So the pope looked north across the Alps to the Franks… King Pepin went south into Italy and subdued the Lombards. He made sure that the pope was left with a large belt of territory around Rome.',
                zh: '于是教皇越过阿尔卑斯山望向法兰克人……丕平南下意大利降服伦巴第人，并确保教皇拥有罗马周边的大片领土。' },
       point: '教皇「弃东投西」：一个以罗马为中心、不再听命于君士坦丁堡的西欧天主教世界，从此诞生。',
-      delta: { church: 2, state: 0, local: 0 }
+      delta: { church: 6, state: 0, local: 0 },
+      source: [
+        'The danger to the pope came from the Lombards, who were a second wave of German invaders in the eighth century. They were poised to make a complete takeover of Italy, including Rome and the lands around it. This represented a great threat to the pope.',
+        'The pope in the eighth century likewise did not want to become subject to the control of the Lombards. He sought help from the eastern emperor, but he was too busy dealing with the Muslim invasions of his territory. So the pope looked north across the Alps to the Franks, the Germans who had made the strongest state in the west, in what is now France.',
+        'King Pepin, the Christian Frankish king, went south into Italy and subdued the Lombards. He made sure that the pope was left with a large belt of territory around Rome, which was to be his. With many changes of boundaries this territory survived as the pope\u2019s until the nineteenth century.'
+      ]
     },
 
     p2: {
@@ -88,7 +93,11 @@ const GAME_DATA = {
       quote: { en: 'Popes emphasised that it was the pope who put the crown on Charlemagne\u2019s head… But after the pope put the crown on Charlemagne\u2019s head, he bowed to Charlemagne.',
                zh: '教皇们强调：是教皇把皇冠戴上了查理曼的头……但教皇加冕之后，向查理曼行了个礼。' },
       point: '加冕悖论：一场仪式，两种读法，谁也没说服谁——这正是此后千年拉锯的第一格。',
-      delta: { church: 1, state: 1, local: 0 }
+      delta: { church: 3, state: 3, local: 0 },
+      source: [
+        'In the year 800 Charlemagne visited Rome and attended mass on Christmas Day in the cathedral. After the mass, and seemingly with no prior warning, the pope placed a crown on Charlemagne\u2019s head and declared him to be Roman emperor. He made his own emperor in order to have a power that would protect him.',
+        'There was later great dispute between popes and emperors about what had happened in the cathedral on Christmas Day 800. Popes emphasised that it was the pope who put the crown on Charlemagne\u2019s head, which indicated that the pope was superior to the emperor. But after the pope put the crown on Charlemagne\u2019s head, he bowed to Charlemagne. Emperors said that the pope was thus acknowledging the superior power of the emperor.'
+      ]
     },
 
     p3: {
@@ -114,7 +123,12 @@ const GAME_DATA = {
       quote: { en: 'Having excommunicated a king, they told the people in his territories that they did not have to obey him.',
                zh: '绝罚一位国王之后，教皇便昭告其领地的臣民：你们可以不再服从他。' },
       point: '绝罚是一把软刀子：它不杀皇帝本人，杀的是「臣民必须服从他」这条纽带。',
-      delta: { church: 2, state: -2, local: 1 }
+      delta: { church: 6, state: -6, local: 3 },
+      source: [
+        'The Catholic church was the great international institution of the Middle Ages, but it was always being undermined because kings and local powerbrokers wanted to control who became bishops in their own territory.',
+        'When we say the church was an international body, think of it in this way. Toyota, which is run from Tokyo, is in the business of making motor cars. Say, in Australia, its chief executive was appointed by the prime minister and the plant manager was appointed by the local mayor\u2026 This is what the medieval church was like: it had been undermined, white-anted and plundered by local powerbrokers and the monarchs of Europe.',
+        'The pope who wanted to upset all those cosy arrangements and bring authority more firmly back to Rome was Gregory VII, who became pope in 1073. He declared that he would in future appoint bishops. The emperor Henry IV replied that he would continue to do so. The emperor stood firm, so the pope excommunicated him; that is, he expelled him from the church.'
+      ]
     },
 
     p4: {
@@ -138,7 +152,12 @@ const GAME_DATA = {
       quote: { en: 'It was very hard for a Christian pope to refuse to grant forgiveness.',
                zh: '一位基督徒教皇，很难拒绝宽恕一个前来忏悔的人。' },
       point: '卡诺莎：教皇赢了面子，皇帝保住了里子——面子与里子，正是这场千年双人舞的舞步。',
-      delta: { church: 1, state: -1, local: 0 }
+      delta: { church: 4, state: -4, local: 0 },
+      source: [
+        'Henry IV then crossed the Alps in winter and found the pope in a castle at Canossa in northern Italy. He waited outside for two or three days in the snow, begging the pope to see him. He had cast off all his royal regalia; he was dressed in humble clothes.',
+        'Finally the pope relented and the emperor knelt before him and asked for forgiveness. The pope lifted the excommunication, to the great annoyance of the German princes. This was very humbling for Henry, of course, but it was also quite a clever ploy. It was very hard for a Christian pope to refuse to grant forgiveness.',
+        'The emperor did not completely abandon his position. The dispute dragged on for years and finally there was a compromise. The emperor was allowed to have some influence in choosing bishops but it was to be the pope who actually gave them their staff of office and their official robes.'
+      ]
     },
 
     p5: {
@@ -163,7 +182,11 @@ const GAME_DATA = {
       quote: { en: '\u201cYes, I forgive you; I forgive you all the homicides you commit in the service of the church.\u201d — Cellini, Autobiography',
                zh: '「我赦免你；你为教会效命所杀的一切人，我都赦免。」——切利尼《自传》' },
       point: '所谓「上帝的事归上帝」，在中世纪首先是一桩世俗的权力事业。',
-      delta: { church: 0, state: 0, local: 0 }
+      delta: { church: 0, state: 0, local: 0 },
+      source: [
+        'The pope as warrior is wonderfully described by the Renaissance artist Cellini in his autobiography. Like many Renaissance men, Cellini was multi-talented, not only a superb goldsmith but also good with weaponry. When an enemy was attacking Rome, he was on the battlements with the pope, giving instructions about the firing of the cannon.',
+        'Cellini gave the order for the cannon to fire. It was a freakish shot; the ball hit the officer\u2019s sword, which it pushed back, cutting him in half. Cellini was very distressed at this: killing a man before he had time to prepare himself for death. He knelt before the pope to ask for absolution. But the pope was delighted at his deed. He said, \u2018Yes, I forgive you; I forgive you all the homicides you commit in the service of the church.\u2019'
+      ]
     },
 
     /* ---------------- 教皇线对照卡 ---------------- */
@@ -179,7 +202,11 @@ const GAME_DATA = {
         '西欧的特别之处，不在于谁赢了，而在于「永远吵不出个赢家」——这反倒让任何一方都无法一手遮天。'
       ],
       quote: { en: 'In the west the two authorities of church and state were separate and had independent authority.',
-               zh: '在西方，教会与国家这两种权威是分离的，各自拥有独立的权力。' }
+               zh: '在西方，教会与国家这两种权威是分离的，各自拥有独立的权力。' },
+      source: [
+        'The significance of the pope\u2013emperor struggle is that the pope never claimed to be emperor and the emperor never claimed to be pope. They both acknowledged that the other should exist; they were arguing about their relative powers. This is a very important characteristic of western Europe, which distinguishes it from the Byzantine Empire in the east.',
+        'The practice in Constantinople was that the emperor was not only the ruler of the civil affairs of his empire but also of the church. There was a patriarch, but the patriarch was appointed by the emperor and under his control. In the west the two authorities of church and state were separate and had independent authority. This was a continuing bar to any universal claims by kings.'
+      ]
     },
 
     i_boss: {
@@ -192,7 +219,10 @@ const GAME_DATA = {
         '教皇从不自称皇帝，皇帝从不自称教皇。他们争的从来只是「权力的边界」在哪里。'
       ],
       quote: { en: 'Their dispute was like conflict between bosses and workers… there will always be a settlement and that there will always be bosses and workers.',
-               zh: '他们的争斗像老板与工人的冲突……总会有和解，也总会有老板和工人。' }
+               zh: '他们的争斗像老板与工人的冲突……总会有和解，也总会有老板和工人。' },
+      source: [
+        'Pope and emperor fought each other to a standstill. They never had a complete victory, one or the other. Their dispute was like conflict between bosses and workers. There are strikes and threats of sacking, often intense and bitter, but you know there will always be a settlement and that there will always be bosses and workers.'
+      ]
     },
 
     /* ---------------- 皇帝线 ---------------- */
@@ -217,7 +247,11 @@ const GAME_DATA = {
       quote: { en: 'Charlemagne decided in the customary German way that after his death it should be subdivided among his sons… The grandsons fought among themselves, and Charlemagne\u2019s empire fell into three parts.',
                zh: '查理曼按日耳曼人的惯例决定：死后帝国由诸子分领……孙辈们彼此混战，查理曼的帝国一分为三。' },
       point: '帝国靠一个人，而不是一套制度——人亡，政息。',
-      delta: { church: 0, state: -2, local: 2 }
+      delta: { church: 0, state: -6, local: 6 },
+      source: [
+        'Charlemagne faced huge handicaps. He had no bureaucracy; communications were poor; there was little trade; towns were tiny; there was a great amount of chaos. In all of this, his empire was most unlike the Roman. His mode of government was to appoint counts and dukes throughout his realm\u2026 There was no institutional base to this empire; its government depended on the personal power of its leader.',
+        'After building up this huge empire with such great effort, Charlemagne decided in the customary German way that after his death it should be subdivided among his sons. But only one son of his survived, so the division of the empire occurred at the next generation, among his grandchildren. The grandsons fought among themselves and Charlemagne\u2019s empire fell into three parts. The western part eventually became modern-day France; the eastern part became the basis of Germany.'
+      ]
     },
 
     e2: {
@@ -243,7 +277,11 @@ const GAME_DATA = {
       quote: { en: 'Nearly all the Latin works that have survived were copied in Charlemagne\u2019s time. Without him the classical inheritance would have been very slim.',
                zh: '流传至今的拉丁著作，几乎全都抄成于查理曼的时代。没有他，古典遗产将所剩无几。' },
       point: '一位识字艰难的蛮族国王，成了古典文明的「人肉备份」——欧洲文明的存续点。',
-      delta: { church: 1, state: 1, local: 0 }
+      delta: { church: 3, state: 3, local: 0 },
+      source: [
+        'Saint Augustine, who lived in the last days of the Roman Empire in the west, wrote in his City of God: \u2018If there is no justice, what are kingdoms but great robberies?\u2019 Charlemagne knew of this work and understood this point; Saint Augustine was one of his favourite authors.',
+        'Charlemagne, though poorly educated himself, encouraged education and became the patron of learned men, who were ordered to find and copy the ancient manuscripts. Nearly all the Latin works that have survived were copied in Charlemagne\u2019s time. Without him the classical inheritance would have been very slim.'
+      ]
     },
 
     e3: {
@@ -266,7 +304,11 @@ const GAME_DATA = {
       quote: { en: 'In 962 a new, strong king, Otto the First, emerged… The pope crowned him as Roman emperor.',
                zh: '962 年，一位强有力的新国王奥托一世崛起……教皇为他加冕为罗马皇帝。' },
       point: '皇帝的名分来自教皇——从此教皇与皇帝，谁也离不开谁，谁也放不过谁。',
-      delta: { church: 1, state: 2, local: 0 }
+      delta: { church: 3, state: 6, local: 0 },
+      source: [
+        'With the disappearance of Charlemagne\u2019s empire, the pope had lost his strongman to protect him. For a while he made do with whatever local princes he could find and crowned them emperor. Then in 962 a new, strong king, Otto the First, emerged in the German part of Charlemagne\u2019s old empire. The pope crowned him as Roman emperor and thereafter whoever became the king of Germany was, after being crowned by the pope, also Roman emperor and later Holy Roman emperor.',
+        'The German kings were the only kings in Europe who were elected\u2026 eventually there were just seven who bore the name \u2018elector\u2019. The German king/emperor struggled like kings everywhere to exert his power over local strongmen, some of whom were his electors.'
+      ]
     },
 
     e4: {
@@ -290,14 +332,18 @@ const GAME_DATA = {
       quote: { en: 'He waited outside for two or three days in the snow, begging the pope to see him.',
                zh: '他在雪地里等了两三天，恳求教皇见他一面。' },
       point: '卡诺莎的另一面：跪下的皇帝未必输——能屈能伸，也是一种统治的艺术。',
-      delta: { church: 1, state: -1, local: 0 }
+      delta: { church: 4, state: -4, local: 0 },
+      source: [
+        'In this case, German dukes and princes, who always wanted to escape from the emperor\u2019s control, were delighted to find that he was excommunicated and could be ignored.',
+        'Henry IV then crossed the Alps in winter and found the pope in a castle at Canossa in northern Italy. He waited outside for two or three days in the snow, begging the pope to see him. He had cast off all his royal regalia; he was dressed in humble clothes. Finally the pope relented and the emperor knelt before him and asked for forgiveness.'
+      ]
     },
 
     e5: {
       type: 'scene', lane: 'state', year: '1804 年 12 月 2 日', where: '巴黎 · 圣母院',
       title: '谁为皇帝戴冠？',
-      img: 'images/napoleon-portrait-uncaptioned.jpg',
-      imgCaption: '拿破仑 · 波拿巴',
+      img: 'images/arc-de-triomphe-paris.jpg',
+      imgCaption: '巴黎凯旋门：1806 年，拿破仑在权力顶峰下令建造',
       audio: 'audio/e5.mp3',
       setup: [
         '你是拿破仑，法兰西第一帝国的皇帝。上一场加冕，距今已经整整一千年。',
@@ -314,7 +360,11 @@ const GAME_DATA = {
       quote: { en: 'But Napoleon himself put the crown on his head. It was a replica of the crown the pope had placed on Charlemagne… What did not survive was the Holy Roman Empire.',
                zh: '但拿破仑自己把皇冠戴上了头。那是一顶复刻教皇为查理曼所戴之冠……没能幸存下来的，是神圣罗马帝国。' },
       point: '教会加持的皇权，终结于一个不信神的皇帝——历史的幽默，莫过于此。',
-      delta: { church: -1, state: 2, local: 0 }
+      delta: { church: -3, state: 6, local: 0 },
+      source: [
+        'The pope was present in Notre Dame cathedral when Napoleon was crowned as emperor. He anointed Napoleon and his empress, Josephine; he blessed the imperial regalia: orb, hand of justice, sword and sceptre. But Napoleon himself put the crown on his head. It was a replica of the crown the pope had placed on Charlemagne, a light, open crown, like the laurel wreath that Romans gave to their victors.',
+        'What did not survive was the Holy Roman Empire. Napoleon abolished it in 1806 when he regrouped several small states in Germany into the Confederation of the Rhine.'
+      ]
     },
 
     /* ---------------- 皇帝线对照卡 ---------------- */
@@ -330,7 +380,11 @@ const GAME_DATA = {
         '1648 年的中欧地图就是实况：英法西已是统一国家；而德意志到意大利，密密麻麻全是小邦、主教领地与自由市——教皇与皇帝互斗千年，斗出来的正是这幅散装图。'
       ],
       quote: { en: 'Voltaire mocked the Holy Roman Empire as neither holy, nor Roman, nor an empire.',
-               zh: '伏尔泰嘲讽神圣罗马帝国：既不神圣，也不罗马，更非帝国。' }
+               zh: '伏尔泰嘲讽神圣罗马帝国：既不神圣，也不罗马，更非帝国。' },
+      source: [
+        'Though in itself the position of emperor carried little power, the Holy Roman Empire survived. From the late Middle Ages one family always provided the person who was elected Holy Roman emperor. This was the Hapsburgs, one of the great ruling dynasties of Europe.',
+        'Voltaire, the guru of the Enlightenment, mocked the Holy Roman Empire as neither holy, nor Roman, nor an empire, which was true enough, but its survival was always somewhat magical, carrying a name and an idea in a very odd form. It took the head of a new empire to abolish this strange survival of an old one.'
+      ]
     },
 
     /* ---------------- 地方线 ---------------- */
@@ -356,7 +410,11 @@ const GAME_DATA = {
       quote: { en: 'His orders were immediately frustrated by Frederick the Elector of Saxony, who seized Luther and took him into hiding.',
                zh: '皇帝的诏令立刻被萨克森选帝侯腓特烈挫败——他「劫走」路德，把他藏了起来。' },
       point: '权力分散的德意志，意外成了新教生根的土壤——地方自治第一次改写了欧洲的信仰版图。',
-      delta: { church: -1, state: -1, local: 2 }
+      delta: { church: -3, state: -3, local: 6 },
+      source: [
+        'Luther\u2019s Reformation took root and flourished in Germany because secular power was dispersed. It was the duty of the emperor to put down Luther\u2019s heresy and rather belatedly he attempted to do so. When Luther refused to recant, the emperor declared that he was a heretic, that no-one should support him and that he should be arrested.',
+        'His orders were immediately frustrated by Frederick the Elector of Saxony, who seized Luther and took him into hiding. It was while Luther was hidden in his castle that he began to translate the Bible into German. Frederick and the other German princes who supported Luther saw the advantage of putting themselves in charge of the church and its lands\u2026 and so Lutheranism was born.'
+      ]
     },
 
     f2: {
@@ -383,7 +441,11 @@ const GAME_DATA = {
       quote: { en: 'Often they played both sides, switching allegiance as was most advantageous.',
                zh: '他们常常两边下注，随时倒向最有利的一方。' },
       point: '教权皇权互斗的真正赢家，是「谁也管不了」的城邦——文艺复兴的财富与自由，都是权力真空地带结出的果实。',
-      delta: { church: 0, state: 0, local: 2 }
+      delta: { church: 0, state: 0, local: 6 },
+      source: [
+        'The towns in northern Italy, which in the Middle Ages became the richest towns in Europe, did not like being subject to the emperor, whose realm extended this far south. Sometimes the towns allied themselves with the pope to fight off the emperor. Often they played both sides, switching allegiance as was most advantageous.',
+        'The northern cities of Italy, where the Renaissance began, were small city-states such as had existed in classical Greece. The Italian cities were rivals, militarily and culturally: they went to war with each other and they wanted to outdo each other with the splendour of their art\u2026 These were the places which could conceive and carry out the project of recreating the ancient world.'
+      ]
     }
   },
 
@@ -452,7 +514,7 @@ const GAME_DATA = {
     { file: 'images/arch-of-constantine-rome.jpg', caption: '君士坦丁凯旋门 · 罗马', note: '纪念 312 年君士坦丁战胜 rival 皇帝——罗马式权力纪念碑的原型。' },
     { file: 'images/map-western-and-central-europe-1648.jpg', caption: '1648 年的中西欧', note: '英法西已成统一国家；德意志到意大利密密麻麻全是小邦——教皇与皇帝互斗千年的遗产。' },
     { file: 'images/map-states-of-italy-renaissance-c1494.jpg', caption: '文艺复兴时期的意大利 c. 1494', note: '城邦的天下：互为对手的富庶城市，竞相用艺术的辉煌压倒彼此。' },
-    { file: 'images/napoleon-portrait-uncaptioned.jpg', caption: '拿破仑 · 波拿巴', note: '他自戴皇冠，解散了神圣罗马帝国——千年双人舞的终局。' },
+    { file: 'images/chart-roman-empire-continuity.jpg', caption: '罗马帝国的「延续」谱系图', note: '神圣罗马皇帝把自己的世系追溯回查理曼，再经拜占庭皇帝一路接到奥古斯都——「罗马帝国」的名号，一直撑到 1806 年才落幕。' },
     { file: 'images/arc-de-triomphe-paris.jpg', caption: '巴黎凯旋门', note: '1806 年，拿破仑在权力顶峰下令建造——罗马样式的又一轮回。' }
   ],
 

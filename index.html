@@ -15,7 +15,7 @@
   <header id="topbar" class="hidden">
     <button id="btn-home" class="tb-btn" aria-label="回到首页">⌂</button>
     <div id="tb-title">权力的双人舞</div>
-    <button id="btn-sound" class="tb-btn" aria-label="切换音效">🔊</button>
+    <button id="btn-source" class="tb-btn" aria-label="查看书中原文">📄</button>
   </header>
 
   <main id="stage">
@@ -29,6 +29,12 @@
   </main>
 
   <audio id="ambience" preload="auto"></audio>
+
+  <!-- 通用浮窗（书中原文 / 图鉴放大） -->
+  <div id="overlay" class="hidden">
+    <div id="overlay-backdrop"></div>
+    <div id="overlay-body"></div>
+  </div>
 </div>
 
 <script src="data.js"></script>

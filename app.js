@@ -48,27 +48,62 @@
     stopAudio();
   }
 
-  /* ---------------- 音效 ---------------- */
+  /* ---------------- 音效（仅引文旁的播放键触发） ---------------- */
   function stopAudio() { audio.pause(); }
-  function playSceneAudio(src) {
-    if (!src || !save.sound) return;
+  function toggleQuoteAudio(src, btn) {
+    if (!src) return;
     try {
+      if (!audio.paused && audio.dataset.src === src) {
+        // 正在播放同一段 → 停止
+        stopAudio();
+        if (btn) btn.textContent = '🔊';
+        return;
+      }
       audio.src = src;
-      audio.volume = 0.65;
+      audio.dataset.src = src;
+      audio.volume = 0.9;
       audio.play().catch(() => {});
+      if (btn) btn.textContent = '⏸';
+      audio.onended = () => { if (btn) btn.textContent = '🔊'; };
     } catch (e) {}
   }
-  $('#btn-sound').addEventListener('click', () => {
-    save.sound = !save.sound; persist();
-    updateSoundBtn();
-    if (!save.sound) stopAudio();
-    else if (run && run.curAudio) { playSceneAudio(run.curAudio); }
-  });
-  function updateSoundBtn() {
-    $('#btn-sound').textContent = save.sound ? '🔊' : '🔇';
-    $('#btn-sound').style.opacity = save.sound ? '1' : '.55';
+
+  /* ---------------- 浮窗（书中原文 / 图片放大） ---------------- */
+  function openOverlay(html, mode) {
+    const ov = $('#overlay');
+    ov.classList.remove('hidden');
+    ov.classList.toggle('lightbox', mode === 'lightbox');
+    $('#overlay-body').innerHTML = html;
+    document.body.style.overflow = 'hidden';
   }
-  $('#btn-home').addEventListener('click', () => { renderHome(); show('home'); });
+  function closeOverlay() {
+    $('#overlay').classList.add('hidden');
+    $('#overlay-body').innerHTML = '';
+    document.body.style.overflow = '';
+  }
+  $('#overlay-backdrop').addEventListener('click', closeOverlay);
+
+  $('#btn-source').addEventListener('click', () => {
+    const node = run && run.curNode;
+    if (node && node.source) {
+      openOverlay(`
+        <div class="modal-card">
+          <div class="modal-title">📄 书中原文 · ${esc(node.title)}</div>
+          <div class="modal-sub dim">${esc(node.year || '')} · 摘自 Chapter 6《Emperors and Popes》</div>
+          ${node.source.map(p => `<p class="modal-src">${esc(p)}</p>`).join('')}
+          <button class="btn small" id="ov-close">合上</button>
+        </div>`);
+    } else {
+      openOverlay(`
+        <div class="modal-card">
+          <div class="modal-title">📄 书中原文</div>
+          <p class="modal-src">进入一条路线后，点这里可以查看当前场景在《The Shortest History of Europe》第六章中的原文段落。</p>
+          <button class="btn small" id="ov-close">知道了</button>
+        </div>`);
+    }
+    $('#ov-close').onclick = closeOverlay;
+  });
+  $('#btn-home').addEventListener('click', () => { stopAudio(); renderHome(); show('home'); });
 
   /* ---------------- 工具 ---------------- */
   function esc(s) {
@@ -107,12 +142,11 @@
           「如果历史这么走，会发生什么」。猜错，恰恰是讲解的开始。
         </div>
         ${anyDone() ? `<div class="progress-line">已完成：${doneBadge('pope')}${doneBadge('emperor')}${doneBadge('local')}</div>` : ''}
-        <div class="progress-line dim" style="margin-top:14px">🔊 右上角可随时开关场景氛围音（原著英文有声书选段）</div>
+        <div class="progress-line dim" style="margin-top:14px">📄 游戏中点右上角可随时查看该场景的书中原文<br>🔊 引文旁的喇叭键可播放对应的英文有声书选段</div>
       </div>`;
     $('#btn-start').onclick = () => { renderLines(); show('lines'); };
     if (canHistory) $('#btn-history').onclick = () => { renderHistory(); show('history'); };
     if (canGallery) $('#btn-gallery').onclick = () => { renderGallery(); show('gallery'); };
-    updateSoundBtn();
   }
   function doneBadge(id) {
     if (!save.done[id]) return '';
@@ -168,8 +202,9 @@
     const flow = run.line.flow;
     if (run.idx >= flow.length) { finishLine(); return; }
     const node = GAME_DATA.scenes[flow[run.idx]];
+    run.curNode = node;
     run.curAudio = node.audio || null;
-    playSceneAudio(node.audio);
+    stopAudio(); // 翻页自动中断上一段的播放
     if (node.type === 'interlude') renderInterlude(node);
     else renderScene(node);
     $('#tb-title').textContent = `${run.line.name} · ${Math.min(run.idx + 1, countScenes(flow))}/${countScenes(flow)}`;
@@ -180,11 +215,11 @@
 
   function balanceHTML(showDelta, vals) {
     const f0 = vals || run.factions;
-    const total = f0.church + f0.state + f0.local;
     let rows = '';
     FACTIONS.forEach(f => {
       const v = f0[f.key];
-      const pct = Math.max(3, Math.round(v / total * 100));
+      const w = Math.min(48, Math.abs(v - 50) * 1.5); // 视觉放大 1.5 倍
+      const left = v >= 50 ? 50 : 50 - w;
       let deltaCell = '<span class="bal-delta flat">—</span>';
       if (showDelta && run.lastDelta) {
         const d = run.lastDelta[f.key] || 0;
@@ -193,10 +228,22 @@
       }
       rows += `<div class="bal-row">
         <span class="bname" style="color:${f.color}">${f.name}</span>
-        <div class="bal-track"><div class="bal-fill" style="width:${pct}%;background:${f.color}"></div></div>
+        <div class="bal-track"><span class="bal-mid"></span><div class="bal-fill" style="left:${left}%;width:${w}%;background:${f.color}"></div></div>
         ${deltaCell}</div>`;
     });
-    return `<div class="balance"><div class="bal-title">势 力 天 平</div>${rows}</div>`;
+    return `<div class="balance"><div class="bal-title">势 力 天 平<span class="bal-sub">中线 = 开局水平，左右偏移即消长</span></div>${rows}</div>`;
+  }
+  function animateBalance(el) {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const fills = $$('.bal-fill', el);
+      FACTIONS.forEach((f, i) => {
+        if (!fills[i]) return;
+        const v = run.factions[f.key];
+        const w = Math.min(48, Math.abs(v - 50) * 1.5);
+        fills[i].style.left = (v >= 50 ? 50 : 50 - w) + '%';
+        fills[i].style.width = w + '%';
+      });
+    }));
   }
 
   function headHTML(node) {
@@ -269,7 +316,7 @@
         <p>${esc(node.historyText)}</p>
         <div class="quotebox">
           <div class="zh">${esc(node.quote.zh)}</div>
-          <span class="en">${esc(node.quote.en)}</span>
+          <span class="en">${esc(node.quote.en)}</span>${node.audio ? `<button class="quote-play" data-src="${node.audio}" title="听英文原声朗读">🔊</button>` : ''}
         </div>
       </div>
       <div class="fb-layer fb-point">
@@ -279,15 +326,11 @@
       ${balanceHTML(true, run.prevFactions)}
       <button class="btn" id="btn-next">${isLastNode() ? '继续' : '下一个抉择 →'}</button>`;
     // 天平动画：先渲染前一状态，再切换到新值，触发 CSS transition
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const fills = $$('.bal-fill', el);
-      const total = run.factions.church + run.factions.state + run.factions.local;
-      FACTIONS.forEach((f, i) => {
-        if (fills[i]) fills[i].style.width =
-          Math.max(3, Math.round(run.factions[f.key] / total * 100)) + '%';
-      });
-    }));
-    $('#btn-next').onclick = () => { run.idx++; renderStep(); };
+    animateBalance(el);
+    $$('.quote-play', el).forEach(b => {
+      b.onclick = e => { e.stopPropagation(); toggleQuoteAudio(b.dataset.src, b); };
+    });
+    $('#btn-next').onclick = () => { stopAudio(); run.idx++; renderStep(); };
   }
 
   function isLastNode() {
@@ -307,11 +350,14 @@
       <div class="interlude-body">${node.body.map(p => `<p>${esc(p)}</p>`).join('')}
         <div class="quotebox">
           <div class="zh">${esc(node.quote.zh)}</div>
-          <span class="en">${esc(node.quote.en)}</span>
+          <span class="en">${esc(node.quote.en)}</span>${node.audio ? `<button class="quote-play" data-src="${node.audio}" title="听英文原声朗读">🔊</button>` : ''}
         </div>
       </div>
       <button class="btn" id="btn-next">继续 →</button>`;
-    $('#btn-next').onclick = () => { run.idx++; renderStep(); };
+    $$('.quote-play', el).forEach(b => {
+      b.onclick = e => { e.stopPropagation(); toggleQuoteAudio(b.dataset.src, b); };
+    });
+    $('#btn-next').onclick = () => { stopAudio(); run.idx++; renderStep(); };
   }
 
   /* ---------------- 收束：拼图 或 直接结算 ---------------- */
@@ -506,22 +552,83 @@
   function laneColor(l) { return { church: '#378ADD', state: '#EF9F27', local: '#a8a79f' }[l]; }
   function laneName(l) { return { church: '教权', state: '皇权', local: '地方' }[l]; }
 
-  /* ---------------- 文物图鉴 ---------------- */
+  /* ---------------- 文物图鉴（点击查看大图，支持缩放拖动） ---------------- */
   function renderGallery() {
     const el = $('#screen-gallery');
     el.innerHTML = `
       <h2 class="scene-title">文物图鉴</h2>
-      <p class="dim">本章的七件「文物」：地图、雕塑与纪念碑——你已在旅途中见过它们。</p>
+      <p class="dim">本章的七件「文物」：地图、谱系图、雕塑与纪念碑——点图片可放大细看。</p>
       <div class="gallery-grid">
         ${GAME_DATA.gallery.map(g => `
           <div class="g-item">
-            <img src="${g.file}" alt="${esc(g.caption)}" loading="lazy">
+            <img src="${g.file}" alt="${esc(g.caption)}" loading="lazy" data-full="${g.file}">
             <div class="g-cap">${esc(g.caption)}</div>
             <div class="g-note">${esc(g.note)}</div>
           </div>`).join('')}
       </div>
       <button class="btn ghost small" id="btn-gal-home">回到首页</button>`;
+    $$('.g-item img', el).forEach(img => img.onclick = () => openLightbox(img.dataset.full));
     $('#btn-gal-home').onclick = () => { renderHome(); show('home'); };
+  }
+
+  function openLightbox(src) {
+    openOverlay(`<img class="lb-img" src="${src}" alt="">
+      <div class="lb-hint">双击 / 捏合缩放 · 放大后拖动查看 · 点空白处关闭</div>`, 'lightbox');
+    const im = $('.lb-img');
+    let scale = 1, tx = 0, ty = 0;
+    const apply = () => { im.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; };
+    const pts = new Map();
+    let pinchBase = null, dragBase = null;
+
+    $('#overlay-body').addEventListener('wheel', e => {
+      e.preventDefault();
+      scale = Math.min(6, Math.max(0.6, scale * (e.deltaY < 0 ? 1.18 : 0.85)));
+      apply();
+    }, { passive: false });
+
+    im.addEventListener('dblclick', () => {
+      if (scale > 1) { scale = 1; tx = 0; ty = 0; } else { scale = 2.4; }
+      apply();
+    });
+
+    im.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      im.setPointerCapture(e.pointerId);
+      pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pts.size === 2) {
+        const [a, b] = [...pts.values()];
+        pinchBase = { dist: Math.hypot(a[0] - b[0], a[1] - b[1]), scale };
+        dragBase = null;
+      } else {
+        dragBase = { x: e.clientX - tx, y: e.clientY - ty };
+        pinchBase = null;
+      }
+    });
+    im.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pts.size === 2 && pinchBase) {
+        const [a, b] = [...pts.values()];
+        const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        scale = Math.min(6, Math.max(0.6, pinchBase.scale * d / pinchBase.dist));
+        apply();
+      } else if (dragBase) {
+        tx = e.clientX - dragBase.x;
+        ty = e.clientY - dragBase.y;
+        apply();
+      }
+    });
+    const end = e => {
+      pts.delete(e.pointerId);
+      if (pts.size < 2) pinchBase = null;
+      if (pts.size === 0) dragBase = null;
+      else if (pts.size === 1) {
+        const [p] = [...pts.values()];
+        dragBase = { x: p[0] - tx, y: p[1] - ty };
+      }
+    };
+    im.addEventListener('pointerup', end);
+    im.addEventListener('pointercancel', end);
   }
 
   /* ---------------- 启动 ---------------- */
