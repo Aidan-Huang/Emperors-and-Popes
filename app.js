@@ -136,6 +136,7 @@
         <button class="btn" id="btn-start">进入剧场</button>
         <button class="btn ghost small" id="btn-history" ${canHistory ? '' : 'disabled style="opacity:.45"'}>📜 史书模式${canHistory ? '' : '（通关任一路线解锁）'}</button>
         ${canGallery ? '<button class="btn ghost small" id="btn-gallery">🏛 文物图鉴</button>' : ''}
+        <button class="btn ghost small" id="btn-sister">⏳ 姊妹作：Timeline · 年表排序</button>
         <div class="source">改编自 John Hirst《The Shortest History of Europe》<br>第六章 · Emperors and Popes</div>
         <div class="cover-tips card">
           <b>这不是历史考试，是一场亲历。</b><br>
@@ -149,6 +150,7 @@
     $('#btn-start').onclick = () => { renderLines(); show('lines'); };
     if (canHistory) $('#btn-history').onclick = () => { renderHistory(); show('history'); };
     if (canGallery) $('#btn-gallery').onclick = () => { renderGallery(); show('gallery'); };
+    $('#btn-sister').onclick = () => { stopAudio(); location.href = 'timeline/'; };
   }
   function doneBadge(id) {
     if (!save.done[id]) return '';
@@ -519,11 +521,13 @@
       <button class="btn" id="btn-other-line">${run.lineId === 'pope' ? '再走一条线：皇帝线 ♛' : '再走一条线：教皇线 ✝'}</button>
       ${!save.done.local && anyMainDone() ? '<button class="btn ghost" id="btn-local-line">解锁隐藏线：地方线 ⚔</button>' : ''}
       <button class="btn ghost" id="btn-hist">📜 史书模式：串起整章时间线</button>
+      <button class="btn ghost" id="btn-timeline">⏳ 姊妹作：把 41 张卡排进正确的年代</button>
       <button class="btn ghost small" id="btn-home2">回到首页</button>`;
     $('#btn-other-line').onclick = () => { renderLines(); show('lines'); };
     const bl = $('#btn-local-line');
     if (bl) bl.onclick = () => startRun('local');
     $('#btn-hist').onclick = () => { renderHistory(); show('history'); };
+    $('#btn-timeline').onclick = () => { stopAudio(); location.href = 'timeline/'; };
     $('#btn-home2').onclick = () => { renderHome(); show('home'); };
   }
 

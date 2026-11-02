@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Timeline：皇帝与教皇 · 第六章年表</title>
+<meta name="description" content="基于《The Shortest History of Europe》第六章的年表排序游戏：把 41 张历史卡牌放进正确的时间缝隙。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ 视图：首页 ============ -->
+  <section class="view" id="view-home">
+    <header class="home-head">
+      <div class="brand" id="brand" title="Timeline：皇帝与教皇">
+        <span class="brand-mark">⏳</span>
+        <h1>Timeline · 皇帝与教皇</h1>
+        <p class="sub">The Shortest History of Europe · 第六章 · 年表排序</p>
+      </div>
+      <div class="progress-card">
+        <div class="prog-row">
+          <span class="prog-label">收集</span>
+          <span class="prog-value"><b id="home-collected">0</b> / <span id="home-total">0</span></span>
+        </div>
+        <div class="bar"><i id="home-collect-bar" style="width:0%"></i></div>
+        <div class="act-rings" id="home-rings"></div>
+      </div>
+    </header>
+
+    <div class="mode-list">
+      <button class="mode big" data-go="acts">
+        <span class="mode-icon">🎬</span>
+        <span class="mode-txt"><b>闯关模式</b><small>四幕推进 · 每幕 3 次失误预算</small></span>
+        <span class="mode-arrow">›</span>
+      </button>
+      <button class="mode" data-go="review">
+        <span class="mode-icon">🔁</span>
+        <span class="mode-txt"><b>复习模式</b><small id="review-hint">错题优先 · 间隔重复</small></span>
+        <span class="mode-arrow">›</span>
+      </button>
+      <button class="mode" data-go="gallery">
+        <span class="mode-icon">🗂</span>
+        <span class="mode-txt"><b>卡册</b><small id="gallery-hint">翻翻这套 41 张纪念卡</small></span>
+        <span class="mode-arrow">›</span>
+      </button>
+    </div>
+
+    <div class="diff-box">
+      <div class="diff-title">难度</div>
+      <div class="diff-btns" id="diff-btns">
+        <button data-diff="easy">简单<small>显示世纪 · 5 次失误</small></button>
+        <button data-diff="normal" class="on">普通<small>无提示 · 3 次失误</small></button>
+        <button data-diff="hard">困难<small>隐去势力 · 2 次失误</small></button>
+      </div>
+    </div>
+
+    <div class="home-links">
+      <a class="sister" href="../index.html">
+        <span>姊妹作</span>
+        <b>《皇帝与教皇 · 权力的双人舞》</b>
+        <small>先去亲历一遍抉择，再回来排年表 →</small>
+      </a>
+      <div class="home-foot">
+        <button class="link-btn" id="btn-reset">清空存档</button>
+        <span class="dot">·</span>
+        <button class="link-btn" id="btn-help">玩法说明</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 视图：幕选择 ============ -->
+  <section class="view" id="view-acts">
+    <div class="topbar">
+      <button class="back" data-go="home">‹ 返回</button>
+      <h2>选择一幕</h2>
+      <span class="topbar-right" id="acts-progress"></span>
+    </div>
+    <div class="act-list" id="act-list"></div>
+  </section>
+
+  <!-- ============ 视图：对局 ============ -->
+  <section class="view" id="view-game">
+    <div class="game-head">
+      <button class="back" id="game-quit">‹ 退出</button>
+      <div class="game-title"><b id="game-act-name">第一幕</b><small id="game-act-span"></small></div>
+      <div class="hud">
+        <div class="hud-item" title="失误预算"><span id="hud-mistakes"></span></div>
+        <div class="hud-item" id="hud-combo-box" title="连击"><span id="hud-combo">🔥 0</span></div>
+        <div class="hud-item" title="进度"><span id="hud-progress">0/0</span></div>
+      </div>
+    </div>
+
+    <div class="timeline-wrap">
+      <div class="timeline-hint" id="timeline-hint">点一张手牌，再点时间线上的缝隙</div>
+      <div class="timeline" id="timeline"></div>
+    </div>
+
+    <div class="hand-wrap">
+      <div class="hand-label">手牌 <small>（年份未知，点选后放入缝隙）</small></div>
+      <div class="hand" id="hand"></div>
+    </div>
+  </section>
+
+  <!-- ============ 视图：幕终结算 ============ -->
+  <section class="view" id="view-result">
+    <div class="result-card" id="result-card"></div>
+  </section>
+
+  <!-- ============ 视图：复习模式 ============ -->
+  <section class="view" id="view-review">
+    <div class="topbar">
+      <button class="back" data-go="home">‹ 返回</button>
+      <h2>复习模式</h2>
+      <span class="topbar-right" id="review-count"></span>
+    </div>
+    <div class="review-body" id="review-body"></div>
+  </section>
+
+  <!-- ============ 视图：卡册 ============ -->
+  <section class="view" id="view-gallery">
+    <div class="topbar">
+      <button class="back" data-go="home">‹ 返回</button>
+      <h2>卡册</h2>
+      <span class="topbar-right" id="gallery-count"></span>
+    </div>
+    <div class="gallery-tabs" id="gallery-tabs"></div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+  </section>
+
+  <!-- ============ 视图：卡牌编辑器（隐藏入口） ============ -->
+  <section class="view" id="view-editor">
+    <div class="topbar">
+      <button class="back" data-go="home">‹ 返回</button>
+      <h2>卡牌编辑器 <small class="tag">隐藏</small></h2>
+      <span class="topbar-right" id="editor-count"></span>
+    </div>
+    <div class="editor-body" id="editor-body"></div>
+  </section>
+
+</div>
+
+<!-- 判定反馈条 -->
+<div class="feedback" id="feedback" aria-live="polite">
+  <div class="fb-inner">
+    <div class="fb-head">
+      <span class="fb-verdict" id="fb-verdict"></span>
+      <span class="fb-year" id="fb-year"></span>
+      <button class="fb-close" id="fb-close">✕</button>
+    </div>
+    <div class="fb-event" id="fb-event"></div>
+    <div class="fb-explain" id="fb-explain"></div>
+    <div class="fb-quote" id="fb-quote"></div>
+    <div class="fb-actions">
+      <button class="fb-btn" id="fb-src-btn">📖 书中原文</button>
+      <button class="fb-btn" id="fb-audio-btn">🔊 原声</button>
+      <button class="fb-btn primary" id="fb-next">继续</button>
+    </div>
+    <div class="fb-src" id="fb-src"></div>
+  </div>
+</div>
+
+<!-- 大卡 / 详情弹窗 -->
+<div class="modal" id="modal">
+  <div class="modal-mask" id="modal-mask"></div>
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="cards.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

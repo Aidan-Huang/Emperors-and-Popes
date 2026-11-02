@@ -4,6 +4,8 @@
 
 **在线试玩：** https://aidan-huang.github.io/Emperors-and-Popes/
 
+**姊妹作（同仓库 `/timeline/`）：** https://aidan-huang.github.io/Emperors-and-Popes/timeline/ —《Timeline：皇帝与教皇》，把本章 41 个事件排进正确的年代缝隙。两作首页互通。
+
 ## 玩法
 
 这不是历史考试，是一场亲历。你将扮演教皇或皇帝，面对历史上那些真正的抉择——凭直觉去选。选错不扣分：每个错误选项都会告诉你「如果历史这么走，会发生什么」。
