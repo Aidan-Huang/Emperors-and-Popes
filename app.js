@@ -15,6 +15,71 @@
     { key: 'state',  name: '皇权', color: '#EF9F27' },
     { key: 'local',  name: '地方', color: '#a8a79f' }
   ];
+  const FKEYS = ['church', 'state', 'local'];
+
+  /* ---------------- 数值调参（后台编辑器可改，存 localStorage） ---------------- */
+  const TUNE_KEY = 'eap_tuning_v1';
+  const COEF_DEFAULT = { coop: 2.5, clash: 2.0, both: 1.0, decay: 0.88 };
+  const REL_START = { cs: 18, cl: -4, sl: -6 };
+
+  let tuning = loadTuning();
+  function loadTuning() {
+    const def = { amp: 1, deltas: {}, coef: Object.assign({}, COEF_DEFAULT) };
+    try {
+      const t = JSON.parse(localStorage.getItem(TUNE_KEY));
+      if (!t || typeof t !== 'object') return def;
+      const coef = Object.assign({}, COEF_DEFAULT, t.coef || {});
+      return {
+        amp: numOr(t.amp, 1, 0.2, 3),
+        deltas: (t.deltas && typeof t.deltas === 'object') ? t.deltas : {},
+        coef
+      };
+    } catch (e) { return def; }
+  }
+  function saveTuning() {
+    try { localStorage.setItem(TUNE_KEY, JSON.stringify(tuning)); } catch (e) {}
+  }
+  function numOr(v, d, lo, hi) {
+    const n = parseFloat(v);
+    if (!isFinite(n)) return d;
+    return Math.max(lo, Math.min(hi, n));
+  }
+  // 某个场景某个选项的「基础值」：编辑器改过就用改后的，否则用 data.js 里的
+  function baseDelta(sceneId, idx) {
+    const k = sceneId + ':' + idx;
+    if (tuning.deltas[k]) return Object.assign({ church: 0, state: 0, local: 0 }, tuning.deltas[k]);
+    const row = (GAME_DATA.deltas || {})[sceneId];
+    if (row && row[idx]) return row[idx];
+    const node = GAME_DATA.scenes[sceneId];
+    return (node && node.delta) || { church: 0, state: 0, local: 0 };
+  }
+  // 实际生效值 = 基础值 × 全局幅度
+  function effDelta(sceneId, idx, amp) {
+    const b = baseDelta(sceneId, idx);
+    const a = numOr(amp == null ? tuning.amp : amp, 1, 0.2, 3);
+    return {
+      church: Math.round((b.church || 0) * a),
+      state: Math.round((b.state || 0) * a),
+      local: Math.round((b.local || 0) * a)
+    };
+  }
+  // 关系推导：同涨→合作，此消彼长→对抗，同跌→裂痕，然后整体向 0 回落
+  function nextRel(rel, d) {
+    const c = tuning.coef, next = {}, delta = {};
+    [['cs', 'church', 'state'], ['cl', 'church', 'local'], ['sl', 'state', 'local']].forEach(p => {
+      const [k, a, b] = p;
+      const x = d[a] || 0, y = d[b] || 0;
+      let dd = 0;
+      if (x > 0 && y > 0) dd = Math.min(x, y) * c.coop;
+      else if (x < 0 && y < 0) dd = -((Math.abs(x) + Math.abs(y)) / 2) * c.both;
+      else if (x !== 0 && y !== 0) dd = -(Math.abs(x) + Math.abs(y)) * c.clash;
+      delta[k] = Math.round(dd);
+      next[k] = clampRel(rel[k] * c.decay + dd);
+    });
+    return { next, delta };
+  }
+  function clampRel(v) { return Math.max(-100, Math.min(100, Math.round(v))); }
+  function copyObj(o) { return Object.assign({}, o); }
 
   const SAVE_KEY = 'eap_save_v1';
   let save = loadSave();
@@ -32,17 +97,17 @@
   function persist() { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }
 
   /* ---------------- 屏幕路由 ---------------- */
-  const screens = ['home', 'lines', 'game', 'puzzle', 'ending', 'history', 'gallery'];
+  const screens = ['home', 'lines', 'game', 'puzzle', 'ending', 'history', 'gallery', 'editor'];
   function show(name) {
     screens.forEach(s => {
       const el = $('#screen-' + s);
-      el.classList.toggle('active', s === name);
+      if (el) el.classList.toggle('active', s === name);
     });
     const bar = $('#topbar');
-    bar.classList.toggle('hidden', name === 'home');
+    bar.classList.toggle('hidden', name === 'home' || name === 'editor');
     $('#tb-title').textContent = ({
       lines: '选择你的路线', game: '', puzzle: '旅程复盘', ending: '结算',
-      history: GAME_DATA.historyMode.title, gallery: '文物图鉴'
+      history: GAME_DATA.historyMode.title, gallery: '文物图鉴', editor: '后台数值编辑器'
     })[name] || '权力的双人舞';
     window.scrollTo(0, 0);
     stopAudio();
@@ -151,6 +216,14 @@
     if (canHistory) $('#btn-history').onclick = () => { renderHistory(); show('history'); };
     if (canGallery) $('#btn-gallery').onclick = () => { renderGallery(); show('gallery'); };
     $('#btn-sister').onclick = () => { stopAudio(); location.href = 'timeline/'; };
+    // 隐藏入口：连点封面标题 5 次进后台编辑器
+    let taps = 0, tapAt = 0;
+    $$('.cover h1, .cover h2, .cover .scales', el).forEach(t => t.onclick = () => {
+      const now = Date.now();
+      taps = (now - tapAt < 700) ? taps + 1 : 1;
+      tapAt = now;
+      if (taps >= 5) { taps = 0; openEditor(); }
+    });
   }
   function doneBadge(id) {
     if (!save.done[id]) return '';
@@ -193,9 +266,13 @@
       canon: { church: 50, state: 50, local: 50 },
       snaps: [{ church: 50, state: 50, local: 50 }],
       canonSnaps: [{ church: 50, state: 50, local: 50 }],
-      choices: [],     // {sceneId, optionIdx, isHistory}
+      rel: copyObj(REL_START),
+      relSnaps: [copyObj(REL_START)],
+      choices: [],     // {sceneId, optionIdx, isHistory, delta}
       lastDelta: null,
-      curAudio: null
+      prevRel: null,
+      curAudio: null,
+      curId: null
     };
     renderStep();
     show('game');
@@ -207,6 +284,7 @@
     if (run.idx >= flow.length) { finishLine(); return; }
     const node = GAME_DATA.scenes[flow[run.idx]];
     run.curNode = node;
+    run.curId = flow[run.idx];
     run.curAudio = node.audio || null;
     stopAudio(); // 翻页自动中断上一段的播放
     if (node.type === 'interlude') renderInterlude(node);
@@ -217,37 +295,115 @@
     return flow.filter(id => GAME_DATA.scenes[id].type === 'scene').length;
   }
 
-  function balanceHTML(showDelta, vals) {
-    const f0 = vals || run.factions;
-    let rows = '';
-    FACTIONS.forEach(f => {
-      const v = f0[f.key];
-      const w = Math.min(48, Math.abs(v - 50) * 1.5); // 视觉放大 1.5 倍
-      const left = v >= 50 ? 50 : 50 - w;
-      let deltaCell = '<span class="bal-delta flat">—</span>';
-      if (showDelta && run.lastDelta) {
-        const d = run.lastDelta[f.key] || 0;
-        if (d > 0) deltaCell = `<span class="bal-delta up">+${d}</span>`;
-        else if (d < 0) deltaCell = `<span class="bal-delta down">${d}</span>`;
-      }
-      rows += `<div class="bal-row">
-        <span class="bname" style="color:${f.color}">${f.name}</span>
-        <div class="bal-track"><span class="bal-mid"></span><div class="bal-fill" style="left:${left}%;width:${w}%;background:${f.color}"></div></div>
-        ${deltaCell}</div>`;
-    });
-    return `<div class="balance"><div class="bal-title">势 力 天 平<span class="bal-sub">中线 = 开局水平，左右偏移即消长</span></div>${rows}</div>`;
+  /* ---------------- 势力杠杆：方块高度＝权力值，支点滑到权力重心 ---------------- */
+  const LEVER_H = 104;                  // 100 点权力对应的方块高度（px）
+  function barH(v) { return Math.max(6, Math.round((v / 100) * LEVER_H) + 4); }
+  function fulcrumPct(vals) {
+    const sum = FKEYS.reduce((a, k) => a + vals[k], 0) || 1;
+    const xs = { church: 1 / 6, state: 3 / 6, local: 5 / 6 };
+    const w = FKEYS.reduce((a, k) => a + vals[k] * xs[k], 0) / sum;
+    return Math.max(6, Math.min(94, w * 100));
   }
-  function animateBalance(el) {
+  function deltaChip(key) {
+    if (!run.lastDelta) return '';
+    const d = run.lastDelta[key] || 0;
+    if (!d) return '<span class="lv-d flat">±0</span>';
+    return `<span class="lv-d ${d > 0 ? 'up' : 'down'}">${d > 0 ? '+' : ''}${d}</span>`;
+  }
+  function leverHTML(vals, startVals, withDelta) {
+    const from = startVals || vals;
+    const rows = FACTIONS.map(f => `
+      <div class="lv-col">
+        <div class="lv-val" style="color:${f.color}">${vals[f.key]}${withDelta ? deltaChip(f.key) : ''}</div>
+        <div class="lv-bar" data-k="${f.key}" style="height:${barH(from[f.key])}px;background:${f.color}"></div>
+        <div class="lv-name">${f.name}</div>
+      </div>`).join('');
+    return `<div class="lever" data-lever="1">
+      <div class="lv-head">势 力 杠 杆<span class="lv-sub">方块越高越重，支点滑向权力重心</span></div>
+      <div class="lever-bars">${rows}</div>
+      <div class="lever-rail">
+        <div class="lv-line"></div>
+        <div class="lv-notch" style="left:50%"></div>
+        <div class="lv-fulcrum" style="left:${fulcrumPct(from).toFixed(1)}%"><span class="lv-ftag">重心</span></div>
+      </div>
+    </div>`;
+  }
+  function animateLever(root) {
+    const box = $('[data-lever]', root || document);
+    if (!box || !run || !run.prevFactions) return;
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      const fills = $$('.bal-fill', el);
-      FACTIONS.forEach((f, i) => {
-        if (!fills[i]) return;
-        const v = run.factions[f.key];
-        const w = Math.min(48, Math.abs(v - 50) * 1.5);
-        fills[i].style.left = (v >= 50 ? 50 : 50 - w) + '%';
-        fills[i].style.width = w + '%';
-      });
+      $$('.lv-bar', box).forEach(b => { b.style.height = barH(run.factions[b.dataset.k]) + 'px'; });
+      const f = $('.lv-fulcrum', box);
+      if (f) f.style.left = fulcrumPct(run.factions).toFixed(1) + '%';
     }));
+  }
+
+  /* ---------------- 势力三角：顶点＝三方，边＝关系 ---------------- */
+  const TRI_POS = { church: [160, 70], state: [74, 182], local: [246, 182] };
+  const TRI_NAME = { church: '教权', state: '皇权', local: '地方' };
+  const EDGES = [['cs', 'church', 'state', '教↔皇'], ['cl', 'church', 'local', '教↔地'], ['sl', 'state', 'local', '皇↔地']];
+  function relColor(v) { return v >= 12 ? '#6fd08c' : v <= -12 ? '#ef7d7d' : '#6b7794'; }
+  function relWord(v) { return v >= 12 ? '合作' : v <= -12 ? '对抗' : '周旋'; }
+  function vertexR(v) { return 11 + v * 0.13; }
+  function triSVG(vals, rel) {
+    const W = 320, H = 232;
+    let out = `<svg viewBox="0 0 ${W} ${H}" class="tri-svg" xmlns="http://www.w3.org/2000/svg">`;
+    EDGES.forEach(e => {
+      const [ax, ay] = TRI_POS[e[1]], [bx, by] = TRI_POS[e[2]];
+      const v = rel[e[0]] || 0;
+      const wd = (2.2 + Math.min(100, Math.abs(v)) * 0.05).toFixed(1);
+      out += `<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="${relColor(v)}" stroke-width="${wd}" stroke-linecap="round" ${v <= -12 ? 'stroke-dasharray="7 5"' : ''} opacity="0.85"/>`;
+    });
+    EDGES.forEach(e => {
+      const [ax, ay] = TRI_POS[e[1]], [bx, by] = TRI_POS[e[2]];
+      const v = rel[e[0]] || 0;
+      const mx = (ax + bx) / 2, my = (ay + by) / 2;
+      out += `<g><rect x="${(mx - 17).toFixed(1)}" y="${(my - 8).toFixed(1)}" width="34" height="16" rx="4"
+        fill="#161d33" fill-opacity="0.92" stroke="${relColor(v)}" stroke-width="1"/>
+        <text x="${mx.toFixed(1)}" y="${my.toFixed(1)}" font-size="10.5" fill="${relColor(v)}"
+        text-anchor="middle" dominant-baseline="central">${v > 0 ? '+' : ''}${v}</text></g>`;
+    });
+    FKEYS.forEach(k => {
+      const [x, y] = TRI_POS[k];
+      const col = (FACTIONS.find(f => f.key === k) || {}).color || '#888';
+      out += `<circle cx="${x}" cy="${y}" r="${vertexR(vals[k]).toFixed(1)}" fill="${col}" opacity="0.92"/>`;
+    });
+    FKEYS.forEach(k => {
+      const [x, y] = TRI_POS[k];
+      const ly = k === 'church' ? y - 34 : y + 34;
+      out += `<text x="${x}" y="${ly}" font-size="11.5" fill="#c8d0e4" text-anchor="middle">${TRI_NAME[k]} ${vals[k]}</text>`;
+    });
+    out += '</svg>';
+    return out;
+  }
+  function relVerdict(rel) {
+    // 教皇与皇帝是本章主线，权重略高，优先作为判词主语
+    const dom = ['cs', 'cl', 'sl']
+      .sort((a, b) => Math.abs(rel[b] || 0) * (b === 'cs' ? 1.4 : 1) - Math.abs(rel[a] || 0) * (a === 'cs' ? 1.4 : 1))[0];
+    const v = rel[dom] || 0;
+    const lab = { cs: '教皇 ↔ 皇帝', cl: '教皇 ↔ 地方', sl: '皇帝 ↔ 地方' };
+    const tail = {
+      cs: v >= 12 ? '两强结盟，地方两头受压' : v <= -12 ? '两强翻脸，地方趁势而起' : '两强互不相让，格局未定',
+      cl: v >= 12 ? '教皇拉拢地方，皇帝被架空' : v <= -12 ? '教皇与地方撕破了脸' : '教皇与地方若即若离',
+      sl: v >= 12 ? '皇帝与地方联手' : v <= -12 ? '皇帝压不住地方' : '皇帝与地方相安'
+    }[dom];
+    return `${lab[dom]} ${relWord(v)}（${v > 0 ? '+' : ''}${v}）· ${tail}`;
+  }
+  function triCardHTML(vals, rel, delta) {
+    let chips = '';
+    if (delta) {
+      chips = EDGES.filter(e => Math.abs(delta[e[0]] || 0) >= 1)
+        .map(e => {
+          const d = delta[e[0]];
+          return `<span class="tri-d" style="color:${relColor(d)}">${e[3]} ${d > 0 ? '+' : ''}${d}</span>`;
+        }).join('');
+    }
+    return `<div class="tri-card">
+      <div class="tri-head">三 方 关 系<span class="tri-sub">边越粗越紧密，绿＝合作 · 红＝对抗</span></div>
+      ${triSVG(vals, rel)}
+      ${chips ? `<div class="tri-deltas">${chips}</div>` : ''}
+      <div class="tri-cap">${relVerdict(rel)}</div>
+    </div>`;
   }
 
   function headHTML(node) {
@@ -268,7 +424,7 @@
                  : `<div class="scene-deco">${node.decoIcon || '🏛'}</div>`}
       <div class="setup">${node.setup.map(p => `<p>${esc(p)}</p>`).join('')}</div>
       <div class="opts">${opts}</div>
-      ${balanceHTML(false)}`;
+      ${leverHTML(run.factions, null, false)}`;
     $$('.opt', el).forEach(b => b.onclick = () => chooseOption(node, +b.dataset.i));
     const im = $('.scene-img', el);
     if (im) { // 图片加载失败兜底为装饰块
@@ -283,19 +439,27 @@
 
   function chooseOption(node, optionIdx) {
     const opt = node.options[optionIdx];
-    // 记录（天平动画需要前一状态）
+    const sid = run.curId;
+    // 记录前一状态（杠杆 / 三角动画都要用）
     run.prevFactions = Object.assign({}, run.factions);
-    run.choices.push({ sceneId: node.year + '|' + node.title, optionIdx, isHistory: opt.isHistory });
-    // 应用势力变化
-    const d = node.delta || { church: 0, state: 0, local: 0 };
+    run.prevRel = Object.assign({}, run.rel);
+    run.choices.push({ sceneId: sid, optionIdx, isHistory: opt.isHistory });
+    // 这一选的实际影响（基础值 × 全局幅度）
+    const d = effDelta(sid, optionIdx);
+    const histIdx = node.options.findIndex(o => o.isHistory);
+    const hd = effDelta(sid, histIdx < 0 ? optionIdx : histIdx);
     run.lastDelta = d;
     FACTIONS.forEach(f => {
       run.factions[f.key] = clampF(run.factions[f.key] + (d[f.key] || 0));
-      run.canon[f.key] = clampF(run.canon[f.key] +
-        (node.options.find(o => o.isHistory) ? (node.delta[f.key] || 0) : 0));
+      run.canon[f.key] = clampF(run.canon[f.key] + (hd[f.key] || 0));
     });
+    // 关系随数值变化方向自动推导
+    const st = nextRel(run.rel, d);
+    run.rel = st.next;
+    run.lastRelDelta = st.delta;
     run.snaps.push(Object.assign({}, run.factions));
     run.canonSnaps.push(Object.assign({}, run.canon));
+    run.relSnaps.push(Object.assign({}, run.rel));
     renderFeedback(node, opt);
   }
 
@@ -327,10 +491,11 @@
         <span class="fb-tag">点睛一句</span>
         <p>${esc(node.point)}</p>
       </div>
-      ${balanceHTML(true, run.prevFactions)}
+      ${leverHTML(run.factions, run.prevFactions, true)}
+      ${triCardHTML(run.factions, run.rel, run.lastRelDelta)}
       <button class="btn" id="btn-next">${isLastNode() ? '继续' : '下一个抉择 →'}</button>`;
-    // 天平动画：先渲染前一状态，再切换到新值，触发 CSS transition
-    animateBalance(el);
+    // 杠杆与三角的数值动画：先渲染前一状态，再切到新值，交给 CSS transition
+    animateLever(el);
     $$('.quote-play', el).forEach(b => {
       b.onclick = e => { e.stopPropagation(); toggleQuoteAudio(b.dataset.src, b); };
     });
@@ -505,14 +670,30 @@
       <div class="ending-stats">
         <div class="stat-box"><div class="v">${matches} / ${total}</div><div class="k">与历史同频</div></div>
         <div class="stat-box"><div class="v">${countInterludes(run.line)}</div><div class="k">对照卡收集</div></div>
+        <div class="stat-box"><div class="v">${run.factions[mainKey()]}</div><div class="k">你这一方的权力</div></div>
+        <div class="stat-box"><div class="v">${ratioStr(run.factions, run.canon)}</div><div class="k">与历史的偏离</div></div>
       </div>
       <div class="card chart-card">
-        <div class="bal-title">势力曲线 · 本章的真实走向（✔/✘ 为你与历史是否同频）</div>
+        <div class="bal-title">势力曲线 · 实线＝你，虚线＝本章真实</div>
         ${chartHTML()}
         <div class="chart-legend">
           ${FACTIONS.map(f => `<span><i style="background:${f.color}"></i>${f.name}</span>`).join('')}
+          <span class="lg-line"><b class="solid"></b>你的路线</span>
+          <span class="lg-line"><b class="dash"></b>本章真实</span>
         </div>
-        <p class="dim" style="margin-top:10px;font-size:13.5px">
+        <div class="dev-row">
+          ${FACTIONS.map(f => {
+            const d = run.factions[f.key] - run.canon[f.key];
+            return `<span class="dev-chip"><i style="background:${f.color}"></i>${f.name}
+              <b>${run.factions[f.key]}</b><em>/ 史 ${run.canon[f.key]}</em>
+              <s class="${d > 0 ? 'up' : d < 0 ? 'down' : 'flat'}">${d > 0 ? '+' : ''}${d}</s></span>`;
+          }).join('')}
+        </div>
+        <div class="bal-title" style="margin-top:16px">权力份额 · 你与历史的差距</div>
+        ${shareBarsHTML(run.factions, run.canon)}
+        <div class="bal-title" style="margin-top:16px">三方关系 · 终局</div>
+        ${triCardHTML(run.factions, run.rel)}
+        <p class="dim" style="margin-top:12px;font-size:13.5px">
           ${run.lineId === 'local'
             ? '两大巨头互斗千年、谁也没吃掉谁——而你扮演的地方势力，正在悄悄上扬。这正是本章的论点。'
             : '教权与皇权互斗千年、互有胜负，谁也没吃掉谁；而地方势力，正在悄悄上扬——这正是本章的论点。'}
@@ -535,44 +716,68 @@
     return line.flow.filter(id => GAME_DATA.scenes[id].type === 'interlude').length;
   }
 
-  /* ---------------- 势力曲线图（SVG，动态范围） ---------------- */
+  /* ---------------- 势力曲线图（实线＝你，虚线＝历史，动态范围） ---------------- */
+  function mainKey() {
+    return run.lineId === 'pope' ? 'church' : run.lineId === 'emperor' ? 'state' : 'local';
+  }
+  function ratioStr(you, his) {
+    const s = FKEYS.reduce((a, k) => a + Math.abs(you[k] - his[k]), 0);
+    return '±' + Math.round(s / 3);
+  }
+  function shareBarsHTML(you, his) {
+    const row = (label, vals) => {
+      const sum = FKEYS.reduce((a, k) => a + vals[k], 0) || 1;
+      return `<div class="share-row"><span class="sh-lab">${label}</span><div class="sh-bar">${
+        FKEYS.map(k => {
+          const f = FACTIONS.find(x => x.key === k);
+          const p = vals[k] / sum * 100;
+          return `<span class="sh-seg" style="width:${p.toFixed(1)}%;background:${f.color}">${p >= 12 ? `<i>${Math.round(p)}%</i>` : ''}</span>`;
+        }).join('')
+      }</div></div>`;
+    };
+    return `<div class="shares">${row('你', you)}${row('本章真实', his)}</div>`;
+  }
   function chartHTML() {
-    const W = 460, H = 210, padL = 32, padR = 14, padT = 26, padB = 30;
-    const canon = run.canonSnaps;
-    const n = canon.length;
-    // 动态 y 轴范围
+    const W = 460, H = 214, padL = 32, padR = 40, padT = 24, padB = 30;
+    const you = run.snaps, his = run.canonSnaps;
+    const n = you.length;
+    // 动态 y 轴范围（同时容纳你与历史）
     let lo = 100, hi = 0;
-    canon.forEach(p => FACTIONS.forEach(f => { lo = Math.min(lo, p[f.key]); hi = Math.max(hi, p[f.key]); }));
+    [you, his].forEach(arr => arr.forEach(p => FKEYS.forEach(k => {
+      lo = Math.min(lo, p[k]); hi = Math.max(hi, p[k]);
+    })));
     lo = Math.max(0, Math.floor((lo - 8) / 5) * 5);
     hi = Math.min(100, Math.ceil((hi + 8) / 5) * 5);
     const xs = i => padL + i * ((W - padL - padR) / Math.max(1, n - 1));
     const ys = v => padT + (hi - v) / (hi - lo) * (H - padT - padB);
     const path = (arr, key) => arr.map((p, i) => `${i ? 'L' : 'M'}${xs(i).toFixed(1)},${ys(p[key]).toFixed(1)}`).join(' ');
 
-    // x 轴年份标签（该线的场景）
     const sceneIds = run.line.flow.filter(id => GAME_DATA.scenes[id].type === 'scene');
     const yearLabels = sceneIds.map(id => (GAME_DATA.scenes[id].year.match(/\d{3,4}/) || [''])[0]);
 
     let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">`;
-    // 网格与刻度
     for (let t = lo; t <= hi; t += Math.max(5, Math.round((hi - lo) / 5 / 5) * 5)) {
       svg += `<line x1="${padL}" y1="${ys(t).toFixed(1)}" x2="${W - padR}" y2="${ys(t).toFixed(1)}" stroke="#232c4a"/>`;
       svg += `<text x="${padL - 7}" y="${(ys(t) + 3).toFixed(1)}" font-size="9" fill="#6f7a97" text-anchor="end">${t}</text>`;
     }
-    // 三条历史势力线
-    FACTIONS.forEach(f => {
-      svg += `<path d="${path(canon, f.key)}" fill="none" stroke="${f.color}" stroke-width="2.4" stroke-linecap="round"/>`;
-      // 末端数值标注
-      const lp = canon[n - 1];
-      svg += `<text x="${(xs(n - 1) + 5).toFixed(1)}" y="${(ys(lp[f.key]) + 3).toFixed(1)}" font-size="9.5" fill="${f.color}" font-weight="700">${lp[f.key]}</text>`;
+    // 历史基准：虚线
+    FKEYS.forEach(k => {
+      const f = FACTIONS.find(x => x.key === k);
+      svg += `<path d="${path(his, k)}" fill="none" stroke="${f.color}" stroke-width="1.7" stroke-dasharray="5 4" opacity="0.45"/>`;
     });
-    // 玩家表现标记：✔/✘ 落在每个抉择点（玩家所扮演势力的曲线上方）
-    const mainKey = run.lineId === 'pope' ? 'church' : run.lineId === 'emperor' ? 'state' : 'local';
+    // 你的路线：实线 + 末端数值
+    FKEYS.forEach(k => {
+      const f = FACTIONS.find(x => x.key === k);
+      svg += `<path d="${path(you, k)}" fill="none" stroke="${f.color}" stroke-width="2.6" stroke-linecap="round"/>`;
+      const lp = you[n - 1];
+      svg += `<text x="${(xs(n - 1) + 5).toFixed(1)}" y="${(ys(lp[k]) + 3).toFixed(1)}" font-size="9.5" fill="${f.color}" font-weight="700">${lp[k]}</text>`;
+    });
+    // ✔/✘ 落在每个抉择点上
+    const mk = mainKey();
     run.choices.forEach((c, i) => {
-      const x = xs(i + 1), y = ys(canon[i + 1][mainKey]) - 10;
-      svg += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="13" text-anchor="middle" fill="${c.isHistory ? '#6fd08c' : '#8a8fa0'}">${c.isHistory ? '✔' : '✘'}</text>`;
+      const x = xs(i + 1), y = ys(you[i + 1][mk]) - 10;
+      svg += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="12" text-anchor="middle" fill="${c.isHistory ? '#6fd08c' : '#8a8fa0'}">${c.isHistory ? '✔' : '✘'}</text>`;
     });
-    // x 轴标签
     yearLabels.forEach((y, i) => {
       if (y) svg += `<text x="${xs(i + 1).toFixed(1)}" y="${H - 8}" font-size="9" fill="#6f7a97" text-anchor="middle">${y}</text>`;
     });
@@ -694,7 +899,188 @@
     im.addEventListener('pointercancel', end);
   }
 
+  /* ---------------- 后台数值编辑器（玩家界面看不到，隐藏入口进入） ---------------- */
+  function fmtTri(d) {
+    return FKEYS.map(k => {
+      const v = d[k] || 0;
+      return (v > 0 ? '+' : '') + v;
+    }).join(' / ');
+  }
+  function toast(msg) {
+    let t = $('#toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'toast';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._h);
+    t._h = setTimeout(() => t.classList.remove('show'), 1600);
+  }
+
+  const EDIT_LINES = ['pope', 'emperor', 'local'];
+  function openEditor() { renderEditor(); show('editor'); }
+
+  function renderEditor() {
+    const el = $('#screen-editor');
+    if (!el) return;
+    el.innerHTML = `
+      <div class="ed-wrap">
+        <div class="ed-title">后台数值编辑器</div>
+        <p class="ed-note">这里的改动只存在本机浏览器（键 <code>eap_tuning_v1</code>），不会改原版数据；「清空存档」也不会删掉它。</p>
+
+        <div class="ed-card">
+          <div class="ed-card-h">① 全局幅度</div>
+          <div class="ed-amp-row">
+            <input type="range" id="ed-amp" min="0.4" max="2" step="0.05" value="${tuning.amp}">
+            <b id="ed-amp-v">×${tuning.amp.toFixed(2)}</b>
+          </div>
+          <div class="ed-quick">
+            ${[0.6, 0.8, 1, 1.3, 1.6, 2].map(a => `<button class="ed-preset ${Math.abs(tuning.amp - a) < 0.001 ? 'on' : ''}" data-amp="${a}">×${a.toFixed(1)}</button>`).join('')}
+            <button class="ed-preset" data-amp="1" id="ed-amp-reset">重置</button>
+          </div>
+          <p class="ed-note">表中数值 × 幅度 ＝ 实际生效。拖一下，12 场抉择的数值会按比例整体放大或缩小。</p>
+        </div>
+
+        <div class="ed-card">
+          <div class="ed-card-h">② 关系换算（三角图三条边）</div>
+          <p class="ed-note">同涨 → 合作（取较小一方 × 合作系数）；此消彼长 → 对抗（两者绝对值之和 × 对抗系数）；同跌 → 裂痕。每步先按回落率向 0 衰减。</p>
+          <div class="ed-coefs">
+            <label>合作<input type="number" id="ed-coop" step="0.1" min="0" max="6" value="${tuning.coef.coop}"></label>
+            <label>对抗<input type="number" id="ed-clash" step="0.1" min="0" max="6" value="${tuning.coef.clash}"></label>
+            <label>同跌<input type="number" id="ed-both" step="0.1" min="0" max="6" value="${tuning.coef.both}"></label>
+            <label>回落<input type="number" id="ed-decay" step="0.02" min="0.5" max="1" value="${tuning.coef.decay}"></label>
+          </div>
+        </div>
+
+        <div class="ed-card">
+          <div class="ed-card-h">③ 每个抉择的数值（教会 / 皇权 / 地方）</div>
+          <div class="ed-table" id="ed-table">${editorTableHTML()}</div>
+        </div>
+
+        <div class="ed-actions">
+          <button class="btn small" id="ed-save">保存并返回</button>
+          <button class="btn ghost small" id="ed-reset">恢复全部默认</button>
+          <button class="btn ghost small" id="ed-export">导出 JSON</button>
+          <button class="btn ghost small" id="ed-import">导入 JSON</button>
+        </div>
+        <p class="ed-note" style="margin-bottom:40px">入口：网址后加 <code>?edit=1</code> · <code>Ctrl+Shift+E</code> · 连点首页标题 5 次。</p>
+      </div>`;
+
+    function updateEff(sid, idx) {
+      const sp = $('[data-eff="' + sid + ':' + idx + '"]', el);
+      if (sp) sp.textContent = '实际 ' + fmtTri(effDelta(sid, idx));
+    }
+    function refreshAllEff() {
+      const seen = {};
+      $$('.ed-num', el).forEach(inp => {
+        const key = inp.dataset.sid + ':' + inp.dataset.idx;
+        if (seen[key]) return;
+        seen[key] = 1;
+        updateEff(inp.dataset.sid, +inp.dataset.idx);
+      });
+      $$('.ed-preset', el).forEach(b => b.classList.toggle('on', Math.abs(tuning.amp - parseFloat(b.dataset.amp)) < 0.001));
+    }
+
+    $$('.ed-num', el).forEach(inp => {
+      inp.oninput = () => {
+        const sid = inp.dataset.sid, idx = +inp.dataset.idx, k = sid + ':' + idx;
+        const cur = Object.assign({ church: 0, state: 0, local: 0 }, tuning.deltas[k] || baseDelta(sid, idx));
+        cur[inp.dataset.k] = numOr(inp.value, 0, -40, 40);
+        tuning.deltas[k] = cur;
+        saveTuning();
+        updateEff(sid, idx);
+      };
+    });
+
+    const amp = $('#ed-amp');
+    amp.oninput = () => {
+      tuning.amp = numOr(amp.value, 1, 0.2, 3);
+      $('#ed-amp-v').textContent = '×' + tuning.amp.toFixed(2);
+      saveTuning(); refreshAllEff();
+    };
+    $$('.ed-preset', el).forEach(b => b.onclick = () => {
+      if (b.id === 'ed-amp-reset') return;
+      amp.value = b.dataset.amp;
+      amp.oninput();
+    });
+
+    ['coop', 'clash', 'both', 'decay'].forEach(k => {
+      const inp = $('#ed-' + k);
+      if (!inp) return;
+      inp.oninput = () => {
+        tuning.coef[k] = numOr(inp.value, COEF_DEFAULT[k], 0, k === 'decay' ? 1 : 6);
+        saveTuning();
+      };
+    });
+
+    $('#ed-save').onclick = () => { renderHome(); show('home'); toast('调参已保存'); };
+    $('#ed-reset').onclick = () => {
+      tuning = { amp: 1, deltas: {}, coef: Object.assign({}, COEF_DEFAULT) };
+      saveTuning(); renderEditor(); toast('已恢复默认');
+    };
+    $('#ed-export').onclick = () => {
+      openOverlay(`<div class="modal-card">
+        <div class="modal-title">导出调参 JSON</div>
+        <p class="modal-src">复制这段保存起来；换设备时用「导入 JSON」贴回去。</p>
+        <textarea class="ed-json" id="ed-json-out" rows="12" readonly>${esc(JSON.stringify(tuning, null, 2))}</textarea>
+        <button class="btn small" id="ov-close">合上</button></div>`);
+      $('#ov-close').onclick = closeOverlay;
+    };
+    $('#ed-import').onclick = () => {
+      openOverlay(`<div class="modal-card">
+        <div class="modal-title">导入调参 JSON</div>
+        <p class="modal-src">把之前导出的 JSON 贴进来，点「应用」。</p>
+        <textarea class="ed-json" id="ed-json-in" rows="12" placeholder='{"amp":1.2,"deltas":{},"coef":{}}'></textarea>
+        <div class="ed-row-btns"><button class="btn small" id="ed-apply">应用</button>
+        <button class="btn ghost small" id="ov-close">取消</button></div></div>`);
+      $('#ov-close').onclick = closeOverlay;
+      $('#ed-apply').onclick = () => {
+        try {
+          const t = JSON.parse($('#ed-json-in').value);
+          tuning = {
+            amp: numOr(t.amp, 1, 0.2, 3),
+            deltas: (t.deltas && typeof t.deltas === 'object') ? t.deltas : {},
+            coef: Object.assign({}, COEF_DEFAULT, t.coef || {})
+          };
+          saveTuning(); closeOverlay(); renderEditor(); toast('已导入');
+        } catch (e) { toast('JSON 解析失败'); }
+      };
+    };
+  }
+
+  function editorTableHTML() {
+    let html = '';
+    EDIT_LINES.forEach(lid => {
+      const line = GAME_DATA.lines[lid];
+      html += `<div class="ed-line" style="color:${line.color}">${line.icon} ${line.name}</div>`;
+      line.flow.filter(id => GAME_DATA.scenes[id].type === 'scene').forEach(sid => {
+        const s = GAME_DATA.scenes[sid];
+        html += `<div class="ed-scene"><div class="ed-scene-h"><b>${esc(s.year)}</b>${esc(s.title)}</div>`;
+        s.options.forEach((o, i) => {
+          const b = baseDelta(sid, i);
+          html += `<div class="ed-opt${o.isHistory ? ' hist' : ''}">
+            <span class="ed-mark">${o.isHistory ? '✔' : ''}</span>
+            <span class="ed-t" title="${esc(o.t)}">${esc(o.t)}</span>
+            ${FKEYS.map(k => `<input class="ed-num" type="number" step="1" data-sid="${sid}" data-idx="${i}" data-k="${k}" value="${b[k] || 0}">`).join('')}
+            <span class="ed-eff" data-eff="${sid}:${i}">实际 ${fmtTri(effDelta(sid, i))}</span>
+          </div>`;
+        });
+        html += '</div>';
+      });
+    });
+    return html;
+  }
+
   /* ---------------- 启动 ---------------- */
-  renderHome();
-  show('home');
+  if (/[?&]edit=1/.test(location.search)) { renderEditor(); show('editor'); }
+  else { renderHome(); show('home'); }
+
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.shiftKey && (e.key === 'E' || e.key === 'e')) {
+      e.preventDefault();
+      openEditor();
+    }
+  });
 })();
