@@ -118,6 +118,10 @@
     window.scrollTo(0, 0);
     stopAudio();
   }
+  /** 同一屏里换内容（下一步 / 选完选项）也要回到顶部，否则一进来就落在页面中间 */
+  function toTop() {
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
 
   /* ---------------- 音效（仅引文旁的播放键触发） ---------------- */
   function stopAudio() { audio.pause(); }
@@ -319,6 +323,7 @@
     stopAudio(); // 翻页自动中断上一段的播放
     if (node.type === 'interlude') renderInterlude(node);
     else renderScene(node);
+    toTop();
     $('#tb-title').textContent = `${run.line.name} · ${Math.min(run.idx + 1, countScenes(flow))}/${countScenes(flow)}`;
   }
   function countScenes(flow) {
@@ -507,6 +512,7 @@
       <div id="fb-impact-slot"></div>
       <button class="btn" id="btn-next">${isLastNode() ? '继续' : '下一个抉择 →'}</button>`;
     // 影响块延后半拍淡入：先让人把故事读完，再看数字（柱子的高度动画也从这一刻才走）
+    toTop();
     revealImpact(el);
     $$('.quote-play', el).forEach(b => {
       b.onclick = e => { e.stopPropagation(); toggleQuoteAudio(b.dataset.src, b); };
@@ -566,7 +572,7 @@
     const p = GAME_DATA.puzzles[run.lineId];
     const el = $('#screen-puzzle');
     el.innerHTML = `
-      <h2 class="scene-title">${esc(p.title)}</h2>
+      <h2 class="scene-title" id="puzzle-title">${esc(p.title)}</h2>
       <p class="puzzle-intro">${esc(p.intro)}</p>
       <div class="ord-list" id="ord-list">
         ${shuffle(p.items.map((_, i) => i)).map(i => `
@@ -593,29 +599,50 @@
     };
     renumber();
 
+    /* 重排时用 FLIP：先量旧位置，改完 DOM 再让每行「滑」到新位置，而不是瞬间跳过去 */
+    function flipMove(mutate) {
+      const rows = $$('.ord-row', list);
+      const before = new Map(rows.map(r => [r, r.getBoundingClientRect().top]));
+      mutate();
+      rows.forEach(r => {
+        const dy = before.get(r) - r.getBoundingClientRect().top;
+        if (!dy) return;
+        const lifted = r.classList.contains('dragging') ? ' scale(1.025)' : '';
+        r.style.transition = 'none';
+        r.style.transform = `translateY(${dy.toFixed(1)}px)${lifted}`;
+        void r.offsetHeight;                       // 强制回流，让上面的位移立即生效
+        r.style.transition = '';
+        r.style.transform = lifted.trim();
+      });
+    }
+
+    // 标题连点三下 = 跳过复盘（自用加速，不提示、不影响成绩）
+    let taps = 0, tapTimer = null;
+    $('#puzzle-title').onclick = () => {
+      taps++;
+      clearTimeout(tapTimer);
+      tapTimer = setTimeout(() => { taps = 0; }, 700);
+      if (taps >= 3) {
+        taps = 0; clearTimeout(tapTimer);
+        show(renderEnding());
+      }
+    };
+
     // ↑↓ 按钮
     $$('.ord-btn', el).forEach(b => b.onclick = () => {
       const row = b.closest('.ord-row');
       if (b.classList.contains('up') && row.previousElementSibling) {
-        list.insertBefore(row, row.previousElementSibling);
+        flipMove(() => list.insertBefore(row, row.previousElementSibling));
       } else if (b.classList.contains('down') && row.nextElementSibling) {
-        list.insertBefore(row.nextElementSibling, row);
+        flipMove(() => list.insertBefore(row.nextElementSibling, row));
       } else return;
       clearMarks(); renumber();
       $('#puzzle-hint').textContent = '';
-      row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
 
     // 拖拽排序
     let drag = null;
-    list.addEventListener('pointerdown', e => {
-      const handle = e.target.closest('.ord-handle');
-      if (!handle) return;
-      e.preventDefault();
-      drag = handle.closest('.ord-row');
-      drag.classList.add('dragging');
-    });
-    window.addEventListener('pointermove', e => {
+    function onMove(e) {
       if (!drag) return;
       const rows = $$('.ord-row', list).filter(r => r !== drag);
       let target = null;
@@ -623,19 +650,33 @@
         const rc = r.getBoundingClientRect();
         if (e.clientY < rc.top + rc.height / 2) { target = r; break; }
       }
-      if (target) list.insertBefore(drag, target);
-      else list.appendChild(drag);
+      // 位置没变就别重排，免得每次微移都触发一次动画
+      const curNext = drag.nextElementSibling;
+      if ((target && curNext === target) || (!target && !curNext)) return;
+      flipMove(() => { if (target) list.insertBefore(drag, target); else list.appendChild(drag); });
       renumber();
-    });
-    const endDrag = () => {
+    }
+    function endDrag() {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('pointercancel', endDrag);
       if (!drag) return;
       drag.classList.remove('dragging');
+      drag.style.transform = '';
       drag = null;
       clearMarks();
       $('#puzzle-hint').textContent = '';
-    };
-    window.addEventListener('pointerup', endDrag);
-    window.addEventListener('pointercancel', endDrag);
+    }
+    list.addEventListener('pointerdown', e => {
+      const handle = e.target.closest('.ord-handle');
+      if (!handle) return;
+      e.preventDefault();
+      drag = handle.closest('.ord-row');
+      drag.classList.add('dragging');
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', endDrag);
+      window.addEventListener('pointercancel', endDrag);
+    });
 
     // 检查
     $('#btn-check').onclick = () => {

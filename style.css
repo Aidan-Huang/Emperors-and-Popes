@@ -31,6 +31,9 @@ html, body {
   font-size: 16px; line-height: 1.75;
   min-height: 100vh;
   overscroll-behavior-y: none;
+  /* 拖拽行放大时左右会略微溢出容器，禁掉横向滚动 */
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
@@ -536,7 +539,9 @@ input.ed-num, .ed-start-num {
   display: flex; align-items: stretch; flex-wrap: wrap;
   border: 1.5px solid var(--line); border-radius: 12px;
   background: var(--panel2); overflow: hidden;
-  transition: border-color .2s, box-shadow .2s;
+  transform-origin: center center;
+  transition: border-color .2s, box-shadow .2s, transform .22s cubic-bezier(.25,.8,.3,1);
+  will-change: transform;
 }
 .ord-num {
   flex: 0 0 32px; display: flex; align-items: center; justify-content: center;
@@ -558,9 +563,16 @@ input.ed-num, .ed-start-num {
 .ord-btn.up { border-bottom: 1px solid var(--line); }
 .ord-btn:active { background: rgba(255,255,255,.07); color: var(--gold); }
 .ord-row.dragging {
-  border-color: var(--gold); opacity: .92;
-  box-shadow: 0 8px 22px rgba(0,0,0,.45);
-  position: relative; z-index: 2;
+  border-color: var(--gold); opacity: .96;
+  background: #2c3a63;
+  transform: scale(1.025);
+  box-shadow: 0 14px 30px rgba(0,0,0,.5), 0 0 0 1px rgba(255,204,0,.35);
+  position: relative; z-index: 3;
+}
+.ord-row.dragging .ord-handle { color: var(--gold); cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) {
+  .ord-row { transition: border-color .2s, box-shadow .2s; }
+  .ord-row.dragging { transform: none; }
 }
 .ord-row.ok { border-color: var(--good); }
 .ord-row.ok .ord-num { color: var(--good); font-weight: 700; }
