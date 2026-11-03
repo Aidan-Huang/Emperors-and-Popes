@@ -918,17 +918,20 @@
     const evs = all.filter(eventUnlocked);
     const locked = all.length - evs.length;
     const doneLines = ['pope', 'emperor', 'local'].filter(l => save.done[l]);
+    // 隐藏线解锁前不透露任何地方线信息：图例只列已点亮节点涉及的车道，总数也不显示
+    const showTotal = allMainDone();
+    const lanesShown = ['church', 'state', 'local'].filter(l => evs.some(e => e.lane === l));
     const el = $('#screen-history');
     el.innerHTML = `
       <h2 class="scene-title">${GAME_DATA.historyMode.title}</h2>
-      <p class="dim">${GAME_DATA.historyMode.intro}</p>
+      <p class="dim">${(showTotal ? GAME_DATA.historyMode.introFull : GAME_DATA.historyMode.intro) || GAME_DATA.historyMode.intro}</p>
       <p class="dim" style="font-size:13px;margin-top:2px">
-        已点亮 ${evs.length} / ${all.length} 个节点（${doneLines.map(l => GAME_DATA.lines[l].name).join(' · ') || '尚未通关'}）${locked ? ' · 走完其余路线可点亮剩下 ' + locked + ' 个' : ''}
+        ${showTotal
+          ? `已点亮 ${evs.length} / ${all.length} 个节点（${doneLines.map(l => GAME_DATA.lines[l].name).join(' · ') || '尚未通关'}）${locked ? ' · 走完其余路线可点亮剩下 ' + locked + ' 个' : ''}`
+          : `已点亮 ${evs.length} 个节点（${doneLines.map(l => GAME_DATA.lines[l].name).join(' · ') || '尚未通关'}）${locked ? ' · 走完其余路线可点亮更多' : ''}`}
       </p>
       <div class="lane-labels" style="flex-direction:row;gap:16px;flex-wrap:wrap">
-        <div class="lane-row"><span class="lane-dot" style="background:#378ADD"></span>教权线</div>
-        <div class="lane-row"><span class="lane-dot" style="background:#EF9F27"></span>皇权线</div>
-        <div class="lane-row"><span class="lane-dot" style="background:#a8a79f"></span>地方线</div>
+        ${lanesShown.map(l => `<div class="lane-row"><span class="lane-dot" style="background:${laneColor(l)}"></span>${laneName(l)}线</div>`).join('')}
       </div>
       <div class="vt">
         ${evs.map((e, i) => {
