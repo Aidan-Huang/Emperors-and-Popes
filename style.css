@@ -118,6 +118,9 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .btn.hidden-open, .btn.hidden-open::after, .btn-badge, .start-tip { animation: none; }
   .btn.hidden-open { box-shadow: 0 0 14px rgba(255, 204, 0, .35); }
+  .lever, .lever.pending { transition: none; }
+  .lever.pending { opacity: 1; transform: none; }
+  .tut-tip { animation: none; }
 }
 
 /* ---------- 首页：通关奖章 / 隐藏线提示 / 清空 ---------- */
@@ -367,6 +370,56 @@ body {
 .lv-chip.flat b { color: #6b7794; }
 .lv-say { font-size: 14px; line-height: 1.7; color: var(--text); margin: 10px 0 0; }
 .lv-rel { font-size: 12.5px; color: #ef9f9f; margin-top: 6px; }
+
+/* 影响块分两拍：故事先出现，数字过半秒再淡入 */
+.lever { transition: opacity .45s ease, transform .45s cubic-bezier(.25,.8,.3,1); }
+.lever.pending { opacity: 0; transform: translateY(12px); }
+
+/* 真实历史 · 后来：一行小字，学习落点 */
+.truth-line {
+  margin-top: 12px; padding: 10px 14px; border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(55,138,221,.09), rgba(55,138,221,.03));
+  border: 1px dashed #2f4a6e;
+}
+.truth-line .tl-tag {
+  display: inline-block; font-size: 11px; letter-spacing: 1px; font-weight: 700;
+  color: #7db8f0; margin-bottom: 3px;
+}
+.truth-line p { margin: 2px 0 0; font-size: 13.5px; line-height: 1.72; color: #c3cee6; }
+
+/* 首次进入的一次性教学气泡 */
+.tut-tip {
+  margin-top: 14px; padding: 14px 16px 12px; border-radius: var(--radius);
+  background: rgba(255, 204, 0, .08); border: 1px solid #5a4a16;
+  animation: tut-in .35s ease both;
+}
+.tut-tip.out { opacity: 0; transform: translateY(-8px); transition: opacity .28s, transform .28s; }
+@keyframes tut-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.tut-h { font-size: 11.5px; letter-spacing: 2px; color: var(--gold); font-weight: 700; }
+.tut-tip p { margin: 8px 0; font-size: 14px; line-height: 1.75; color: var(--text); }
+.tut-tip b { color: var(--gold); }
+.tut-tip .btn.small { margin-top: 4px; }
+
+/* 结算曲线：点选某一步的提示条 */
+.chart-wrap { position: relative; }
+.ch-hit.on { fill: rgba(255,255,255,.035); }
+.chart-tip {
+  margin-top: 4px; padding: 9px 12px; border-radius: 10px;
+  background: var(--bg2); border: 1px solid var(--line);
+  font-size: 12.5px; line-height: 1.65; color: var(--text-dim);
+  min-height: 38px;
+}
+.chart-tip b { color: var(--text); }
+.ct-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ct-mark { font-size: 11.5px; font-weight: 700; }
+.ct-mark.hit { color: var(--good); }
+.ct-mark.miss { color: var(--state); }
+.ct-opt { color: var(--text); margin-top: 2px; }
+.ct-nums { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; color: var(--text-dim); }
+.ct-nums i { display: inline-block; width: 7px; height: 7px; border-radius: 99px; margin-right: 4px; }
+.ct-nums b { color: var(--text); font-weight: 800; }
+.ct-nums em { font-style: normal; opacity: .65; margin-left: 3px; }
+.chart-legend .lg-line.faint { opacity: .6; }
 
 /* ---------- 结算：份额带 / 偏差 ---------- */
 .shares { margin-top: 8px; }

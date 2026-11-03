@@ -81,6 +81,13 @@
   function copyObj(o) { return Object.assign({}, o); }
 
   const SAVE_KEY = 'eap_save_v1';
+  // 首次进入的一次性教学气泡（独立于通关记录，清空进度也不会再弹第二次）
+  const TUT_KEY = 'eap_tut_v1';
+  function tutSeen() { try { return localStorage.getItem(TUT_KEY) === '1'; } catch (e) { return true; } }
+  function markTutSeen() { try { localStorage.setItem(TUT_KEY, '1'); } catch (e) {} }
+  function reduceMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
   let save = loadSave();
   let run = null;   // 当前游玩状态
   const audio = $('#ambience');
@@ -293,6 +300,7 @@
       canonSnaps: [copyObj(st)],
       choices: [],     // {sceneId, optionIdx, isHistory, delta}
       lastDelta: null,
+      hi: null,        // 结算曲线里被点亮的那个抉择点（null＝未选）
       curAudio: null,
       curId: null
     };
@@ -396,6 +404,26 @@
     return `<div class="scene-head"><span>${esc(node.year)}</span><span>${run.line.name}</span></div>`;
   }
 
+  /* ---------------- 首次进入的一次性教学气泡 ---------------- */
+  function tutorialHTML() {
+    return `<div class="tut-tip" id="tut-tip">
+      <div class="tut-h">先花 10 秒看这里</div>
+      <p>下面三根条，是<b>教权 · 皇权 · 地方</b>三方此刻的分量——<b>条越高，这一方越重</b>。</p>
+      <p>你的每个选择都会拨动它们。<b>不扣分、不判对错</b>，它只负责让你看见：这一步，把天平推向了谁。</p>
+      <button class="btn small" id="tut-ok">知道了，开始</button>
+    </div>`;
+  }
+  function bindTutorial(el) {
+    const tip = $('#tut-tip', el);
+    if (!tip) return;
+    $('#tut-ok', el).onclick = () => {
+      markTutSeen();
+      tip.classList.add('out');
+      const kill = () => { if (tip.parentNode) tip.parentNode.removeChild(tip); };
+      reduceMotion() ? kill() : setTimeout(kill, 300);
+    };
+  }
+
   function renderScene(node) {
     const el = $('#screen-game');
     let opts = '';
@@ -409,9 +437,11 @@
       ${node.img ? `<img class="scene-img" src="${node.img}" alt=""><div class="scene-img-cap">${esc(node.imgCaption || '')}</div>`
                  : `<div class="scene-deco">${node.decoIcon || '🏛'}</div>`}
       <div class="setup">${node.setup.map(p => `<p>${esc(p)}</p>`).join('')}</div>
+      ${(!tutSeen() && run.choices.length === 0) ? tutorialHTML() : ''}
       ${leverHTML(run.factions, null, false)}
       <div class="opts">${opts}</div>`;
     $$('.opt', el).forEach(b => b.onclick = () => chooseOption(node, +b.dataset.i));
+    bindTutorial(el);
     const im = $('.scene-img', el);
     if (im) { // 图片加载失败兜底为装饰块
       im.onerror = () => {
@@ -426,6 +456,8 @@
   function chooseOption(node, optionIdx) {
     const opt = node.options[optionIdx];
     const sid = run.curId;
+    // 玩家没点「知道了」就直接做了选择，也算看过了——别让气泡下次又冒出来
+    if ($('#tut-tip', $('#screen-game'))) markTutSeen();
     // 记录前一状态（杠杆动画用：先渲染旧高度，再过渡到新高度）
     run.prevFactions = Object.assign({}, run.factions);
     run.choices.push({ sceneId: sid, optionIdx, isHistory: opt.isHistory });
@@ -471,14 +503,28 @@
         <span class="fb-tag">点睛一句</span>
         <p>${esc(node.point)}</p>
       </div>
-      ${leverHTML(run.factions, run.prevFactions, true, run.lastDelta, optionSay(run.curId, optionIdx))}
+      ${node.truth ? `<div class="truth-line"><span class="tl-tag">真实历史 · 后来</span><p>${esc(node.truth)}</p></div>` : ''}
+      <div id="fb-impact-slot"></div>
       <button class="btn" id="btn-next">${isLastNode() ? '继续' : '下一个抉择 →'}</button>`;
-    // 杠杆动画：先渲染旧高度，再切到新值，交给 CSS transition
-    animateLever(el);
+    // 影响块延后半拍淡入：先让人把故事读完，再看数字（柱子的高度动画也从这一刻才走）
+    revealImpact(el);
     $$('.quote-play', el).forEach(b => {
       b.onclick = e => { e.stopPropagation(); toggleQuoteAudio(b.dataset.src, b); };
     });
     $('#btn-next').onclick = () => { stopAudio(); run.idx++; renderStep(); };
+  }
+
+  /** 影响块第二拍：先插入但不可见，过半秒再淡出并启动柱子动画 */
+  function revealImpact(root) {
+    const slot = $('#fb-impact-slot', root);
+    if (!slot) return;
+    const sayIdx = run.choices.length ? run.choices[run.choices.length - 1].optionIdx : 0;
+    slot.innerHTML = leverHTML(run.factions, run.prevFactions, true, run.lastDelta, optionSay(run.curId, sayIdx));
+    const box = $('.lever', slot);
+    if (!box) return;
+    box.classList.add('pending');
+    const go = () => { box.classList.remove('pending'); animateLever(root); };
+    reduceMotion() ? go() : setTimeout(go, 560);
   }
 
   function isLastNode() {
@@ -655,12 +701,12 @@
         <div class="stat-box"><div class="v">${ratioStr(run.factions, run.canon)}</div><div class="k">与历史的偏离</div></div>
       </div>
       <div class="card chart-card">
-        <div class="bal-title">势力曲线 · 实线＝你，虚线＝本章真实</div>
-        ${chartHTML()}
+        <div class="bal-title">势力曲线 · 实线＝你走过的路</div>
+        <div class="chart-wrap" id="chart-wrap">${chartBoxHTML()}</div>
         <div class="chart-legend">
           ${FACTIONS.map(f => `<span><i style="background:${f.color}"></i>${f.name}</span>`).join('')}
           <span class="lg-line"><b class="solid"></b>你的路线</span>
-          <span class="lg-line"><b class="dash"></b>本章真实</span>
+          <span class="lg-line faint"><b class="dash"></b>本章真实（背景参考）</span>
         </div>
         <div class="dev-row">
           ${FACTIONS.map(f => {
@@ -679,6 +725,7 @@
       <button class="btn ghost" id="btn-hist">📜 史书模式：串起整章时间线</button>
       <button class="btn ghost small" id="btn-home2">回到首页</button>`;
     $('#btn-other-line').onclick = () => { renderLines(); show('lines'); };
+    bindChart(el);
     const bm = $('#btn-medal');
     if (bm) bm.onclick = () => { renderClear(); show('clear'); };
     $('#btn-hist').onclick = () => { renderHistory(); show('history'); };
@@ -795,40 +842,82 @@
       <p class="dim fv-tail">教权与皇权互斗千年、谁也没能吃掉谁——这才是本章的论点：欧洲之所以是欧洲，正因为没有任何一方赢到最后。</p>
     </div>`;
   }
-  function chartHTML() {
+  /* ---------------- 势力曲线（主图只画你这条线，历史做弱化背景；可点选某一步） ---------------- */
+  function chartBoxHTML() {
+    return `${chartHTML(run.hi)}<div class="chart-tip" id="chart-tip">${chartTipHTML(run.hi)}</div>`;
+  }
+  function bindChart(root) {
+    const wrap = $('#chart-wrap', root || document);
+    if (!wrap) return;
+    $$('.ch-hit', wrap).forEach(r => {
+      r.addEventListener('click', () => {
+        const i = +r.getAttribute('data-i');
+        run.hi = (run.hi === i) ? null : i;
+        wrap.innerHTML = chartBoxHTML();
+        bindChart(root);
+      });
+    });
+  }
+  function chartTipHTML(hi) {
+    if (hi == null) return '👆 点曲线上的任意一步，看那一年你选了什么、天平怎么动的';
+    const sceneIds = run.line.flow.filter(id => GAME_DATA.scenes[id].type === 'scene');
+    if (hi === 0) {
+      const st = run.snaps[0];
+      return `<b>起点 · 这一局的初始天平</b>
+        <div class="ct-nums">${FACTIONS.map(f => `<span><i style="background:${f.color}"></i>${f.name} <b>${st[f.key]}</b></span>`).join('')}</div>`;
+    }
+    const sid = sceneIds[hi - 1];
+    const c = run.choices[hi - 1];
+    if (!sid || !c) return '';
+    const scene = GAME_DATA.scenes[sid];
+    const opt = scene.options[c.optionIdx];
+    const you = run.snaps[hi], his = run.canonSnaps[hi];
+    return `<div class="ct-row"><b>${esc(scene.year)} · ${esc(scene.title)}</b>
+        <span class="ct-mark ${c.isHistory ? 'hit' : 'miss'}">${c.isHistory ? '✔ 与历史同频' : '✘ 历史没有这样走'}</span></div>
+      <div class="ct-opt">你选：${esc(opt.t)}</div>
+      <div class="ct-nums">${FACTIONS.map(f => `<span><i style="background:${f.color}"></i>${f.name} <b>${you[f.key]}</b><em>史 ${his[f.key]}</em></span>`).join('')}</div>`;
+  }
+  function chartHTML(hi) {
     const W = 460, H = 214, padL = 32, padR = 40, padT = 24, padB = 30;
     const you = run.snaps, his = run.canonSnaps;
     const n = you.length;
     // 动态 y 轴范围（同时容纳你与历史）
-    let lo = 100, hi = 0;
+    let lo = 100, hiV = 0;
     [you, his].forEach(arr => arr.forEach(p => FKEYS.forEach(k => {
-      lo = Math.min(lo, p[k]); hi = Math.max(hi, p[k]);
+      lo = Math.min(lo, p[k]); hiV = Math.max(hiV, p[k]);
     })));
     lo = Math.max(0, Math.floor((lo - 8) / 5) * 5);
-    hi = Math.min(100, Math.ceil((hi + 8) / 5) * 5);
+    hiV = Math.min(100, Math.ceil((hiV + 8) / 5) * 5);
     const xs = i => padL + i * ((W - padL - padR) / Math.max(1, n - 1));
-    const ys = v => padT + (hi - v) / (hi - lo) * (H - padT - padB);
+    const ys = v => padT + (hiV - v) / (hiV - lo) * (H - padT - padB);
     const path = (arr, key) => arr.map((p, i) => `${i ? 'L' : 'M'}${xs(i).toFixed(1)},${ys(p[key]).toFixed(1)}`).join(' ');
 
     const sceneIds = run.line.flow.filter(id => GAME_DATA.scenes[id].type === 'scene');
     const yearLabels = sceneIds.map(id => (GAME_DATA.scenes[id].year.match(/\d{3,4}/) || [''])[0]);
 
     let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">`;
-    for (let t = lo; t <= hi; t += Math.max(5, Math.round((hi - lo) / 5 / 5) * 5)) {
+    for (let t = lo; t <= hiV; t += Math.max(5, Math.round((hiV - lo) / 5 / 5) * 5)) {
       svg += `<line x1="${padL}" y1="${ys(t).toFixed(1)}" x2="${W - padR}" y2="${ys(t).toFixed(1)}" stroke="#232c4a"/>`;
       svg += `<text x="${padL - 7}" y="${(ys(t) + 3).toFixed(1)}" font-size="9" fill="#6f7a97" text-anchor="end">${t}</text>`;
     }
-    // 历史基准：虚线
+    // 被点亮的这一步：一条竖线，先画在底层
+    if (hi != null) {
+      svg += `<line x1="${xs(hi).toFixed(1)}" y1="${padT - 6}" x2="${xs(hi).toFixed(1)}" y2="${H - padB}" stroke="#8b97b8" stroke-width="1" stroke-dasharray="3 3"/>`;
+    }
+    // 历史基准：只作为背景参考，压到很淡
     FKEYS.forEach(k => {
       const f = FACTIONS.find(x => x.key === k);
-      svg += `<path d="${path(his, k)}" fill="none" stroke="${f.color}" stroke-width="1.7" stroke-dasharray="5 4" opacity="0.45"/>`;
+      svg += `<path d="${path(his, k)}" fill="none" stroke="${f.color}" stroke-width="1.3" stroke-dasharray="3 5" opacity="0.26"/>`;
     });
     // 你的路线：实线 + 末端数值
     FKEYS.forEach(k => {
       const f = FACTIONS.find(x => x.key === k);
-      svg += `<path d="${path(you, k)}" fill="none" stroke="${f.color}" stroke-width="2.6" stroke-linecap="round"/>`;
+      svg += `<path d="${path(you, k)}" fill="none" stroke="${f.color}" stroke-width="2.8" stroke-linecap="round"/>`;
       const lp = you[n - 1];
       svg += `<text x="${(xs(n - 1) + 5).toFixed(1)}" y="${(ys(lp[k]) + 3).toFixed(1)}" font-size="9.5" fill="${f.color}" font-weight="700">${lp[k]}</text>`;
+      if (hi != null) {
+        svg += `<circle cx="${xs(hi).toFixed(1)}" cy="${ys(you[hi][k]).toFixed(1)}" r="4" fill="${f.color}" stroke="#0e1322" stroke-width="1.6"/>`;
+      }
     });
     // ✔/✘ 落在每个抉择点上
     const mk = mainKey();
@@ -840,6 +929,13 @@
       if (y) svg += `<text x="${xs(i + 1).toFixed(1)}" y="${H - 8}" font-size="9" fill="#6f7a97" text-anchor="middle">${y}</text>`;
     });
     svg += `<text x="${xs(0).toFixed(1)}" y="${H - 8}" font-size="9" fill="#6f7a97" text-anchor="middle">起点</text>`;
+    // 每列一个透明热区：点哪里都行，不用精确点到线上
+    const step = (W - padL - padR) / Math.max(1, n - 1);
+    for (let i = 0; i < n; i++) {
+      const x0 = Math.max(0, xs(i) - step / 2);
+      const w = (i === 0 || i === n - 1) ? step / 2 + (i === n - 1 ? padR : padL) : step;
+      svg += `<rect class="ch-hit${hi === i ? ' on' : ''}" data-i="${i}" x="${x0.toFixed(1)}" y="${padT - 8}" width="${w.toFixed(1)}" height="${H - padT - padB + 8}" fill="transparent" style="cursor:pointer"/>`;
+    }
     svg += `</svg>`;
     return svg;
   }

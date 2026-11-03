@@ -71,6 +71,7 @@ const GAME_DATA = {
       quote: { en: 'So the pope looked north across the Alps to the Franks… King Pepin went south into Italy and subdued the Lombards. He made sure that the pope was left with a large belt of territory around Rome.',
                zh: '于是教皇越过阿尔卑斯山望向法兰克人……丕平南下意大利降服伦巴第人，并确保教皇拥有罗马周边的大片领土。' },
       point: '教皇「弃东投西」：一个以罗马为中心、不再听命于君士坦丁堡的西欧天主教世界，从此诞生。',
+      truth: '后来：丕平献上的这片领土几经变迁，一直存续到 19 世纪——1870 年意大利军队开进罗马，教皇国才真正终结，只留下梵蒂冈这一小块。',
       delta: { church: 6, state: 0, local: 0 },
       source: [
         'The danger to the pope came from the Lombards, who were a second wave of German invaders in the eighth century. They were poised to make a complete takeover of Italy, including Rome and the lands around it. This represented a great threat to the pope.',
@@ -102,6 +103,7 @@ const GAME_DATA = {
       quote: { en: 'Popes emphasised that it was the pope who put the crown on Charlemagne\u2019s head… But after the pope put the crown on Charlemagne\u2019s head, he bowed to Charlemagne.',
                zh: '教皇们强调：是教皇把皇冠戴上了查理曼的头……但教皇加冕之后，向查理曼行了个礼。' },
       point: '加冕悖论：一场仪式，两种读法，谁也没说服谁——这正是此后千年拉锯的第一格。',
+      truth: '后来：查理曼死后不到三十年，帝国就一分为三；而「教皇加冕才算法统」这套规矩，西欧却沿用了整整一千年。',
       delta: { church: 3, state: 3, local: 0 },
       source: [
         'In the year 800 Charlemagne visited Rome and attended mass on Christmas Day in the cathedral. After the mass, and seemingly with no prior warning, the pope placed a crown on Charlemagne\u2019s head and declared him to be Roman emperor. He made his own emperor in order to have a power that would protect him.',
@@ -132,6 +134,7 @@ const GAME_DATA = {
       quote: { en: 'Having excommunicated a king, they told the people in his territories that they did not have to obey him.',
                zh: '绝罚一位国王之后，教皇便昭告其领地的臣民：你们可以不再服从他。' },
       point: '绝罚是一把软刀子：它不杀皇帝本人，杀的是「臣民必须服从他」这条纽带。',
+      truth: '后来：这场争斗拖了近半个世纪，1122 年才以《沃尔姆斯宗教协定》收场——皇帝提名人选，教皇授予权杖。谁也没赢，谁也没输。',
       delta: { church: 6, state: -6, local: 3 },
       source: [
         'The Catholic church was the great international institution of the Middle Ages, but it was always being undermined because kings and local powerbrokers wanted to control who became bishops in their own territory.',
@@ -161,6 +164,7 @@ const GAME_DATA = {
       quote: { en: 'It was very hard for a Christian pope to refuse to grant forgiveness.',
                zh: '一位基督徒教皇，很难拒绝宽恕一个前来忏悔的人。' },
       point: '卡诺莎：教皇赢了面子，皇帝保住了里子——面子与里子，正是这场千年双人舞的舞步。',
+      truth: '后来：亨利四世稳住王位立刻翻脸，带兵杀回意大利，另立了一位「对立教皇」；格里高利七世死在流亡途中，再没回过罗马。',
       delta: { church: 4, state: -4, local: 0 },
       source: [
         'Henry IV then crossed the Alps in winter and found the pope in a castle at Canossa in northern Italy. He waited outside for two or three days in the snow, begging the pope to see him. He had cast off all his royal regalia; he was dressed in humble clothes.',
@@ -191,6 +195,7 @@ const GAME_DATA = {
       quote: { en: '\u201cYes, I forgive you; I forgive you all the homicides you commit in the service of the church.\u201d — Cellini, Autobiography',
                zh: '「我赦免你；你为教会效命所杀的一切人，我都赦免。」——切利尼《自传》' },
       point: '所谓「上帝的事归上帝」，在中世纪首先是一桩世俗的权力事业。',
+      truth: '后来：切利尼效力的那位教皇，正是 1527 年「罗马之劫」里被困圣天使堡的克雷芒七世——皇帝的军队攻进罗马大掠八天，教皇的城墙到底没守住。',
       delta: { church: 0, state: 0, local: 0 },
       source: [
         'The pope as warrior is wonderfully described by the Renaissance artist Cellini in his autobiography. Like many Renaissance men, Cellini was multi-talented, not only a superb goldsmith but also good with weaponry. When an enemy was attacking Rome, he was on the battlements with the pope, giving instructions about the firing of the cannon.',
@@ -256,6 +261,7 @@ const GAME_DATA = {
       quote: { en: 'Charlemagne decided in the customary German way that after his death it should be subdivided among his sons… The grandsons fought among themselves, and Charlemagne\u2019s empire fell into three parts.',
                zh: '查理曼按日耳曼人的惯例决定：死后帝国由诸子分领……孙辈们彼此混战，查理曼的帝国一分为三。' },
       point: '帝国靠一个人，而不是一套制度——人亡，政息。',
+      truth: '后来：843 年《凡尔登条约》，三个孙子把帝国切成三块——西边长成法国，东边成了德国的雏形。这份分割线，一直画到今天的欧洲地图上。',
       delta: { church: 0, state: -6, local: 6 },
       source: [
         'Charlemagne faced huge handicaps. He had no bureaucracy; communications were poor; there was little trade; towns were tiny; there was a great amount of chaos. In all of this, his empire was most unlike the Roman. His mode of government was to appoint counts and dukes throughout his realm\u2026 There was no institutional base to this empire; its government depended on the personal power of its leader.',
@@ -286,6 +292,7 @@ const GAME_DATA = {
       quote: { en: 'Nearly all the Latin works that have survived were copied in Charlemagne\u2019s time. Without him the classical inheritance would have been very slim.',
                zh: '流传至今的拉丁著作，几乎全都抄成于查理曼的时代。没有他，古典遗产将所剩无几。' },
       point: '一位识字艰难的蛮族国王，成了古典文明的「人肉备份」——欧洲文明的存续点。',
+      truth: '后来：亚琛的宫殿今天只剩一座小教堂，而他命人抄写的抄本，几乎就是拉丁古典著作存世版本的全部。石头会塌，抄本传了千年。',
       delta: { church: 3, state: 3, local: 0 },
       source: [
         'Saint Augustine, who lived in the last days of the Roman Empire in the west, wrote in his City of God: \u2018If there is no justice, what are kingdoms but great robberies?\u2019 Charlemagne knew of this work and understood this point; Saint Augustine was one of his favourite authors.',
@@ -313,6 +320,7 @@ const GAME_DATA = {
       quote: { en: 'In 962 a new, strong king, Otto the First, emerged… The pope crowned him as Roman emperor.',
                zh: '962 年，一位强有力的新国王奥托一世崛起……教皇为他加冕为罗马皇帝。' },
       point: '皇帝的名分来自教皇——从此教皇与皇帝，谁也离不开谁，谁也放不过谁。',
+      truth: '后来：德意志国王成了欧洲唯一靠选举产生的王位；七大选帝侯拿选票做买卖，皇帝为了当选，反而一次次把权力让出去。',
       delta: { church: 3, state: 6, local: 0 },
       source: [
         'With the disappearance of Charlemagne\u2019s empire, the pope had lost his strongman to protect him. For a while he made do with whatever local princes he could find and crowned them emperor. Then in 962 a new, strong king, Otto the First, emerged in the German part of Charlemagne\u2019s old empire. The pope crowned him as Roman emperor and thereafter whoever became the king of Germany was, after being crowned by the pope, also Roman emperor and later Holy Roman emperor.',
@@ -341,6 +349,7 @@ const GAME_DATA = {
       quote: { en: 'He waited outside for two or three days in the snow, begging the pope to see him.',
                zh: '他在雪地里等了两三天，恳求教皇见他一面。' },
       point: '卡诺莎的另一面：跪下的皇帝未必输——能屈能伸，也是一种统治的艺术。',
+      truth: '后来：跪下的亨利四世翻脸后攻入罗马，另立对立教皇，格里高利七世客死异乡。雪地里那三天的屈辱，一分钱也没白付。',
       delta: { church: 4, state: -4, local: 0 },
       source: [
         'In this case, German dukes and princes, who always wanted to escape from the emperor\u2019s control, were delighted to find that he was excommunicated and could be ignored.',
@@ -369,6 +378,7 @@ const GAME_DATA = {
       quote: { en: 'But Napoleon himself put the crown on his head. It was a replica of the crown the pope had placed on Charlemagne… What did not survive was the Holy Roman Empire.',
                zh: '但拿破仑自己把皇冠戴上了头。那是一顶复刻教皇为查理曼所戴之冠……没能幸存下来的，是神圣罗马帝国。' },
       point: '教会加持的皇权，终结于一个不信神的皇帝——历史的幽默，莫过于此。',
+      truth: '后来：仅仅两年后的 1806 年，拿破仑干脆解散了神圣罗马帝国——伏尔泰口中那块「既不神圣、也不罗马、更非帝国」的千年招牌，就此摘下。',
       delta: { church: -3, state: 6, local: 0 },
       source: [
         'The pope was present in Notre Dame cathedral when Napoleon was crowned as emperor. He anointed Napoleon and his empress, Josephine; he blessed the imperial regalia: orb, hand of justice, sword and sceptre. But Napoleon himself put the crown on his head. It was a replica of the crown the pope had placed on Charlemagne, a light, open crown, like the laurel wreath that Romans gave to their victors.',
@@ -419,6 +429,7 @@ const GAME_DATA = {
       quote: { en: 'His orders were immediately frustrated by Frederick the Elector of Saxony, who seized Luther and took him into hiding.',
                zh: '皇帝的诏令立刻被萨克森选帝侯腓特烈挫败——他「劫走」路德，把他藏了起来。' },
       point: '权力分散的德意志，意外成了新教生根的土壤——地方自治第一次改写了欧洲的信仰版图。',
+      truth: '后来：路德躲在你的城堡里把《圣经》译成德语，诸侯顺势接管教会与土地——德意志在信仰上先一步分裂了，而这场分裂再没能弥合。',
       delta: { church: -3, state: -3, local: 6 },
       source: [
         'Luther\u2019s Reformation took root and flourished in Germany because secular power was dispersed. It was the duty of the emperor to put down Luther\u2019s heresy and rather belatedly he attempted to do so. When Luther refused to recant, the emperor declared that he was a heretic, that no-one should support him and that he should be arrested.',
@@ -450,6 +461,7 @@ const GAME_DATA = {
       quote: { en: 'Often they played both sides, switching allegiance as was most advantageous.',
                zh: '他们常常两边下注，随时倒向最有利的一方。' },
       point: '教权皇权互斗的真正赢家，是「谁也管不了」的城邦——文艺复兴的财富与自由，都是权力真空地带结出的果实。',
+      truth: '后来：这些城邦在夹缝里富了三百年，用真金白银喂出了文艺复兴；直到 1494 年法国大军翻过阿尔卑斯山，意大利才从主角变成别人的战场。',
       delta: { church: 0, state: 0, local: 6 },
       source: [
         'The towns in northern Italy, which in the Middle Ages became the richest towns in Europe, did not like being subject to the emperor, whose realm extended this far south. Sometimes the towns allied themselves with the pope to fight off the emperor. Often they played both sides, switching allegiance as was most advantageous.',
