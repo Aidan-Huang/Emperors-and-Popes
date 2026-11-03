@@ -19,17 +19,22 @@
 
   /* ---------------- 数值调参（后台编辑器可改，存 localStorage） ---------------- */
   const TUNE_KEY = 'eap_tuning_v1';
-  const COEF_DEFAULT = { coop: 2.5, clash: 2.0, both: 1.0, decay: 0.88 };
+  const TUNE_VER = 2;
+  // coop 同涨合作 / clash 此消彼长对抗 / both 同跌裂痕 / drift 单边变动失衡 / decay 上一步留存率
+  const COEF_DEFAULT = { coop: 2.5, clash: 2.0, both: 1.0, drift: 0.6, decay: 0.55 };
   const REL_START = { cs: 18, cl: -4, sl: -6 };
 
   let tuning = loadTuning();
   function loadTuning() {
-    const def = { amp: 1, deltas: {}, coef: Object.assign({}, COEF_DEFAULT) };
+    const def = { v: TUNE_VER, amp: 1, deltas: {}, coef: Object.assign({}, COEF_DEFAULT) };
     try {
       const t = JSON.parse(localStorage.getItem(TUNE_KEY));
       if (!t || typeof t !== 'object') return def;
       const coef = Object.assign({}, COEF_DEFAULT, t.coef || {});
+      // v1 的「回落 0.88」会让关系严重滞后于本次抉择，升级到 v2 时强制换新默认值
+      if (t.v !== TUNE_VER) { coef.decay = COEF_DEFAULT.decay; coef.drift = COEF_DEFAULT.drift; }
       return {
+        v: TUNE_VER,
         amp: numOr(t.amp, 1, 0.2, 3),
         deltas: (t.deltas && typeof t.deltas === 'object') ? t.deltas : {},
         coef
@@ -63,17 +68,24 @@
       local: Math.round((b.local || 0) * a)
     };
   }
-  // 关系推导：同涨→合作，此消彼长→对抗，同跌→裂痕，然后整体向 0 回落
+  // 关系推导：只看「本次」三方数值怎么变，历史只保留一小部分（decay）
+  //   同涨 → 合作；同跌 → 裂痕；一涨一跌 → 对抗；只有一方动 → 失衡（轻微摩擦）
+  const EDGE_DEF = [['cs', 'church', 'state'], ['cl', 'church', 'local'], ['sl', 'state', 'local']];
   function nextRel(rel, d) {
     const c = tuning.coef, next = {}, delta = {};
-    [['cs', 'church', 'state'], ['cl', 'church', 'local'], ['sl', 'state', 'local']].forEach(p => {
+    EDGE_DEF.forEach(p => {
       const [k, a, b] = p;
       const x = d[a] || 0, y = d[b] || 0;
       let dd = 0;
       if (x > 0 && y > 0) dd = Math.min(x, y) * c.coop;
       else if (x < 0 && y < 0) dd = -((Math.abs(x) + Math.abs(y)) / 2) * c.both;
       else if (x !== 0 && y !== 0) dd = -(Math.abs(x) + Math.abs(y)) * c.clash;
-      delta[k] = Math.round(dd);
+      else if (x !== 0 || y !== 0) {
+        // 单边变动：一方变强/变弱而另一方没动，力量对比被打破，只造成轻微摩擦
+        dd = -Math.min(Math.abs(x || y), 8) * c.drift;
+      }
+      dd = Math.round(dd);
+      delta[k] = dd;
       next[k] = clampRel(rel[k] * c.decay + dd);
     });
     return { next, delta };
@@ -424,16 +436,19 @@
   function triCardHTML(vals, rel, delta) {
     let chips = '';
     if (delta) {
-      chips = EDGES.filter(e => Math.abs(delta[e[0]] || 0) >= 1)
-        .map(e => {
-          const d = delta[e[0]];
-          return `<span class="tri-d" style="color:${relColor(d)}">${e[3]} ${d > 0 ? '+' : ''}${d}</span>`;
-        }).join('');
+      const any = EDGES.some(e => Math.abs(delta[e[0]] || 0) >= 1);
+      chips = `<div class="tri-deltas"><span class="tri-d-lab">本次</span>` +
+        EDGES.map(e => {
+          const d = Math.round(delta[e[0]] || 0);
+          if (!any) return '';
+          return `<span class="tri-d${d === 0 ? ' zero' : ''}" style="${d === 0 ? '' : 'color:' + relColor(d)}">${e[3]} ${d === 0 ? '—' : (d > 0 ? '+' : '') + d}</span>`;
+        }).join('') + `</div>`;
+      if (!any) chips = `<div class="tri-deltas"><span class="tri-d-lab">本次</span><span class="tri-d zero">三方关系没有变化</span></div>`;
     }
     return `<div class="tri-card">
       <div class="tri-head">三 方 关 系<span class="tri-sub">边越粗越紧密，绿＝合作 · 红＝对抗</span></div>
       ${triSVG(vals, rel)}
-      ${chips ? `<div class="tri-deltas">${chips}</div>` : ''}
+      ${chips}
       <div class="tri-cap">${relVerdict(rel)}</div>
     </div>`;
   }
@@ -1056,12 +1071,13 @@
 
         <div class="ed-card">
           <div class="ed-card-h">② 关系换算（三角图三条边）</div>
-          <p class="ed-note">同涨 → 合作（取较小一方 × 合作系数）；此消彼长 → 对抗（两者绝对值之和 × 对抗系数）；同跌 → 裂痕。每步先按回落率向 0 衰减。</p>
+          <p class="ed-note">只看本次三方数值怎么变：<b>同涨 → 合作</b>（取较小一方 × 合作系数）；<b>一涨一跌 → 对抗</b>（两者绝对值之和 × 对抗系数）；<b>同跌 → 裂痕</b>；<b>只有一方动 → 失衡</b>（轻微摩擦，单边最多按 8 点算）。<b>留存率</b>决定上一步的关系还剩多少：越接近 0，三角图越只反映这一次抉择；越接近 1，历史包袱越重。</p>
           <div class="ed-coefs">
             <label>合作<input type="number" id="ed-coop" step="0.1" min="0" max="6" value="${tuning.coef.coop}"></label>
             <label>对抗<input type="number" id="ed-clash" step="0.1" min="0" max="6" value="${tuning.coef.clash}"></label>
             <label>同跌<input type="number" id="ed-both" step="0.1" min="0" max="6" value="${tuning.coef.both}"></label>
-            <label>回落<input type="number" id="ed-decay" step="0.02" min="0.5" max="1" value="${tuning.coef.decay}"></label>
+            <label>失衡<input type="number" id="ed-drift" step="0.1" min="0" max="3" value="${tuning.coef.drift}"></label>
+            <label>留存<input type="number" id="ed-decay" step="0.05" min="0" max="0.95" value="${tuning.coef.decay}"></label>
           </div>
         </div>
 
@@ -1117,18 +1133,18 @@
       amp.oninput();
     });
 
-    ['coop', 'clash', 'both', 'decay'].forEach(k => {
+    ['coop', 'clash', 'both', 'drift', 'decay'].forEach(k => {
       const inp = $('#ed-' + k);
       if (!inp) return;
       inp.oninput = () => {
-        tuning.coef[k] = numOr(inp.value, COEF_DEFAULT[k], 0, k === 'decay' ? 1 : 6);
+        tuning.coef[k] = numOr(inp.value, COEF_DEFAULT[k], 0, k === 'decay' ? 0.95 : 6);
         saveTuning();
       };
     });
 
     $('#ed-save').onclick = () => { renderHome(); show('home'); toast('调参已保存'); };
     $('#ed-reset').onclick = () => {
-      tuning = { amp: 1, deltas: {}, coef: Object.assign({}, COEF_DEFAULT) };
+      tuning = { v: TUNE_VER, amp: 1, deltas: {}, coef: Object.assign({}, COEF_DEFAULT) };
       saveTuning(); renderEditor(); toast('已恢复默认');
     };
     $('#ed-export').onclick = () => {
@@ -1153,6 +1169,7 @@
           tuning = {
             amp: numOr(t.amp, 1, 0.2, 3),
             deltas: (t.deltas && typeof t.deltas === 'object') ? t.deltas : {},
+            v: TUNE_VER,
             coef: Object.assign({}, COEF_DEFAULT, t.coef || {})
           };
           saveTuning(); closeOverlay(); renderEditor(); toast('已导入');
