@@ -209,13 +209,15 @@
   function renderHome() {
     const el = $('#screen-home');
     const canHistory = anyDone(), canGallery = anyDone();
+    const hiddenOpen = allMainDone() && !save.done.local;   // 双主线已通、隐藏线未走
     el.innerHTML = `
       <div class="cover">
         <div class="scales">⚖️</div>
         <h1>皇帝与教皇</h1>
         <h2>权力的双人舞</h2>
         <div class="sub-en">EMPERORS AND POPES</div>
-        <button class="btn" id="btn-start">进入剧场</button>
+        <button class="btn${hiddenOpen ? ' hidden-open' : ''}" id="btn-start">进入剧场${hiddenOpen ? '<span class="btn-badge" id="home-unlock">⚔ 隐藏线已解锁</span>' : ''}</button>
+        ${hiddenOpen ? '<div class="start-tip">地方线已开放 · 两大巨头都走完了，第三条路出现在选线页</div>' : ''}
         <button class="btn ghost small" id="btn-history" ${canHistory ? '' : 'disabled style="opacity:.45"'}>📜 史书模式${canHistory ? '' : '（通关任一路线解锁）'}</button>
         ${canGallery ? '<button class="btn ghost small" id="btn-gallery">🏛 文物图鉴</button>' : ''}
         <div class="source">改编自 John Hirst《The Shortest History of Europe》<br>第六章 · Emperors and Popes</div>
@@ -231,8 +233,7 @@
             ${medalSVG(56)}
             <div class="cm-txt"><b>全章通关</b><span>教皇 · 皇帝 · 地方三条线已全部走完</span></div>
             <span class="cm-go">查看 ›</span>
-          </button>` : (allMainDone() ? `
-          <button class="unlock-hint" id="home-unlock">⚔ 隐藏线已解锁 · 地方线</button>` : '')}
+          </button>` : ''}
         <div class="progress-line dim" style="margin-top:14px">📄 游戏中点右上角可随时查看该场景的书中原文<br>🔊 引文旁的喇叭键可播放对应的英文有声书选段</div>
         ${anyDone() ? '<button class="btn ghost small danger" id="btn-clear-data">🗑 清空通关记录</button>' : ''}
       </div>`;
@@ -241,8 +242,6 @@
     if (canGallery) $('#btn-gallery').onclick = () => { renderGallery(); show('gallery'); };
     const medal = $('#home-medal');
     if (medal) medal.onclick = () => { renderClear(); show('clear'); };
-    const unl = $('#home-unlock');
-    if (unl) unl.onclick = () => { renderLines(); show('lines'); };
     const clr = $('#btn-clear-data');
     if (clr) clr.onclick = () => {
       const n = ['pope', 'emperor', 'local'].filter(id => save.done[id]).length;
@@ -743,13 +742,10 @@
         </p>
       </div>
       <button class="btn" id="btn-other-line">${run.lineId === 'pope' ? '再走一条线：皇帝线 ♛' : '再走一条线：教皇线 ✝'}</button>
-      ${allMainDone() && !save.done.local ? '<button class="btn ghost" id="btn-local-line">⚔ 走隐藏线：地方线</button>' : ''}
       ${allDone() ? '<button class="btn ghost" id="btn-medal">🎖 全章通关奖章</button>' : ''}
       <button class="btn ghost" id="btn-hist">📜 史书模式：串起整章时间线</button>
       <button class="btn ghost small" id="btn-home2">回到首页</button>`;
     $('#btn-other-line').onclick = () => { renderLines(); show('lines'); };
-    const bl = $('#btn-local-line');
-    if (bl) bl.onclick = () => startRun('local');
     const bm = $('#btn-medal');
     if (bm) bm.onclick = () => { renderClear(); show('clear'); };
     $('#btn-hist').onclick = () => { renderHistory(); show('history'); };

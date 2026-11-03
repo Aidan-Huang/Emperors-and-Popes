@@ -86,6 +86,40 @@ body {
 .btn.small { padding: 10px 14px; font-size: 15px; }
 .btn.danger { color: #ef8d8d; border-color: rgba(239, 141, 141, .3); }
 
+/* ---------- 首页「进入剧场」：隐藏线解锁时的强调动效 ---------- */
+.btn.hidden-open {
+  position: relative; overflow: hidden;
+  background: linear-gradient(100deg, var(--gold), #ffe884 48%, var(--gold));
+  animation: startPulse 1.9s ease-in-out infinite;
+}
+.btn.hidden-open::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: -60%; width: 42%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .6), transparent);
+  animation: startShine 2.6s ease-in-out infinite; pointer-events: none;
+}
+@keyframes startPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 204, 0, .5), 0 0 10px rgba(255, 204, 0, .15); }
+  50%      { box-shadow: 0 0 0 9px rgba(255, 204, 0, 0), 0 0 22px rgba(255, 204, 0, .4); }
+}
+@keyframes startShine { 0% { left: -60%; } 55%, 100% { left: 135%; } }
+.btn-badge {
+  display: inline-block; vertical-align: middle; margin-left: 8px;
+  padding: 3px 9px; border-radius: 99px;
+  font-size: 12px; font-weight: 700; letter-spacing: .5px;
+  background: #1c1a05; color: var(--gold);
+  animation: badgeBlink 1.6s ease-in-out infinite;
+}
+@keyframes badgeBlink { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+.start-tip {
+  margin-top: 8px; text-align: center; font-size: 12.5px; line-height: 1.5;
+  color: var(--gold); animation: tipBreathe 1.9s ease-in-out infinite;
+}
+@keyframes tipBreathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .btn.hidden-open, .btn.hidden-open::after, .btn-badge, .start-tip { animation: none; }
+  .btn.hidden-open { box-shadow: 0 0 14px rgba(255, 204, 0, .35); }
+}
+
 /* ---------- 首页：通关奖章 / 隐藏线提示 / 清空 ---------- */
 .clear-medal {
   display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
@@ -100,12 +134,6 @@ body {
 .clear-medal .cm-txt span { font-size: 12.5px; color: var(--text-dim); }
 .clear-medal .cm-go { font-size: 13px; color: var(--gold); }
 .medal-svg { display: block; flex: 0 0 auto; }
-.unlock-hint {
-  display: block; width: 100%; margin-top: 14px; padding: 11px 14px;
-  background: transparent; border: 1px dashed var(--line);
-  border-radius: 12px; color: var(--gold); font-size: 14px; cursor: pointer;
-}
-.unlock-hint:active { transform: scale(.985); }
 
 /* ---------- 恭喜通关页 ---------- */
 .clear-hero { text-align: center; padding: 10px 0 4px; }
