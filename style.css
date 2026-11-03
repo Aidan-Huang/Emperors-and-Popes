@@ -563,13 +563,15 @@ input.ed-num, .ed-start-num {
 .ord-btn.up { border-bottom: 1px solid var(--line); }
 .ord-btn:active { background: rgba(255,255,255,.07); color: var(--gold); }
 .ord-row.dragging {
-  border-color: var(--gold); opacity: .96;
-  background: #2c3a63;
-  transform: scale(1.025);
-  box-shadow: 0 14px 30px rgba(0,0,0,.5), 0 0 0 1px rgba(255,204,0,.35);
+  border-color: var(--gold); opacity: 1;
+  background: #33426e;
+  transform: scale(1.06);
+  box-shadow: 0 20px 46px rgba(0,0,0,.6), 0 0 0 2px rgba(255,204,0,.55);
   position: relative; z-index: 3;
 }
-.ord-row.dragging .ord-handle { color: var(--gold); cursor: grabbing; }
+.ord-row.dragging .ord-handle { color: var(--gold); cursor: grabbing; font-size: 19px; }
+.ord-row.dragging .ord-num { color: var(--gold); font-weight: 800; background: rgba(255,204,0,.1); }
+.ord-row.dragging .ord-text { color: #fff; }
 @media (prefers-reduced-motion: reduce) {
   .ord-row { transition: border-color .2s, box-shadow .2s; }
   .ord-row.dragging { transform: none; }

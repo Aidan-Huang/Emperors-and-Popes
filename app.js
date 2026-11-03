@@ -413,9 +413,9 @@
   function tutorialHTML() {
     return `<div class="tut-tip" id="tut-tip">
       <div class="tut-h">先花 10 秒看这里</div>
-      <p>下面三根条，是<b>教权 · 皇权 · 地方</b>三方此刻的分量——<b>条越高，这一方越重</b>。</p>
-      <p>你的每个选择都会拨动它们。<b>不扣分、不判对错</b>，它只负责让你看见：这一步，把天平推向了谁。</p>
-      <button class="btn small" id="tut-ok">知道了，开始</button>
+      <p>你刚才的选择，已经拨动了下面这三根条——<b>教权 · 皇权 · 地方</b>，<b>条越高，这一方越重</b>。</p>
+      <p>以后每次选完都会这样变。<b>不扣分、不判对错</b>，它只负责让你看见：这一步，把天平推向了谁。</p>
+      <button class="btn small" id="tut-ok">知道了，继续</button>
     </div>`;
   }
   function bindTutorial(el) {
@@ -442,11 +442,8 @@
       ${node.img ? `<img class="scene-img" src="${node.img}" alt=""><div class="scene-img-cap">${esc(node.imgCaption || '')}</div>`
                  : `<div class="scene-deco">${node.decoIcon || '🏛'}</div>`}
       <div class="setup">${node.setup.map(p => `<p>${esc(p)}</p>`).join('')}</div>
-      ${(!tutSeen() && run.choices.length === 0) ? tutorialHTML() : ''}
-      ${leverHTML(run.factions, null, false)}
       <div class="opts">${opts}</div>`;
     $$('.opt', el).forEach(b => b.onclick = () => chooseOption(node, +b.dataset.i));
-    bindTutorial(el);
     const im = $('.scene-img', el);
     if (im) { // 图片加载失败兜底为装饰块
       im.onerror = () => {
@@ -461,8 +458,6 @@
   function chooseOption(node, optionIdx) {
     const opt = node.options[optionIdx];
     const sid = run.curId;
-    // 玩家没点「知道了」就直接做了选择，也算看过了——别让气泡下次又冒出来
-    if ($('#tut-tip', $('#screen-game'))) markTutSeen();
     // 记录前一状态（杠杆动画用：先渲染旧高度，再过渡到新高度）
     run.prevFactions = Object.assign({}, run.factions);
     run.choices.push({ sceneId: sid, optionIdx, isHistory: opt.isHistory });
@@ -496,6 +491,8 @@
         <div class="fb-verdict ${hit ? 'hit' : 'miss'}">${hit ? '✔ 历史正是这样走的' : '✘ 历史没有这样走'}</div>
         <p>${yourFb}</p>
       </div>
+      ${(!tutSeen() && run.choices.length === 1) ? tutorialHTML() : ''}
+      <div id="fb-impact-slot"></div>
       <div class="fb-layer fb-real">
         <span class="fb-tag">历史真实</span>
         <p>${esc(node.historyText)}</p>
@@ -509,15 +506,18 @@
         <p>${esc(node.point)}</p>
       </div>
       ${node.truth ? `<div class="truth-line"><span class="tl-tag">真实历史 · 后来</span><p>${esc(node.truth)}</p></div>` : ''}
-      <div id="fb-impact-slot"></div>
       <button class="btn" id="btn-next">${isLastNode() ? '继续' : '下一个抉择 →'}</button>`;
-    // 影响块延后半拍淡入：先让人把故事读完，再看数字（柱子的高度动画也从这一刻才走）
+    // 影响块紧跟判定出现，且延后半拍淡入：先看「选对没有」，再看天平怎么动
     toTop();
     revealImpact(el);
+    bindTutorial(el);
     $$('.quote-play', el).forEach(b => {
       b.onclick = e => { e.stopPropagation(); toggleQuoteAudio(b.dataset.src, b); };
     });
-    $('#btn-next').onclick = () => { stopAudio(); run.idx++; renderStep(); };
+    $('#btn-next').onclick = () => {
+      if ($('#tut-tip', el)) markTutSeen();
+      stopAudio(); run.idx++; renderStep();
+    };
   }
 
   /** 影响块第二拍：先插入但不可见，过半秒再淡出并启动柱子动画 */
@@ -607,7 +607,7 @@
       rows.forEach(r => {
         const dy = before.get(r) - r.getBoundingClientRect().top;
         if (!dy) return;
-        const lifted = r.classList.contains('dragging') ? ' scale(1.025)' : '';
+        const lifted = r.classList.contains('dragging') ? ' scale(1.06)' : '';
         r.style.transition = 'none';
         r.style.transform = `translateY(${dy.toFixed(1)}px)${lifted}`;
         void r.offsetHeight;                       // 强制回流，让上面的位移立即生效
