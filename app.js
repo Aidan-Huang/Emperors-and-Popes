@@ -19,27 +19,31 @@
 
   /* ---------------- 数值调参（后台编辑器可改，存 localStorage） ---------------- */
   const TUNE_KEY = 'eap_tuning_v1';
-  const TUNE_VER = 2;
-  // coop 同涨合作 / clash 此消彼长对抗 / both 同跌裂痕 / drift 单边变动失衡 / decay 上一步留存率
-  const COEF_DEFAULT = { coop: 2.5, clash: 2.0, both: 1.0, drift: 0.6, decay: 0.55 };
-  const REL_START = { cs: 18, cl: -4, sl: -6 };
+  const TUNE_VER = 3;   // v3：取消关系/三角推导，新增每线开局值
 
   let tuning = loadTuning();
   function loadTuning() {
-    const def = { v: TUNE_VER, amp: 1, deltas: {}, coef: Object.assign({}, COEF_DEFAULT) };
+    const def = { v: TUNE_VER, amp: 1, deltas: {}, start: {} };
     try {
       const t = JSON.parse(localStorage.getItem(TUNE_KEY));
       if (!t || typeof t !== 'object') return def;
-      const coef = Object.assign({}, COEF_DEFAULT, t.coef || {});
-      // v1 的「回落 0.88」会让关系严重滞后于本次抉择，升级到 v2 时强制换新默认值
-      if (t.v !== TUNE_VER) { coef.decay = COEF_DEFAULT.decay; coef.drift = COEF_DEFAULT.drift; }
       return {
         v: TUNE_VER,
         amp: numOr(t.amp, 1, 0.2, 3),
         deltas: (t.deltas && typeof t.deltas === 'object') ? t.deltas : {},
-        coef
+        start: (t.start && typeof t.start === 'object') ? t.start : {}
       };
     } catch (e) { return def; }
+  }
+  /** 某条线的开局三方数值：编辑器改过就用改后的，否则用 data.js 里的史实开局 */
+  function lineStart(lineId) {
+    const base = (GAME_DATA.lines[lineId] || {}).start || { church: 50, state: 50, local: 50 };
+    const o = tuning.start[lineId] || {};
+    return {
+      church: numOr(o.church, base.church, 5, 95),
+      state: numOr(o.state, base.state, 5, 95),
+      local: numOr(o.local, base.local, 5, 95)
+    };
   }
   function saveTuning() {
     try { localStorage.setItem(TUNE_KEY, JSON.stringify(tuning)); } catch (e) {}
@@ -58,6 +62,12 @@
     const node = GAME_DATA.scenes[sceneId];
     return (node && node.delta) || { church: 0, state: 0, local: 0 };
   }
+  // 该选项的「这一步的影响」白话文案（写在 data.js 的 deltas 里，不参与数值计算）
+  function optionSay(sceneId, idx) {
+    const row = (GAME_DATA.deltas || {})[sceneId];
+    const o = row && row[idx];
+    return (o && o.say) || '';
+  }
   // 实际生效值 = 基础值 × 全局幅度
   function effDelta(sceneId, idx, amp) {
     const b = baseDelta(sceneId, idx);
@@ -68,29 +78,6 @@
       local: Math.round((b.local || 0) * a)
     };
   }
-  // 关系推导：只看「本次」三方数值怎么变，历史只保留一小部分（decay）
-  //   同涨 → 合作；同跌 → 裂痕；一涨一跌 → 对抗；只有一方动 → 失衡（轻微摩擦）
-  const EDGE_DEF = [['cs', 'church', 'state'], ['cl', 'church', 'local'], ['sl', 'state', 'local']];
-  function nextRel(rel, d) {
-    const c = tuning.coef, next = {}, delta = {};
-    EDGE_DEF.forEach(p => {
-      const [k, a, b] = p;
-      const x = d[a] || 0, y = d[b] || 0;
-      let dd = 0;
-      if (x > 0 && y > 0) dd = Math.min(x, y) * c.coop;
-      else if (x < 0 && y < 0) dd = -((Math.abs(x) + Math.abs(y)) / 2) * c.both;
-      else if (x !== 0 && y !== 0) dd = -(Math.abs(x) + Math.abs(y)) * c.clash;
-      else if (x !== 0 || y !== 0) {
-        // 单边变动：一方变强/变弱而另一方没动，力量对比被打破，只造成轻微摩擦
-        dd = -Math.min(Math.abs(x || y), 8) * c.drift;
-      }
-      dd = Math.round(dd);
-      delta[k] = dd;
-      next[k] = clampRel(rel[k] * c.decay + dd);
-    });
-    return { next, delta };
-  }
-  function clampRel(v) { return Math.max(-100, Math.min(100, Math.round(v))); }
   function copyObj(o) { return Object.assign({}, o); }
 
   const SAVE_KEY = 'eap_save_v1';
@@ -296,18 +283,16 @@
   /* ---------------- 开始一条线 ---------------- */
   function startRun(lineId) {
     const line = GAME_DATA.lines[lineId];
+    const st = lineStart(lineId);   // 每线按史实开局，不再三线共用 50/50/50
     run = {
       lineId, line,
       idx: 0,
-      factions: { church: 50, state: 50, local: 50 },
-      canon: { church: 50, state: 50, local: 50 },
-      snaps: [{ church: 50, state: 50, local: 50 }],
-      canonSnaps: [{ church: 50, state: 50, local: 50 }],
-      rel: copyObj(REL_START),
-      relSnaps: [copyObj(REL_START)],
+      factions: copyObj(st),
+      canon: copyObj(st),
+      snaps: [copyObj(st)],
+      canonSnaps: [copyObj(st)],
       choices: [],     // {sceneId, optionIdx, isHistory, delta}
       lastDelta: null,
-      prevRel: null,
       curAudio: null,
       curId: null
     };
@@ -332,14 +317,13 @@
     return flow.filter(id => GAME_DATA.scenes[id].type === 'scene').length;
   }
 
-  /* ---------------- 势力杠杆：方块高度＝权力值，支点滑到权力重心 ---------------- */
-  const LEVER_H = 104;                  // 100 点权力对应的方块高度（px）
+  /* ---------------- 势力杠杆：条越高，这一方的分量越重 ---------------- */
+  const LEVER_H = 104;                  // 100 点权力对应的条高（px）
+  const GRADES = [[85, '压倒'], [65, '强势'], [45, '均势'], [30, '式微'], [0, '崩塌']];
   function barH(v) { return Math.max(6, Math.round((v / 100) * LEVER_H) + 4); }
-  function fulcrumPct(vals) {
-    const sum = FKEYS.reduce((a, k) => a + vals[k], 0) || 1;
-    const xs = { church: 1 / 6, state: 3 / 6, local: 5 / 6 };
-    const w = FKEYS.reduce((a, k) => a + vals[k] * xs[k], 0) / sum;
-    return Math.max(6, Math.min(94, w * 100));
+  function gradeWord(v) {
+    for (let i = 0; i < GRADES.length; i++) if (v >= GRADES[i][0]) return GRADES[i][1];
+    return '崩塌';
   }
   function deltaChip(key) {
     if (!run.lastDelta) return '';
@@ -347,22 +331,57 @@
     if (!d) return '<span class="lv-d flat">±0</span>';
     return `<span class="lv-d ${d > 0 ? 'up' : 'down'}">${d > 0 ? '+' : ''}${d}</span>`;
   }
-  function leverHTML(vals, startVals, withDelta) {
+  /** 头两名差 ≤3 时，两条几乎一样高、肉眼分不出——这时才补一句「势均力敌」 */
+  function isTie(vals) {
+    const s = FKEYS.map(k => vals[k]).sort((a, b) => b - a);
+    return s[0] - s[1] <= 3;
+  }
+  /** 「这一步的影响」：三枚数值 chip，涨绿跌红，零为灰 */
+  function impactChips(d) {
+    return `<div class="lv-chips">${FACTIONS.map(f => {
+      const v = (d || {})[f.key] || 0;
+      const cls = v > 0 ? 'up' : v < 0 ? 'down' : 'flat';
+      const txt = v === 0 ? '±0' : (v > 0 ? '+' : '') + v;
+      return `<span class="lv-chip ${cls}"><i style="background:${f.color}"></i>${f.name}<b>${txt}</b></span>`;
+    }).join('')}</div>`;
+  }
+  /** 只有在明显此消彼长（一涨一跌且幅度够大）时，才多说一句关系走向 */
+  function relNote(d) {
+    if (!d) return '';
+    const pairs = [
+      ['church', 'state', '教皇', '皇帝', '两强此消彼长'],
+      ['church', 'local', '教皇', '地方', '教会与地方此消彼长'],
+      ['state', 'local', '皇帝', '地方', '皇权与地方此消彼长']
+    ];
+    let best = null, bestMag = 0;
+    pairs.forEach(p => {
+      const x = d[p[0]] || 0, y = d[p[1]] || 0;
+      if ((x > 0 && y < 0) || (x < 0 && y > 0)) {
+        const mag = Math.abs(x) + Math.abs(y);
+        if (mag > bestMag) { bestMag = mag; best = { p, x, y }; }
+      }
+    });
+    if (!best || bestMag < 12) return '';
+    return `<div class="lv-rel">${best.p[2]}${best.x > 0 ? '↑' : '↓'} · ${best.p[3]}${best.y > 0 ? '↑' : '↓'} —— ${best.p[4]}</div>`;
+  }
+  function leverHTML(vals, startVals, withDelta, delta, say) {
     const from = startVals || vals;
+    const top = Math.max.apply(null, FKEYS.map(k => vals[k]));
     const rows = FACTIONS.map(f => `
       <div class="lv-col">
+        <span class="lv-mark${vals[f.key] === top ? '' : ' off'}">▲</span>
         <div class="lv-val" style="color:${f.color}">${vals[f.key]}${withDelta ? deltaChip(f.key) : ''}</div>
         <div class="lv-bar" data-k="${f.key}" style="height:${barH(from[f.key])}px;background:${f.color}"></div>
         <div class="lv-name">${f.name}</div>
+        <div class="lv-grade">${gradeWord(vals[f.key])}</div>
       </div>`).join('');
     return `<div class="lever" data-lever="1">
-      <div class="lv-head">势 力 杠 杆<span class="lv-sub">方块越高越重，支点滑向权力重心</span></div>
+      <div class="lv-head">${withDelta ? '这 一 步 的 影 响' : '势 力 杠 杆'}<span class="lv-sub">${withDelta ? '数字＝这一方在本章的分量' : '条越高，这一方的分量越重'}</span></div>
+      ${withDelta ? impactChips(delta) : ''}
       <div class="lever-bars">${rows}</div>
-      <div class="lever-rail">
-        <div class="lv-line"></div>
-        <div class="lv-notch" style="left:50%"></div>
-        <div class="lv-fulcrum" style="left:${fulcrumPct(from).toFixed(1)}%"><span class="lv-ftag">重心</span></div>
-      </div>
+      ${isTie(vals) ? '<div class="lv-tie">头两名几乎持平 · 势均力敌</div>' : ''}
+      ${withDelta && say ? `<p class="lv-say">${esc(say)}</p>` : ''}
+      ${withDelta ? relNote(delta) : ''}
     </div>`;
   }
   function animateLever(root) {
@@ -370,80 +389,7 @@
     if (!box || !run || !run.prevFactions) return;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       $$('.lv-bar', box).forEach(b => { b.style.height = barH(run.factions[b.dataset.k]) + 'px'; });
-      const f = $('.lv-fulcrum', box);
-      if (f) f.style.left = fulcrumPct(run.factions).toFixed(1) + '%';
     }));
-  }
-
-  /* ---------------- 势力三角：顶点＝三方，边＝关系 ---------------- */
-  const TRI_POS = { church: [160, 70], state: [74, 182], local: [246, 182] };
-  const TRI_NAME = { church: '教权', state: '皇权', local: '地方' };
-  const EDGES = [['cs', 'church', 'state', '教↔皇'], ['cl', 'church', 'local', '教↔地'], ['sl', 'state', 'local', '皇↔地']];
-  function relColor(v) { return v >= 12 ? '#6fd08c' : v <= -12 ? '#ef7d7d' : '#6b7794'; }
-  function relWord(v) { return v >= 12 ? '合作' : v <= -12 ? '对抗' : '周旋'; }
-  function vertexR(v) { return 11 + v * 0.13; }
-  function triSVG(vals, rel) {
-    const W = 320, H = 232;
-    let out = `<svg viewBox="0 0 ${W} ${H}" class="tri-svg" xmlns="http://www.w3.org/2000/svg">`;
-    EDGES.forEach(e => {
-      const [ax, ay] = TRI_POS[e[1]], [bx, by] = TRI_POS[e[2]];
-      const v = rel[e[0]] || 0;
-      const wd = (2.2 + Math.min(100, Math.abs(v)) * 0.05).toFixed(1);
-      out += `<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="${relColor(v)}" stroke-width="${wd}" stroke-linecap="round" ${v <= -12 ? 'stroke-dasharray="7 5"' : ''} opacity="0.85"/>`;
-    });
-    EDGES.forEach(e => {
-      const [ax, ay] = TRI_POS[e[1]], [bx, by] = TRI_POS[e[2]];
-      const v = rel[e[0]] || 0;
-      const mx = (ax + bx) / 2, my = (ay + by) / 2;
-      out += `<g><rect x="${(mx - 17).toFixed(1)}" y="${(my - 8).toFixed(1)}" width="34" height="16" rx="4"
-        fill="#161d33" fill-opacity="0.92" stroke="${relColor(v)}" stroke-width="1"/>
-        <text x="${mx.toFixed(1)}" y="${my.toFixed(1)}" font-size="10.5" fill="${relColor(v)}"
-        text-anchor="middle" dominant-baseline="central">${v > 0 ? '+' : ''}${v}</text></g>`;
-    });
-    FKEYS.forEach(k => {
-      const [x, y] = TRI_POS[k];
-      const col = (FACTIONS.find(f => f.key === k) || {}).color || '#888';
-      out += `<circle cx="${x}" cy="${y}" r="${vertexR(vals[k]).toFixed(1)}" fill="${col}" opacity="0.92"/>`;
-    });
-    FKEYS.forEach(k => {
-      const [x, y] = TRI_POS[k];
-      const ly = k === 'church' ? y - 34 : y + 34;
-      out += `<text x="${x}" y="${ly}" font-size="11.5" fill="#c8d0e4" text-anchor="middle">${TRI_NAME[k]} ${vals[k]}</text>`;
-    });
-    out += '</svg>';
-    return out;
-  }
-  function relVerdict(rel) {
-    // 教皇与皇帝是本章主线，权重略高，优先作为判词主语
-    const dom = ['cs', 'cl', 'sl']
-      .sort((a, b) => Math.abs(rel[b] || 0) * (b === 'cs' ? 1.4 : 1) - Math.abs(rel[a] || 0) * (a === 'cs' ? 1.4 : 1))[0];
-    const v = rel[dom] || 0;
-    const lab = { cs: '教皇 ↔ 皇帝', cl: '教皇 ↔ 地方', sl: '皇帝 ↔ 地方' };
-    const tail = {
-      cs: v >= 12 ? '两强结盟，地方两头受压' : v <= -12 ? '两强翻脸，地方趁势而起' : '两强互不相让，格局未定',
-      cl: v >= 12 ? '教皇拉拢地方，皇帝被架空' : v <= -12 ? '教皇与地方撕破了脸' : '教皇与地方若即若离',
-      sl: v >= 12 ? '皇帝与地方联手' : v <= -12 ? '皇帝压不住地方' : '皇帝与地方相安'
-    }[dom];
-    return `${lab[dom]} ${relWord(v)}（${v > 0 ? '+' : ''}${v}）· ${tail}`;
-  }
-  function triCardHTML(vals, rel, delta) {
-    let chips = '';
-    if (delta) {
-      const any = EDGES.some(e => Math.abs(delta[e[0]] || 0) >= 1);
-      chips = `<div class="tri-deltas"><span class="tri-d-lab">本次</span>` +
-        EDGES.map(e => {
-          const d = Math.round(delta[e[0]] || 0);
-          if (!any) return '';
-          return `<span class="tri-d${d === 0 ? ' zero' : ''}" style="${d === 0 ? '' : 'color:' + relColor(d)}">${e[3]} ${d === 0 ? '—' : (d > 0 ? '+' : '') + d}</span>`;
-        }).join('') + `</div>`;
-      if (!any) chips = `<div class="tri-deltas"><span class="tri-d-lab">本次</span><span class="tri-d zero">三方关系没有变化</span></div>`;
-    }
-    return `<div class="tri-card">
-      <div class="tri-head">三 方 关 系<span class="tri-sub">边越粗越紧密，绿＝合作 · 红＝对抗</span></div>
-      ${triSVG(vals, rel)}
-      ${chips}
-      <div class="tri-cap">${relVerdict(rel)}</div>
-    </div>`;
   }
 
   function headHTML(node) {
@@ -463,8 +409,8 @@
       ${node.img ? `<img class="scene-img" src="${node.img}" alt=""><div class="scene-img-cap">${esc(node.imgCaption || '')}</div>`
                  : `<div class="scene-deco">${node.decoIcon || '🏛'}</div>`}
       <div class="setup">${node.setup.map(p => `<p>${esc(p)}</p>`).join('')}</div>
-      <div class="opts">${opts}</div>
-      ${leverHTML(run.factions, null, false)}`;
+      ${leverHTML(run.factions, null, false)}
+      <div class="opts">${opts}</div>`;
     $$('.opt', el).forEach(b => b.onclick = () => chooseOption(node, +b.dataset.i));
     const im = $('.scene-img', el);
     if (im) { // 图片加载失败兜底为装饰块
@@ -480,9 +426,8 @@
   function chooseOption(node, optionIdx) {
     const opt = node.options[optionIdx];
     const sid = run.curId;
-    // 记录前一状态（杠杆 / 三角动画都要用）
+    // 记录前一状态（杠杆动画用：先渲染旧高度，再过渡到新高度）
     run.prevFactions = Object.assign({}, run.factions);
-    run.prevRel = Object.assign({}, run.rel);
     run.choices.push({ sceneId: sid, optionIdx, isHistory: opt.isHistory });
     // 这一选的实际影响（基础值 × 全局幅度）
     const d = effDelta(sid, optionIdx);
@@ -493,19 +438,14 @@
       run.factions[f.key] = clampF(run.factions[f.key] + (d[f.key] || 0));
       run.canon[f.key] = clampF(run.canon[f.key] + (hd[f.key] || 0));
     });
-    // 关系随数值变化方向自动推导
-    const st = nextRel(run.rel, d);
-    run.rel = st.next;
-    run.lastRelDelta = st.delta;
     run.snaps.push(Object.assign({}, run.factions));
     run.canonSnaps.push(Object.assign({}, run.canon));
-    run.relSnaps.push(Object.assign({}, run.rel));
-    renderFeedback(node, opt);
+    renderFeedback(node, opt, optionIdx);
   }
 
   function clampF(v) { return Math.max(5, Math.min(95, v)); }
 
-  function renderFeedback(node, opt) {
+  function renderFeedback(node, opt, optionIdx) {
     const el = $('#screen-game');
     const hit = opt.isHistory;
     const yourFb = hit
@@ -531,10 +471,9 @@
         <span class="fb-tag">点睛一句</span>
         <p>${esc(node.point)}</p>
       </div>
-      ${leverHTML(run.factions, run.prevFactions, true)}
-      ${triCardHTML(run.factions, run.rel, run.lastRelDelta)}
+      ${leverHTML(run.factions, run.prevFactions, true, run.lastDelta, optionSay(run.curId, optionIdx))}
       <button class="btn" id="btn-next">${isLastNode() ? '继续' : '下一个抉择 →'}</button>`;
-    // 杠杆与三角的数值动画：先渲染前一状态，再切到新值，交给 CSS transition
+    // 杠杆动画：先渲染旧高度，再切到新值，交给 CSS transition
     animateLever(el);
     $$('.quote-play', el).forEach(b => {
       b.onclick = e => { e.stopPropagation(); toggleQuoteAudio(b.dataset.src, b); };
@@ -733,13 +672,7 @@
         </div>
         <div class="bal-title" style="margin-top:16px">权力份额 · 你与历史的差距</div>
         ${shareBarsHTML(run.factions, run.canon)}
-        <div class="bal-title" style="margin-top:16px">三方关系 · 终局</div>
-        ${triCardHTML(run.factions, run.rel)}
-        <p class="dim" style="margin-top:12px;font-size:13.5px">
-          ${run.lineId === 'local'
-            ? '两大巨头互斗千年、谁也没吃掉谁——而你扮演的地方势力，正在悄悄上扬。这正是本章的论点。'
-            : '教权与皇权互斗千年、互有胜负，谁也没吃掉谁；而地方势力，正在悄悄上扬——这正是本章的论点。'}
-        </p>
+        ${finalVerdictHTML()}
       </div>
       <button class="btn" id="btn-other-line">${run.lineId === 'pope' ? '再走一条线：皇帝线 ♛' : '再走一条线：教皇线 ✝'}</button>
       ${allDone() ? '<button class="btn ghost" id="btn-medal">🎖 全章通关奖章</button>' : ''}
@@ -849,6 +782,18 @@
       }</div></div>`;
     };
     return `<div class="shares">${row('你', you)}${row('本章真实', his)}</div>`;
+  }
+  /** 终局判读：直接用最终三方数值说话，避免写死的结论和数字对不上 */
+  function finalVerdictHTML() {
+    const sorted = FACTIONS.slice().sort((a, b) => run.factions[b.key] - run.factions[a.key]);
+    const hi = sorted[0], lo = sorted[sorted.length - 1];
+    const line = FACTIONS.map(f => `${f.name} <b style="color:${f.color}">${run.factions[f.key]}</b>`).join(' · ');
+    return `<div class="final-verdict">
+      <div class="bal-title" style="margin-top:16px">终局 · 谁最重</div>
+      <div class="fv-nums">${line}</div>
+      <p class="fv-say">最重的是<b>${hi.name}</b>（${gradeWord(run.factions[hi.key])}），最轻的是<b>${lo.name}</b>（${gradeWord(run.factions[lo.key])}）。</p>
+      <p class="dim fv-tail">教权与皇权互斗千年、谁也没能吃掉谁——这才是本章的论点：欧洲之所以是欧洲，正因为没有任何一方赢到最后。</p>
+    </div>`;
   }
   function chartHTML() {
     const W = 460, H = 214, padL = 32, padR = 40, padT = 24, padB = 30;
@@ -1079,15 +1024,19 @@
         </div>
 
         <div class="ed-card">
-          <div class="ed-card-h">② 关系换算（三角图三条边）</div>
-          <p class="ed-note">只看本次三方数值怎么变：<b>同涨 → 合作</b>（取较小一方 × 合作系数）；<b>一涨一跌 → 对抗</b>（两者绝对值之和 × 对抗系数）；<b>同跌 → 裂痕</b>；<b>只有一方动 → 失衡</b>（轻微摩擦，单边最多按 8 点算）。<b>留存率</b>决定上一步的关系还剩多少：越接近 0，三角图越只反映这一次抉择；越接近 1，历史包袱越重。</p>
-          <div class="ed-coefs">
-            <label>合作<input type="number" id="ed-coop" step="0.1" min="0" max="6" value="${tuning.coef.coop}"></label>
-            <label>对抗<input type="number" id="ed-clash" step="0.1" min="0" max="6" value="${tuning.coef.clash}"></label>
-            <label>同跌<input type="number" id="ed-both" step="0.1" min="0" max="6" value="${tuning.coef.both}"></label>
-            <label>失衡<input type="number" id="ed-drift" step="0.1" min="0" max="3" value="${tuning.coef.drift}"></label>
-            <label>留存<input type="number" id="ed-decay" step="0.05" min="0" max="0.95" value="${tuning.coef.decay}"></label>
+          <div class="ed-card-h">② 每条线的开局三方数值</div>
+          <p class="ed-note">每个时代的三方力量并不均等：751 年的教皇没有国土，814 年的查理曼如日中天。改这里，三条线各自的起点就会变——「本章真实」的基准线也同步变化。</p>
+          <div class="ed-start">
+            ${EDIT_LINES.map(id => {
+              const l = GAME_DATA.lines[id], st = lineStart(id);
+              return `<div class="ed-start-row">
+                <span class="ed-start-name" style="color:${l.color}">${l.icon} ${l.name}</span>
+                ${FKEYS.map(k => `<label>${({ church: '教', state: '皇', local: '地' })[k]}
+                  <input class="ed-start-num" type="number" step="1" min="5" max="95" data-line="${id}" data-k="${k}" value="${st[k]}"></label>`).join('')}
+              </div>`;
+            }).join('')}
           </div>
+          <p class="ed-note">${EDIT_LINES.map(id => `${GAME_DATA.lines[id].name}：${esc(GAME_DATA.lines[id].startNote || '')}`).join('<br>')}</p>
         </div>
 
         <div class="ed-card">
@@ -1142,18 +1091,19 @@
       amp.oninput();
     });
 
-    ['coop', 'clash', 'both', 'drift', 'decay'].forEach(k => {
-      const inp = $('#ed-' + k);
-      if (!inp) return;
+    $$('.ed-start-num', el).forEach(inp => {
       inp.oninput = () => {
-        tuning.coef[k] = numOr(inp.value, COEF_DEFAULT[k], 0, k === 'decay' ? 0.95 : 6);
+        const lid = inp.dataset.line;
+        const cur = Object.assign({}, lineStart(lid));
+        cur[inp.dataset.k] = numOr(inp.value, cur[inp.dataset.k], 5, 95);
+        tuning.start[lid] = cur;
         saveTuning();
       };
     });
 
     $('#ed-save').onclick = () => { renderHome(); show('home'); toast('调参已保存'); };
     $('#ed-reset').onclick = () => {
-      tuning = { v: TUNE_VER, amp: 1, deltas: {}, coef: Object.assign({}, COEF_DEFAULT) };
+      tuning = { v: TUNE_VER, amp: 1, deltas: {}, start: {} };
       saveTuning(); renderEditor(); toast('已恢复默认');
     };
     $('#ed-export').onclick = () => {
@@ -1168,7 +1118,7 @@
       openOverlay(`<div class="modal-card">
         <div class="modal-title">导入调参 JSON</div>
         <p class="modal-src">把之前导出的 JSON 贴进来，点「应用」。</p>
-        <textarea class="ed-json" id="ed-json-in" rows="12" placeholder='{"amp":1.2,"deltas":{},"coef":{}}'></textarea>
+        <textarea class="ed-json" id="ed-json-in" rows="12" placeholder='{"amp":1.2,"deltas":{},"start":{}}'></textarea>
         <div class="ed-row-btns"><button class="btn small" id="ed-apply">应用</button>
         <button class="btn ghost small" id="ov-close">取消</button></div></div>`);
       $('#ov-close').onclick = closeOverlay;
@@ -1178,8 +1128,8 @@
           tuning = {
             amp: numOr(t.amp, 1, 0.2, 3),
             deltas: (t.deltas && typeof t.deltas === 'object') ? t.deltas : {},
-            v: TUNE_VER,
-            coef: Object.assign({}, COEF_DEFAULT, t.coef || {})
+            start: (t.start && typeof t.start === 'object') ? t.start : {},
+            v: TUNE_VER
           };
           saveTuning(); closeOverlay(); renderEditor(); toast('已导入');
         } catch (e) { toast('JSON 解析失败'); }

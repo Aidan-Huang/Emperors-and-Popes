@@ -330,11 +330,13 @@ body {
 }
 .lv-head { font-size: 12px; letter-spacing: 2px; color: var(--text-dim); }
 .lv-sub { font-size: 11px; letter-spacing: 0; color: #5f6b8c; margin-left: 8px; }
-.lever-bars { display: flex; align-items: flex-end; gap: 10px; height: 132px; margin-top: 10px; }
+.lever-bars { display: flex; align-items: flex-end; gap: 10px; height: 190px; margin-top: 10px; }
 .lv-col {
   flex: 1; display: flex; flex-direction: column; align-items: center;
   justify-content: flex-end; height: 100%;
 }
+.lv-mark { font-size: 11px; line-height: 1; color: var(--gold); margin-bottom: 2px; }
+.lv-mark.off { visibility: hidden; }
 .lv-val { font-size: 14px; font-weight: 800; margin-bottom: 4px; white-space: nowrap; }
 .lv-d { font-size: 11.5px; font-weight: 700; margin-left: 4px; }
 .lv-d.up { color: var(--good); }
@@ -345,41 +347,26 @@ body {
   transition: height .75s cubic-bezier(.25,.8,.3,1);
 }
 .lv-name { font-size: 11.5px; color: var(--text-dim); margin-top: 5px; }
-.lever-rail { position: relative; height: 36px; }
-.lv-line { position: absolute; left: 0; right: 0; top: 0; height: 3px; border-radius: 2px; background: #3a4570; }
-.lv-notch { position: absolute; top: -3px; width: 1px; height: 9px; background: #5b688f; }
-.lv-fulcrum {
-  position: absolute; top: 1px; width: 0; height: 0;
-  transform: translateX(-50%);
-  border-left: 9px solid transparent; border-right: 9px solid transparent;
-  border-top: 15px solid var(--gold);
-  transition: left .75s cubic-bezier(.25,.8,.3,1);
-}
-.lv-ftag {
-  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
-  font-size: 11px; color: var(--gold); white-space: nowrap;
+.lv-grade { font-size: 11px; color: #6b7794; margin-top: 1px; }
+.lv-tie {
+  text-align: center; font-size: 12px; color: var(--state);
+  margin-top: 8px; letter-spacing: .5px;
 }
 
-/* ---------- 势力三角 ---------- */
-.tri-card {
-  margin-top: 16px; border-radius: var(--radius);
-  background: var(--panel); border: 1px solid var(--line);
-  padding: 12px 14px 10px;
+/* 这一步的影响：三枚数值 chip + 一句白话 + 关系走向 */
+.lv-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
+.lv-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12.5px; padding: 4px 10px; border-radius: 99px;
+  background: var(--bg2); border: 1px solid var(--line); color: var(--text);
 }
-.tri-head { font-size: 12px; letter-spacing: 2px; color: var(--text-dim); }
-.tri-sub { font-size: 11px; letter-spacing: 0; color: #5f6b8c; margin-left: 8px; }
-.tri-svg { width: 100%; max-width: 340px; height: auto; display: block; margin: 2px auto 0; }
-.tri-deltas {
-  display: flex; gap: 12px; justify-content: center; align-items: center;
-  font-size: 12px; font-weight: 700; margin-top: 2px; flex-wrap: wrap;
-}
-.tri-d-lab {
-  font-size: 10.5px; font-weight: 400; letter-spacing: 1px;
-  color: var(--text-dim); border: 1px solid var(--line);
-  border-radius: 4px; padding: 0 5px;
-}
-.tri-d.zero { color: #6b7794; font-weight: 400; }
-.tri-cap { text-align: center; font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+.lv-chip i { width: 7px; height: 7px; border-radius: 99px; }
+.lv-chip b { font-weight: 800; }
+.lv-chip.up b { color: var(--good); }
+.lv-chip.down b { color: #ef7d7d; }
+.lv-chip.flat b { color: #6b7794; }
+.lv-say { font-size: 14px; line-height: 1.7; color: var(--text); margin: 10px 0 0; }
+.lv-rel { font-size: 12.5px; color: #ef9f9f; margin-top: 6px; }
 
 /* ---------- 结算：份额带 / 偏差 ---------- */
 .shares { margin-top: 8px; }
@@ -407,6 +394,13 @@ body {
 .dev-chip s.up { color: var(--good); }
 .dev-chip s.down { color: #ef7d7d; }
 .dev-chip s.flat { color: var(--text-dim); }
+.final-verdict { margin-top: 4px; }
+.fv-nums { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13.5px; color: var(--text-dim); }
+.fv-nums b { font-size: 16px; font-weight: 800; }
+.fv-say { font-size: 14px; margin: 8px 0 0; }
+.fv-say b { color: var(--gold); }
+.fv-tail { font-size: 13px; line-height: 1.7; margin: 6px 0 0; }
+
 .chart-legend .lg-line { display: inline-flex; align-items: center; gap: 5px; }
 .chart-legend .lg-line b { width: 18px; height: 0; border-top: 2.5px solid #c8d0e4; }
 .chart-legend .lg-line b.dash { border-top-style: dashed; opacity: .55; }
@@ -430,17 +424,19 @@ body {
   cursor: pointer; background: var(--bg2); color: var(--text); border: 1px solid var(--line);
 }
 .ed-preset.on { background: var(--gold); color: #1a2238; border-color: var(--gold); font-weight: 800; }
-.ed-coefs { display: flex; gap: 12px; flex-wrap: wrap; }
-.ed-coefs label {
-  display: flex; flex-direction: column; gap: 4px;
+.ed-start { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.ed-start-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ed-start-name { font-size: 13px; font-weight: 800; flex: 1 1 92px; }
+.ed-start-row label {
+  display: flex; align-items: center; gap: 4px;
   font-size: 12px; color: var(--text-dim);
 }
-input.ed-num, .ed-coefs input {
+input.ed-num, .ed-start-num {
   font: inherit; font-size: 13px; background: var(--bg2); color: var(--text);
   border: 1px solid var(--line); border-radius: 7px; padding: 5px 4px;
   text-align: center; width: 100%;
 }
-.ed-coefs input { width: 76px; }
+.ed-start-num { width: 58px; }
 .ed-table { margin-top: 6px; }
 .ed-line { font-size: 13px; font-weight: 800; letter-spacing: 1px; margin: 14px 0 4px; }
 .ed-scene { border-top: 1px solid #2c3756; padding: 6px 0 4px; }
