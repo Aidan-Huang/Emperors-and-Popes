@@ -349,15 +349,6 @@
     const s = FKEYS.map(k => vals[k]).sort((a, b) => b - a);
     return s[0] - s[1] <= 3;
   }
-  /** 「这一步的影响」：三枚数值 chip，涨绿跌红，零为灰 */
-  function impactChips(d) {
-    return `<div class="lv-chips">${FACTIONS.map(f => {
-      const v = (d || {})[f.key] || 0;
-      const cls = v > 0 ? 'up' : v < 0 ? 'down' : 'flat';
-      const txt = v === 0 ? '±0' : (v > 0 ? '+' : '') + v;
-      return `<span class="lv-chip ${cls}"><i style="background:${f.color}"></i>${f.name}<b>${txt}</b></span>`;
-    }).join('')}</div>`;
-  }
   /** 只有在明显此消彼长（一涨一跌且幅度够大）时，才多说一句关系走向 */
   function relNote(d) {
     if (!d) return '';
@@ -386,11 +377,8 @@
         <div class="lv-val" style="color:${f.color}">${vals[f.key]}${withDelta ? deltaChip(f.key) : ''}</div>
         <div class="lv-bar" data-k="${f.key}" style="height:${barH(from[f.key])}px;background:${f.color}"></div>
         <div class="lv-name">${f.name}</div>
-        <div class="lv-grade">${gradeWord(vals[f.key])}</div>
       </div>`).join('');
     return `<div class="lever" data-lever="1">
-      <div class="lv-head">${withDelta ? '这 一 步 的 影 响' : '势 力 杠 杆'}<span class="lv-sub">${withDelta ? '数字＝这一方在本章的分量' : '条越高，这一方的分量越重'}</span></div>
-      ${withDelta ? impactChips(delta) : ''}
       <div class="lever-bars">${rows}</div>
       ${isTie(vals) ? '<div class="lv-tie">头两名几乎持平 · 势均力敌</div>' : ''}
       ${withDelta && say ? `<p class="lv-say">${esc(say)}</p>` : ''}
@@ -520,7 +508,7 @@
     };
   }
 
-  /** 影响块第二拍：先插入但不可见，过半秒再淡出并启动柱子动画 */
+  /** 影响块第二拍：先让玩家读判定文字，过 1.5 秒再淡入，柱子从旧值慢慢滑到新值 */
   function revealImpact(root) {
     const slot = $('#fb-impact-slot', root);
     if (!slot) return;
@@ -530,7 +518,7 @@
     if (!box) return;
     box.classList.add('pending');
     const go = () => { box.classList.remove('pending'); animateLever(root); };
-    reduceMotion() ? go() : setTimeout(go, 560);
+    reduceMotion() ? go() : setTimeout(go, 1500);
   }
 
   function isLastNode() {
