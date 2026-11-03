@@ -218,7 +218,6 @@
         <button class="btn" id="btn-start">进入剧场</button>
         <button class="btn ghost small" id="btn-history" ${canHistory ? '' : 'disabled style="opacity:.45"'}>📜 史书模式${canHistory ? '' : '（通关任一路线解锁）'}</button>
         ${canGallery ? '<button class="btn ghost small" id="btn-gallery">🏛 文物图鉴</button>' : ''}
-        <button class="btn ghost small" id="btn-sister">⏳ 姊妹作：Timeline · 年表排序</button>
         <div class="source">改编自 John Hirst《The Shortest History of Europe》<br>第六章 · Emperors and Popes</div>
         <div class="cover-tips card">
           <b>这不是历史考试，是一场亲历。</b><br>
@@ -240,7 +239,6 @@
     $('#btn-start').onclick = () => { renderLines(); show('lines'); };
     if (canHistory) $('#btn-history').onclick = () => { renderHistory(); show('history'); };
     if (canGallery) $('#btn-gallery').onclick = () => { renderGallery(); show('gallery'); };
-    $('#btn-sister').onclick = () => { stopAudio(); location.href = 'timeline/'; };
     const medal = $('#home-medal');
     if (medal) medal.onclick = () => { renderClear(); show('clear'); };
     const unl = $('#home-unlock');
@@ -274,14 +272,10 @@
     const el = $('#screen-lines');
     let html = `<div class="section-h">CHAPTER 6 · EMPERORS AND POPES</div>
       <p class="dim" style="margin-top:6px">选择你要扮演的角色。同一段千年拉锯，两个视角各是一面。</p>`;
-    let hiddenTip = '';
     ['pope', 'emperor', 'local'].forEach(id => {
       const l = GAME_DATA.lines[id];
       // 隐藏线：教皇线与皇帝线都通关前，完全不出现
-      if (id === 'local' && !allMainDone()) {
-        hiddenTip = '<p class="dim hidden-tip">教皇与皇帝都走完之后，这里还会出现第三条路——真正的赢家，藏在两大巨头的夹缝里。</p>';
-        return;
-      }
+      if (id === 'local' && !allMainDone()) return;   // 隐藏线：双主线通关前不出现
       const fresh = id === 'local' && allMainDone() && !save.done[id];
       const done = !!save.done[id];
       html += `
@@ -294,7 +288,7 @@
           </div>
         </button>`;
     });
-    el.innerHTML = html + hiddenTip;
+    el.innerHTML = html;
     $$('.line-btn', el).forEach(b => {
       b.onclick = () => startRun(b.dataset.line);
     });
@@ -752,7 +746,6 @@
       ${allMainDone() && !save.done.local ? '<button class="btn ghost" id="btn-local-line">⚔ 走隐藏线：地方线</button>' : ''}
       ${allDone() ? '<button class="btn ghost" id="btn-medal">🎖 全章通关奖章</button>' : ''}
       <button class="btn ghost" id="btn-hist">📜 史书模式：串起整章时间线</button>
-      <button class="btn ghost" id="btn-timeline">⏳ 姊妹作：把 41 张卡排进正确的年代</button>
       <button class="btn ghost small" id="btn-home2">回到首页</button>`;
     $('#btn-other-line').onclick = () => { renderLines(); show('lines'); };
     const bl = $('#btn-local-line');
@@ -760,7 +753,6 @@
     const bm = $('#btn-medal');
     if (bm) bm.onclick = () => { renderClear(); show('clear'); };
     $('#btn-hist').onclick = () => { renderHistory(); show('history'); };
-    $('#btn-timeline').onclick = () => { stopAudio(); location.href = 'timeline/'; };
     $('#btn-home2').onclick = () => { renderHome(); show('home'); };
     // 三条线全部走完的这一局：直接跳到恭喜通关页
     if (justCleared) { renderClear(true); return 'clear'; }
@@ -822,13 +814,12 @@
       ${isFresh ? '<button class="btn ghost" id="clr-ending">← 看看这一局的结算</button>' : ''}
       <button class="btn ghost" id="clr-hist">📜 史书模式：串起整章时间线</button>
       <button class="btn ghost" id="clr-lines">🔁 重玩任意一条线</button>
-      <button class="btn ghost" id="clr-timeline">⏳ 姊妹作：把 41 张卡排进正确的年代</button>`;
+`;
     $('#clr-home').onclick = () => { renderHome(); show('home'); };
     const ce = $('#clr-ending');
     if (ce) ce.onclick = () => show('ending');
     $('#clr-hist').onclick = () => { renderHistory(); show('history'); };
     $('#clr-lines').onclick = () => { renderLines(); show('lines'); };
-    $('#clr-timeline').onclick = () => { stopAudio(); location.href = 'timeline/'; };
     if (isFresh) {
       // 首次达成：奖章放大一下
       requestAnimationFrame(() => {
@@ -913,12 +904,31 @@
   }
 
   /* ---------------- 史书模式（竖版时间线复习） ---------------- */
+  /** 一个史书节点属于哪几条线（走完其中任意一条即点亮） */
+  function linesOfEvent(e) {
+    const hits = [];
+    Object.keys(GAME_DATA.lines).forEach(lid => {
+      const flow = GAME_DATA.lines[lid].flow || [];
+      if (flow.indexOf(e.id) >= 0 || (e.alsoId && flow.indexOf(e.alsoId) >= 0)) hits.push(lid);
+    });
+    if (!hits.length && e.id === 'end_hre') return ['emperor'];  // 收尾节点归入皇帝线
+    return hits;
+  }
+  function eventUnlocked(e) { return linesOfEvent(e).some(l => save.done[l]); }
+
   function renderHistory() {
-    const evs = GAME_DATA.historyMode.events.slice().sort((a, b) => a.year - b.year);
+    const all = GAME_DATA.historyMode.events.slice().sort((a, b) => a.year - b.year);
+    // 只显示已通关路线对应的节点
+    const evs = all.filter(eventUnlocked);
+    const locked = all.length - evs.length;
+    const doneLines = ['pope', 'emperor', 'local'].filter(l => save.done[l]);
     const el = $('#screen-history');
     el.innerHTML = `
       <h2 class="scene-title">${GAME_DATA.historyMode.title}</h2>
       <p class="dim">${GAME_DATA.historyMode.intro}</p>
+      <p class="dim" style="font-size:13px;margin-top:2px">
+        已点亮 ${evs.length} / ${all.length} 个节点（${doneLines.map(l => GAME_DATA.lines[l].name).join(' · ') || '尚未通关'}）${locked ? ' · 走完其余路线可点亮剩下 ' + locked + ' 个' : ''}
+      </p>
       <div class="lane-labels" style="flex-direction:row;gap:16px;flex-wrap:wrap">
         <div class="lane-row"><span class="lane-dot" style="background:#378ADD"></span>教权线</div>
         <div class="lane-row"><span class="lane-dot" style="background:#EF9F27"></span>皇权线</div>

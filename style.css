@@ -139,7 +139,6 @@ body {
 }
 .clear-total b { display: block; font-size: 26px; color: var(--gold); }
 .clear-total span { font-size: 12.5px; color: var(--text-dim); }
-.hidden-tip { font-size: 13px; margin-top: 16px; text-align: center; font-style: italic; }
 .hidden-tag { background: rgba(111, 208, 140, .16); color: var(--good); }
 .line-btn.fresh { border-color: rgba(111, 208, 140, .45); }
 
