@@ -298,8 +298,7 @@
   function doneBadge(id) {
     if (!lineDone(id)) return '';
     const l = GAME_DATA.lines[id];
-    const tag = (id === 'pope' && !save.done.pope) ? '（简易）' : '';
-    return `<span style="color:${l.color};margin-right:10px">${l.icon} ${l.name}${tag}</span>`;
+    return `<span style="color:${l.color};margin-right:10px">${l.icon} ${l.name}</span>`;
   }
 
   /* ---------------- 选线 ---------------- */
