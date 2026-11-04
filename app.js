@@ -234,7 +234,7 @@
         <div class="source">改编自 John Hirst《The Shortest History of Europe》<br>第六章 · Emperors and Popes</div>
         <div class="cover-tips card">
           <b>这不是历史考试，是一场亲历。</b><br>
-          你将扮演教皇或皇帝，面对历史上那些真正的抉择——凭直觉去选，不同的<b class="hl">抉择</b>恰恰是讲解的开始。
+          凭直觉去选，不同的抉择恰恰是讲解的开始。
         </div>
         ${anyDone() ? `<div class="progress-line">已完成：${doneBadge('pope')}${doneBadge('emperor')}${doneBadge('local')}</div>` : ''}
         ${allDone() ? `
@@ -245,8 +245,8 @@
           </button>` : ''}
         ${featuresOn() ? `<div class="progress-line dim" style="margin-top:14px">
           📄 游戏中点右上角可随时查看该场景的书中原文<br>
-          <button class="tip-sound" id="btn-sound" title="${save.sound ? '点击静音' : '点击恢复声音'}" aria-label="${save.sound ? '静音' : '取消静音'}">${save.sound ? '🔊' : '🔇'}</button>
-          ${save.sound ? '引文旁的喇叭键可播放对应的英文有声书选段' : '引文朗读已静音 · 再点一次恢复'}
+          <button class="tip-sound${save.sound ? '' : ' muted'}" id="btn-sound" title="${save.sound ? '点击静音' : '点击恢复声音'}" aria-label="${save.sound ? '静音' : '取消静音'}">🔊</button>
+          引文旁的喇叭键可播放英文有声书选段
         </div>` : ''}
         ${anyDone() ? '<button class="btn ghost small danger" id="btn-clear-data">🗑 清空通关记录</button>' : ''}
       </div>`;
@@ -273,7 +273,6 @@
       persist();
       stopAudio();
       renderHome();
-      toast(save.sound ? '声音已开启' : '已静音 · 引文朗读键已隐藏');
     };
     const clr = $('#btn-clear-data');
     if (clr) clr.onclick = () => {
@@ -471,9 +470,12 @@
     node.options.forEach((o, i) => {
       opts += `<button class="opt" data-i="${i}"><span class="olabel">${'ABC'[i] || String(i + 1)}</span>${esc(o.t)}</button>`;
     });
-    // 简易线：不配图、只留一两句情境，保证「剧情 + 选项」一屏之内
-    const body = (easy && node.setupShort) ? [node.setupShort] : node.setup;
-    const visual = easy ? ''
+    // 简易线：背景只留三句情境，配图统一用卡通图标（不用书中截图）
+    const body = (easy && node.setupShort)
+      ? (Array.isArray(node.setupShort) ? node.setupShort : [node.setupShort])
+      : node.setup;
+    const visual = easy
+      ? `<div class="scene-deco compact">${node.decoIcon || '🏛'}</div>`
       : (node.img ? `<img class="scene-img" src="${node.img}" alt=""><div class="scene-img-cap">${esc(node.imgCaption || '')}</div>`
                   : `<div class="scene-deco">${node.decoIcon || '🏛'}</div>`);
     el.innerHTML = `
@@ -521,17 +523,13 @@
   function renderFeedback(node, opt, optionIdx) {
     const el = $('#screen-game');
     const hit = opt.isHistory;
-    const yourFb = hit
-      ? `你与历史同频——${esc(opt.fb)}`
-      : esc(opt.fb);
-    // 简易线：只留判定 + 一句后果 + 历史真实（引文不翻译、无朗读键），其余全部不出现
+    // 简易线：只留判定 + 历史真实（引文不翻译、无朗读键），其余全部不出现
     if (run.easy) {
       el.innerHTML = `
         ${headHTML(node, true)}
         <h2 class="scene-title" id="scene-title">${esc(node.title)}</h2>
         <div class="fb-layer fb-your">
           <div class="fb-verdict ${hit ? 'hit' : 'miss'}">${hit ? '✔ 历史正是这样走的' : '✘ 历史没有这样走'}</div>
-          <p>${yourFb}</p>
         </div>
         <div class="fb-layer fb-real">
           <span class="fb-tag">历史真实</span>

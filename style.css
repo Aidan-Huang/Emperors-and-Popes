@@ -601,6 +601,10 @@ input.ed-num, .ed-start-num {
 .sh-where { opacity: .9; }
 .setup-easy p { font-size: 16px; line-height: 1.72; margin: 6px 0; }
 .setup-easy p:last-child { color: var(--text); }
+/* 简易线的卡通图标：比正常线矮一点，留出一屏空间 */
+.scene-deco.compact {
+  height: 104px; margin: 10px 0 2px; font-size: 46px;
+}
 /* 简易反馈页只有英文引文：给一点呼吸，不至于太小 */
 .quotebox.en-only .en { margin-top: 2px; font-size: 13.5px; line-height: 1.65; }
 /* 简易复盘的只读列表 */
@@ -614,9 +618,17 @@ input.ed-num, .ed-start-num {
   font: inherit; font-size: 13.5px; line-height: 1;
   background: none; border: 0; padding: 0 1px;
   color: inherit; cursor: pointer; vertical-align: -1px;
-  transition: transform .12s ease;
+  position: relative; display: inline-block;
+  transition: opacity .12s ease;
 }
-.tip-sound:active { transform: scale(.88); }
+/* 静音：保持原图标，只叠一道细红线（绝对定位，不产生任何位移） */
+.tip-sound.muted::after {
+  content: ""; position: absolute; left: -1px; right: -1px; top: 50%;
+  height: 1px; margin-top: -.5px;
+  background: #cf5b5b; transform: rotate(-38deg);
+  pointer-events: none;
+}
+.tip-sound:active { opacity: .7; }
 
 /* ---------- 结算：简易线只留一个成绩格 ---------- */
 .ending-stats.one .stat-box { flex: 1 1 100%; }
