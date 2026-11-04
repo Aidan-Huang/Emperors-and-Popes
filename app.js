@@ -818,7 +818,8 @@
       </div>
       <div class="puzzle-hint" id="puzzle-hint"></div>
       <button class="btn ghost" id="btn-check">✓ 检查顺序</button>
-      <button class="btn" id="btn-puzzle-done" style="display:none">复盘完成，查看结算 →</button>`;
+      <button class="btn" id="btn-puzzle-done" style="display:none">复盘完成，查看结算 →</button>
+      <button class="puzzle-skip" id="btn-skip-puzzle">跳过复盘</button>`;
 
     const list = $('#ord-list');
     const renumber = () => $$('.ord-row', list).forEach((r, i) => $('.ord-num', r).textContent = i + 1);
@@ -826,6 +827,9 @@
       $$('.ord-row', list).forEach(r => { r.classList.remove('ok', 'bad'); const h = $('.ord-hint', r); if (h) h.remove(); });
     };
     renumber();
+
+    // 每查一次只给一条线索；游标让连点时依次轮到不同格子，不会原地打转
+    let revealCursor = 0;
 
     /* 重排时用 FLIP：先量旧位置，改完 DOM 再让每行「滑」到新位置，而不是瞬间跳过去 */
     function flipMove(mutate) {
@@ -897,33 +901,33 @@
       window.addEventListener('pointercancel', endDrag);
     });
 
-    // 检查
+    // 检查：一次只给一条线索，不给总数、不铺满红框
     $('#btn-check').onclick = () => {
       const rows = $$('.ord-row', list);
-      let wrong = 0;
-      rows.forEach((row, pos) => {
-        const ok = +row.dataset.item === pos;
-        row.classList.toggle('ok', ok);
-        row.classList.toggle('bad', !ok);
-        if (!ok) {
-          wrong++;
-          const d = document.createElement('div');
-          d.className = 'ord-hint';
-          d.textContent = '💡 这一格对应的是：' + p.items[pos].hint;
-          row.appendChild(d);
-        }
-      });
+      const wrongPos = [];
+      rows.forEach((row, pos) => { if (+row.dataset.item !== pos) wrongPos.push(pos); });
       const hint = $('#puzzle-hint');
-      if (wrong === 0) {
+      if (wrongPos.length === 0) {
+        clearMarks();
         hint.textContent = '✔ 顺序和历史一致——这条千年因果线，你已经亲手走了一遍。';
         $('#btn-check').style.display = 'none';
         $('#btn-puzzle-done').style.display = 'block';
-      } else {
-        hint.textContent = `还有 ${wrong} 处顺序与历史不同——看看红框里的提示，调整后再查一次。`;
-        hint.classList.remove('shake'); void hint.offsetWidth; hint.classList.add('shake');
+        $('#btn-skip-puzzle').style.display = 'none';
+        return;
       }
+      const pos = wrongPos[revealCursor % wrongPos.length];
+      revealCursor++;
+      clearMarks();                              // 上一处的线索先收起，页面上始终只留一条
+      const row = rows[pos];
+      row.classList.add('bad');
+      const d = document.createElement('div');
+      d.className = 'ord-hint';
+      d.textContent = '💡 第 ' + (pos + 1) + ' 格对应的是：' + p.items[pos].hint;
+      row.appendChild(d);
+      hint.textContent = '照这条线索调一调，再查一次。';
     };
     $('#btn-puzzle-done').onclick = () => { show(renderEnding()); };
+    $('#btn-skip-puzzle').onclick = () => { show(renderEnding()); };
   }
 
   /* ---------------- 结算 ---------------- */
