@@ -234,7 +234,7 @@
         <div class="source">改编自 John Hirst《The Shortest History of Europe》<br>第六章 · Emperors and Popes</div>
         <div class="cover-tips card">
           <b>这不是历史考试，是一场亲历。</b><br>
-          凭直觉去选，不同的抉择恰恰是讲解的开始。
+          你将扮演教皇或皇帝，面对历史上那些真正的抉择——凭直觉去选，不同的抉择恰恰是讲解的开始。
         </div>
         ${anyDone() ? `<div class="progress-line">已完成：${doneBadge('pope')}${doneBadge('emperor')}${doneBadge('local')}</div>` : ''}
         ${allDone() ? `
@@ -246,7 +246,7 @@
         ${featuresOn() ? `<div class="progress-line dim" style="margin-top:14px">
           📄 游戏中点右上角可随时查看该场景的书中原文<br>
           <button class="tip-sound${save.sound ? '' : ' muted'}" id="btn-sound" title="${save.sound ? '点击静音' : '点击恢复声音'}" aria-label="${save.sound ? '静音' : '取消静音'}">🔊</button>
-          引文旁的喇叭键可播放英文有声书选段
+          引文旁的喇叭键可播放对应的英文有声书选段
         </div>` : ''}
         ${anyDone() ? '<button class="btn ghost small danger" id="btn-clear-data">🗑 清空通关记录</button>' : ''}
       </div>`;
@@ -530,6 +530,7 @@
         <h2 class="scene-title" id="scene-title">${esc(node.title)}</h2>
         <div class="fb-layer fb-your">
           <div class="fb-verdict ${hit ? 'hit' : 'miss'}">${hit ? '✔ 历史正是这样走的' : '✘ 历史没有这样走'}</div>
+          ${!hit ? `<p>${esc(opt.fb)}</p>` : ''}
         </div>
         <div class="fb-layer fb-real">
           <span class="fb-tag">历史真实</span>
@@ -546,6 +547,7 @@
       <h2 class="scene-title" id="scene-title">${esc(node.title)}</h2>
       <div class="fb-layer fb-your">
         <div class="fb-verdict ${hit ? 'hit' : 'miss'}">${hit ? '✔ 历史正是这样走的' : '✘ 历史没有这样走'}</div>
+        ${!hit ? `<p>${esc(opt.fb)}</p>` : ''}
       </div>
       ${(!tutSeen() && run.choices.length === 1) ? tutorialHTML() : ''}
       <div id="fb-impact-slot"></div>

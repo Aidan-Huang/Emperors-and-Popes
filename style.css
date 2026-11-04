@@ -625,7 +625,7 @@ input.ed-num, .ed-start-num {
 .tip-sound.muted::after {
   content: ""; position: absolute; left: -1px; right: -1px; top: 50%;
   height: 1px; margin-top: -.5px;
-  background: #cf5b5b; transform: rotate(-38deg);
+  background: #cf5b5b; transform: rotate(38deg);
   pointer-events: none;
 }
 .tip-sound:active { opacity: .7; }
