@@ -239,7 +239,7 @@
         ${anyDone() ? `<div class="progress-line">已完成：${doneBadge('pope')}${doneBadge('emperor')}${doneBadge('local')}</div>` : ''}
         ${allDone() ? `
           <button class="clear-medal${finalMedal() ? ' final' : ''}" id="home-medal">
-            ${medalSVG(56, finalMedal())}
+            <span class="medal-hit"${finalMedal() ? ' id="medal-secret"' : ''}>${medalSVG(56, finalMedal())}</span>
             <div class="cm-txt"><b>全章通关</b><span>教皇 · 皇帝 · 地方三条线已全部走完</span></div>
             <span class="cm-go">查看 ›</span>
           </button>` : ''}
@@ -254,17 +254,20 @@
     if (canHistory) $('#btn-history').onclick = () => { renderHistory(); show('history'); };
     if (canGallery) $('#btn-gallery').onclick = () => { renderGallery(); show('gallery'); };
     const medal = $('#home-medal');
-    if (medal) {
-      // 最终奖牌上连点三下 → 隐藏要素清单（单点仍是看恭喜页，稍等 0.4 秒以确认不是连击）
+    if (medal) medal.onclick = () => { renderClear(); show('clear'); };
+    // 隐藏入口只挂在奖章图标本身：图标连点三下开清单，单击图标不跳页，
+    // 因此三击过程里不会再被「跳去恭喜页」打断；卡片的其余部分单击即进恭喜页
+    const secret = $('#medal-secret');
+    if (secret) {
       let mt = 0, mtAt = 0, mtTimer = null;
-      medal.onclick = () => {
-        if (!finalMedal()) { renderClear(); show('clear'); return; }
+      secret.onclick = e => {
+        e.stopPropagation();
         const now = Date.now();
-        mt = (now - mtAt < 700) ? mt + 1 : 1;
+        mt = (now - mtAt < 900) ? mt + 1 : 1;
         mtAt = now;
         clearTimeout(mtTimer);
         if (mt >= 3) { mt = 0; openSecrets(); return; }
-        mtTimer = setTimeout(() => { renderClear(); show('clear'); }, 320);
+        mtTimer = setTimeout(() => { mt = 0; }, 900);
       };
     }
     const sb = $('#btn-sound');

@@ -140,6 +140,8 @@ body {
 .clear-medal .cm-txt span { font-size: 12.5px; color: var(--text-dim); }
 .clear-medal .cm-go { font-size: 13px; color: var(--gold); }
 .medal-svg { display: block; flex: 0 0 auto; }
+/* 奖章图标自带一块点击区（隐藏清单的三击入口），不参与卡片跳转 */
+.medal-hit { display: inline-flex; flex: 0 0 auto; }
 
 /* ---------- 恭喜通关页 ---------- */
 .clear-hero { text-align: center; padding: 10px 0 4px; }
