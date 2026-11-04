@@ -9,10 +9,12 @@ const GAME_DATA = {
   lines: {
     pope: {
       id: 'pope', name: '教皇线', icon: '✝', color: '#378ADD',
-      subtitle: '扮演教皇 · 5 个抉择 · 约 10 分钟',
+      subtitle: '扮演教皇 · 5 个抉择 · 约 5 分钟',
       desc: '从伦巴第人兵临城下，到卡诺莎城堡外的漫天大雪——你来决定教会的命运。',
       recommended: true,
       flow: ['p1', 'p2', 'i_byz', 'p3', 'p4', 'p5', 'i_boss'],
+      // 简易线：只走五个抉择，不带对照卡
+      flowEasy: ['p1', 'p2', 'p3', 'p4', 'p5'],
       flavorTitle: '圣彼得的继承人',
       // 751 年开局：教会无领地、无军队；西罗马已亡，东边皇帝鞭长莫及；伦巴第诸侯横行
       start: { church: 40, state: 30, local: 55 },
@@ -59,6 +61,7 @@ const GAME_DATA = {
         '你手里没有像样的军队，必须找一个大靠山。东边的罗马皇帝理论上仍是你的共主——但他此刻正被穆斯林的进攻缠得脱不开身。',
         '你把目光投向了……'
       ],
+      setupShort: '伦巴第人兵临罗马城下。你没有军队，必须找一个靠山。',
       options: [
         { t: '继续指望东罗马皇帝出兵', isHistory: false,
           fb: '远水救不了近火。东边的皇帝正被穆斯林入侵搞得焦头烂额，舰队和军队都派不出来。等待的结果很可能是：伦巴第人拿下罗马，你从此变成他们治下的一个主教——教会的独立，就此终结。' },
@@ -91,6 +94,7 @@ const GAME_DATA = {
         '你亲手制造了一个能保护你的皇帝。加冕完成了。',
         '现在的问题是：仪式的最后一拍——你向不向查理曼行礼？'
       ],
+      setupShort: '圣诞夜，你把皇冠戴在了查理曼头上。现在，要不要向他行礼？',
       options: [
         { t: '俯身向他行礼', isHistory: true,
           fb: '你俯身行礼。后世教皇们咬定：看，是教皇把皇冠戴上他的头——说明教权高于皇权。' },
@@ -122,6 +126,7 @@ const GAME_DATA = {
         '想想丰田公司：如果澳洲分公司的 CEO 由澳洲总理任命、厂长由市长任命，那东京总部就名存实亡。中世纪的教会正是如此，被国王和地方豪强蛀得千疮百孔。',
         '你宣布：今后主教只许由罗马任命。德意志皇帝亨利四世公开顶了回来：「主教的任命，朕来继续。」你怎么办？'
       ],
+      setupShort: '国王们自己任命主教，教会被一点点掏空。你宣布主教只由罗马任命——皇帝顶了回来。',
       options: [
         { t: '绝罚——把他开除出教籍', isHistory: true,
           fb: '绝罚的威力不在于诅咒，而在于政治宣言：教皇借此昭告皇帝的臣民——你们可以不再服从他。' },
@@ -154,6 +159,7 @@ const GAME_DATA = {
         '城堡里很暖和。你的顾问们意见不一：门外那个人，既是忤逆你的皇帝，又是一个求你宽恕的忏悔者。',
         '开不开门？'
       ],
+      setupShort: '被绝罚的亨利四世赤脚站在雪地里三天，只求你开门见他一面。',
       options: [
         { t: '开门赦免', isHistory: true,
           fb: '你最终还是开了门。亨利跪在你面前请求宽恕，你解除了绝罚——德国诸侯为此大为恼火。' },
@@ -185,6 +191,7 @@ const GAME_DATA = {
         '切利尼自己吓坏了——那人死前连准备都没来得及。他跪到你面前，请求赦罪。',
         '你怎么说？'
       ],
+      setupShort: '敌军正在攻城。你的炮手一炮把人拦腰打断，跪下来求你赦罪。',
       options: [
         { t: '「我赦免你；你为教会效命所杀的一切人，我都赦免。」', isHistory: true,
           fb: '你开怀大笑，说出了那句被切利尼郑重写进自传的话。教皇国里，教皇既是基督的代表，也是一位在城墙上督战的君主——这两个身份在教会鼎盛的年代毫不违和。' },
@@ -483,7 +490,19 @@ const GAME_DATA = {
         { label: '格里高利宣布：主教只许罗马任命', hint: '加冕的旧账未了，任免的新争又起。' },
         { label: '亨利四世雪地求恕 · 卡诺莎', hint: '绝罚亮出了獠牙，皇帝亮出了膝盖。' },
         { label: '妥协：皇帝提名，教皇授权', hint: '斗争拖了多年，最终各让一步。' }
-      ]
+      ],
+      // 简易线：不做排序，只按时间顺序回顾五步
+      easy: {
+        title: '旅程复盘 · 你走过的五步',
+        intro: '这一路的五件事，已经按时间排好了。看完就去看结算。',
+        items: [
+          '伦巴第人威胁罗马，教皇没有军队',
+          '教皇求援丕平，拿到罗马周边的领土',
+          '教皇为查理曼加冕——也埋下千年公案',
+          '格里高利七世宣布主教只由罗马任命，亨利四世被绝罚',
+          '卡诺莎的雪：皇帝赤足三日，教皇开了门'
+        ]
+      }
     },
     emperor: {
       title: '旅程复盘 · 帝国的千年之路',
@@ -653,6 +672,40 @@ const GAME_DATA = {
         say: '祝福拿到了，主教任免与教产却都归了罗马——你成了教皇的附庸。' },
       { church: -6, state: 8, local: -4,  // 投靠皇帝：你成了皇帝的附庸
         say: '远亲帮不上忙，近邻却记了仇：你成了皇帝的附庸。' }
+    ]
+  },
+
+  /* ============================================================
+     隐藏要素（只在彩蛋浮窗里出现，正常游玩看不到）
+     ============================================================ */
+  secrets: {
+    // 奖牌三击后的说明清单
+    list: [
+      { t: 'NORMAL · 普通教皇线', d: '通关简易教皇线后，选线页「教皇线」按钮的角落会浮出一个几乎融进背景的 NORMAL。点它，进入完整版教皇线（含两张对照卡）。' },
+      { t: '复盘三击', d: '「旅程复盘」的大标题上连点三下，直接跳过排序环节进入结算。' },
+      { t: '标题五击', d: '首页的「皇帝与教皇」标题（或天平）连点五下，打开后台数值编辑器；网址后加 ?edit=1 或按 Ctrl+Shift+E 也可以。' },
+      { t: '喇叭静音', d: '首页 🔊 按钮点一下即静音，此后所有引文旁的朗读键都会消失；再点一次恢复。' },
+      { t: '伏尔泰的吐槽', d: '皇帝线最后一幕（1804 · 拿破仑加冕）连点标题三下，能看到完整的英文原文。' },
+      { t: '书中金句', d: '恭喜通关页的论点引文连点三下，随机掉落一句书里的原文。' }
+    ],
+    voltaire: {
+      title: '伏尔泰的完整吐槽',
+      en: 'Voltaire, the guru of the Enlightenment, mocked the Holy Roman Empire as neither holy, nor Roman, nor an empire, which was true enough, but its survival was always somewhat magical, carrying a name and an idea in a very odd form. It took the head of a new empire to abolish this strange survival of an old one.',
+      zh: '启蒙运动的精神导师伏尔泰嘲讽神圣罗马帝国「既不神圣，也不罗马，更非帝国」——这话大体属实；可它偏偏活了下来，带着一个名字和一套观念，以极其古怪的形式延续着。最终，要由一个新帝国的首领，来废除这个旧帝国的奇怪遗存。'
+    },
+    quotes: [
+      { en: 'In the west the two authorities of church and state were separate and had independent authority.',
+        zh: '在西方，教会与国家这两种权威是分离的，各自拥有独立的权力。' },
+      { en: 'Their dispute was like conflict between bosses and workers… there will always be a settlement and that there will always be bosses and workers.',
+        zh: '他们的争斗像老板与工人的冲突……总会有和解，也总会有老板和工人。' },
+      { en: 'Nearly all the Latin works that have survived were copied in Charlemagne\u2019s time. Without him the classical inheritance would have been very slim.',
+        zh: '流传至今的拉丁著作，几乎全都抄成于查理曼的时代。没有他，古典遗产将所剩无几。' },
+      { en: 'There was no institutional base to this empire; its government depended on the personal power of its leader.',
+        zh: '这个帝国没有制度根基，它的统治依赖领袖个人的力量。' },
+      { en: 'Often they played both sides, switching allegiance as was most advantageous.',
+        zh: '他们常常两边下注，随时倒向最有利的一方。' },
+      { en: 'If there is no justice, what are kingdoms but great robberies?',
+        zh: '如果没有正义，王国算什么？不过是大型劫掠团伙。' }
     ]
   }
 };

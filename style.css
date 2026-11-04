@@ -200,6 +200,7 @@ body {
 
 /* ---------- 选线 ---------- */
 .line-btn {
+  position: relative;
   display: flex; align-items: center; gap: 14px;
   width: 100%; text-align: left;
   background: var(--panel); border: 1px solid var(--line);
@@ -223,6 +224,21 @@ body {
   margin-left: 6px; vertical-align: 2px;
 }
 .checkmark { font-size: 13px; color: var(--good); margin-left: 6px; }
+
+/* ---------- 隐藏入口：NORMAL（几乎融进底色，只有凑近才看得出） ---------- */
+.normal-badge {
+  position: absolute; top: 9px; right: 12px;
+  font-size: 10px; font-weight: 800; letter-spacing: 2.2px;
+  color: rgba(226, 234, 255, .13);
+  padding: 3px 6px; border-radius: 6px;
+  cursor: pointer; user-select: none; -webkit-user-select: none;
+  transition: color .3s ease, background .3s ease;
+}
+.normal-badge:hover, .normal-badge:active {
+  color: rgba(232, 240, 255, .55);
+  background: rgba(255, 255, 255, .04);
+}
+.line-btn.has-normal { padding-top: 18px; }
 
 /* ---------- 场景卡 ---------- */
 .scene-head { display: flex; justify-content: space-between; align-items: baseline;
@@ -621,6 +637,58 @@ input.ed-num, .ed-start-num {
 /* ---------- 首页进度 ---------- */
 .home-menu { margin-top: 8px; }
 .progress-line { font-size: 13.5px; color: var(--text-dim); margin-top: 10px; text-align: center; }
+
+/* ---------- 简易线：更紧凑的排版 ---------- */
+.sh-where { opacity: .9; }
+.setup-easy p { font-size: 16px; line-height: 1.72; margin: 6px 0; }
+.setup-easy p:last-child { color: var(--text); }
+/* 简易反馈页只有英文引文：给一点呼吸，不至于太小 */
+.quotebox.en-only .en { margin-top: 2px; font-size: 13.5px; line-height: 1.65; }
+/* 简易复盘的只读列表 */
+.ord-row.static { border-color: #2c3759; background: var(--panel); }
+.ord-row.static .ord-card { padding: 11px 12px 11px 10px; }
+.ord-row.static .ord-num { color: var(--gold); font-weight: 700; }
+
+/* ---------- 首页：原文/喇叭功能开关 ---------- */
+#btn-source.gone { display: none; }
+.src-tip {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 14px; text-align: left;
+  font-size: 13px; line-height: 1.6; color: var(--text-dim);
+}
+.sound-btn {
+  flex: 0 0 auto; width: 46px; height: 46px; border-radius: 13px;
+  background: var(--panel2); border: 1px solid var(--line);
+  color: var(--text); font-size: 19px; line-height: 1; cursor: pointer;
+  transition: background .2s ease, transform .12s ease;
+}
+.sound-btn:active { transform: scale(.94); background: #2f3d63; }
+
+/* ---------- 最终奖牌：多一圈极淡的光 ---------- */
+.medal-svg.glow .medal-halo { animation: haloBreathe 5.2s ease-in-out infinite; }
+@keyframes haloBreathe {
+  0%, 100% { opacity: .55; }
+  50%      { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .medal-svg.glow .medal-halo { animation: none; opacity: .85; }
+}
+
+/* ---------- 结算：简易线只留一个成绩格 ---------- */
+.ending-stats.one .stat-box { flex: 1 1 100%; }
+
+/* ---------- 隐藏要素清单 ---------- */
+.secret-list { margin: 8px 0 4px; display: flex; flex-direction: column; gap: 10px; }
+.secret-row { display: flex; gap: 10px; align-items: flex-start; text-align: left; }
+.secret-no {
+  flex: 0 0 22px; height: 22px; border-radius: 99px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: var(--gold);
+  background: rgba(255, 204, 0, .12); border: 1px solid rgba(255, 204, 0, .3);
+  margin-top: 2px;
+}
+.secret-row b { font-size: 14.5px; }
+.secret-row p { margin: 2px 0 0; font-size: 13px; line-height: 1.6; color: var(--text-dim); }
 
 hr.sep { border: none; border-top: 1px solid var(--line); margin: 18px 0 6px; }
 .section-h { font-size: 13px; letter-spacing: 2px; color: var(--text-dim); margin: 20px 0 0; }

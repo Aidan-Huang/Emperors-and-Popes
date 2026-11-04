@@ -111,6 +111,9 @@
     });
     const bar = $('#topbar');
     bar.classList.toggle('hidden', name === 'home' || name === 'editor');
+    // 简易教皇线通关前，右上角的「书中原文」按钮不出现
+    const src = $('#btn-source');
+    if (src) src.classList.toggle('gone', !featuresOn());
     $('#tb-title').textContent = ({
       lines: '选择你的路线', game: '', puzzle: '旅程复盘', ending: '结算', clear: '通关',
       history: GAME_DATA.historyMode.title, gallery: '文物图鉴', editor: '后台数值编辑器'
@@ -159,6 +162,7 @@
   $('#overlay-backdrop').addEventListener('click', closeOverlay);
 
   $('#btn-source').addEventListener('click', () => {
+    if (!featuresOn()) return;   // 功能未解锁（按钮此时也是隐藏的）
     // 只有正处于剧情场景（scene / 对照卡）时才显示该场景原文；其余页面一律给引导提示
     const active = screens.find(s => $('#screen-' + s).classList.contains('active'));
     const node = (run && run.curNode && active === 'game') ? run.curNode : null;
@@ -195,12 +199,21 @@
     }
     return a;
   }
-  function anyMainDone() { return !!(save.done.pope || save.done.emperor); }
-  function anyDone() { return !!(save.done.pope || save.done.emperor || save.done.local); }
-  /** 隐藏线（地方线）解锁条件：教皇线与皇帝线都通关 */
-  function allMainDone() { return !!(save.done.pope && save.done.emperor); }
-  /** 三条线全部通关 */
+  /* ---------------- 进度 ---------------- */
+  /** 简易教皇线是否通关（它同时也是「首页原文/喇叭」功能的解锁条件） */
+  function easyDone() { return !!save.done.pope_easy; }
+  /** 某条线是否走过（教皇线：简易线与普通线任一通关都算） */
+  function lineDone(id) { return !!(save.done[id] || (id === 'pope' && save.done.pope_easy)); }
+  /** 原文按钮 + 引文朗读：简易教皇线通关后才出现 */
+  function featuresOn() { return easyDone(); }
+  function anyMainDone() { return !!(lineDone('pope') || save.done.emperor); }
+  function anyDone() { return !!(lineDone('pope') || save.done.emperor || save.done.local); }
+  /** 隐藏线（地方线）解锁条件：教皇线（简易或普通）与皇帝线都通关 */
+  function allMainDone() { return !!(lineDone('pope') && save.done.emperor); }
+  /** 三条线（普通教皇 + 皇帝 + 地方）全部通关 */
   function allDone() { return !!(save.done.pope && save.done.emperor && save.done.local); }
+  /** 最终奖牌：全章通关之外，还要走完简易教皇线 */
+  function finalMedal() { return allDone() && easyDone(); }
   const MAIN_LINES = ['pope', 'emperor'];
 
   /* ---------------- 首页 ---------------- */
@@ -227,22 +240,48 @@
         </div>
         ${anyDone() ? `<div class="progress-line">已完成：${doneBadge('pope')}${doneBadge('emperor')}${doneBadge('local')}</div>` : ''}
         ${allDone() ? `
-          <button class="clear-medal" id="home-medal">
-            ${medalSVG(56)}
+          <button class="clear-medal${finalMedal() ? ' final' : ''}" id="home-medal">
+            ${medalSVG(56, finalMedal())}
             <div class="cm-txt"><b>全章通关</b><span>教皇 · 皇帝 · 地方三条线已全部走完</span></div>
             <span class="cm-go">查看 ›</span>
           </button>` : ''}
-        <div class="progress-line dim" style="margin-top:14px">📄 游戏中点右上角可随时查看该场景的书中原文<br>🔊 引文旁的喇叭键可播放对应的英文有声书选段</div>
+        ${featuresOn() ? `
+          <div class="cover-tips card src-tip">
+            <button class="sound-btn" id="btn-sound" aria-label="${save.sound ? '静音' : '取消静音'}">${save.sound ? '🔊' : '🔇'}</button>
+            <div>${save.sound
+              ? '游戏中点右上角 📄 可随时查看该场景的书中原文<br>引文旁的 🔊 可播放对应的英文有声书选段'
+              : '已静音：所有引文旁的朗读键都不再显示<br>再点一次左边的按钮即可恢复'}</div>
+          </div>` : ''}
         ${anyDone() ? '<button class="btn ghost small danger" id="btn-clear-data">🗑 清空通关记录</button>' : ''}
       </div>`;
     $('#btn-start').onclick = () => { renderLines(); show('lines'); };
     if (canHistory) $('#btn-history').onclick = () => { renderHistory(); show('history'); };
     if (canGallery) $('#btn-gallery').onclick = () => { renderGallery(); show('gallery'); };
     const medal = $('#home-medal');
-    if (medal) medal.onclick = () => { renderClear(); show('clear'); };
+    if (medal) {
+      // 最终奖牌上连点三下 → 隐藏要素清单（单点仍是看恭喜页，稍等 0.4 秒以确认不是连击）
+      let mt = 0, mtAt = 0, mtTimer = null;
+      medal.onclick = () => {
+        if (!finalMedal()) { renderClear(); show('clear'); return; }
+        const now = Date.now();
+        mt = (now - mtAt < 700) ? mt + 1 : 1;
+        mtAt = now;
+        clearTimeout(mtTimer);
+        if (mt >= 3) { mt = 0; openSecrets(); return; }
+        mtTimer = setTimeout(() => { renderClear(); show('clear'); }, 320);
+      };
+    }
+    const sb = $('#btn-sound');
+    if (sb) sb.onclick = () => {
+      save.sound = !save.sound;
+      persist();
+      stopAudio();
+      renderHome();
+      toast(save.sound ? '声音已开启' : '已静音 · 引文朗读键已隐藏');
+    };
     const clr = $('#btn-clear-data');
     if (clr) clr.onclick = () => {
-      const n = ['pope', 'emperor', 'local'].filter(id => save.done[id]).length;
+      const n = ['pope', 'emperor', 'local'].filter(lineDone).length;
       if (!confirm(`清空全部通关记录（${n} 条线的进度与最佳成绩）？\n\n后台数值调参不会被清除。此操作不可撤销。`)) return;
       save = { v: 1, done: {}, best: {}, sound: save.sound };
       persist();
@@ -259,9 +298,10 @@
     });
   }
   function doneBadge(id) {
-    if (!save.done[id]) return '';
+    if (!lineDone(id)) return '';
     const l = GAME_DATA.lines[id];
-    return `<span style="color:${l.color};margin-right:10px">${l.icon} ${l.name}</span>`;
+    const tag = (id === 'pope' && !save.done.pope) ? '（简易）' : '';
+    return `<span style="color:${l.color};margin-right:10px">${l.icon} ${l.name}${tag}</span>`;
   }
 
   /* ---------------- 选线 ---------------- */
@@ -274,29 +314,38 @@
       // 隐藏线：教皇线与皇帝线都通关前，完全不出现
       if (id === 'local' && !allMainDone()) return;   // 隐藏线：双主线通关前不出现
       const fresh = id === 'local' && allMainDone() && !save.done[id];
-      const done = !!save.done[id];
+      const done = lineDone(id);
+      const doneTxt = (id === 'pope' && !save.done.pope) ? '✓ 简易已通' : '✓ 已通关';
+      // 隐藏入口：简易教皇线通关后，按钮角落浮出一个几乎融进底色的 NORMAL
+      const normal = (id === 'pope' && easyDone())
+        ? `<span class="normal-badge" data-mode="normal" aria-label="进入普通教皇线">${save.done.pope ? '✓ NORMAL' : 'NORMAL'}</span>` : '';
       html += `
-        <button class="line-btn ${fresh ? 'fresh' : ''}" data-line="${id}">
+        <button class="line-btn ${fresh ? 'fresh' : ''}${normal ? ' has-normal' : ''}" data-line="${id}">
           <div class="ic" style="color:${l.color}">${l.icon}</div>
           <div style="flex:1">
-            <h3>${l.name}${l.recommended ? '<span class="tag">新手推荐</span>' : ''}${fresh ? '<span class="tag hidden-tag">🔓 隐藏线</span>' : ''}${done ? '<span class="checkmark">✓ 已通关</span>' : ''}</h3>
+            <h3>${l.name}${l.recommended ? '<span class="tag">新手推荐</span>' : ''}${fresh ? '<span class="tag hidden-tag">🔓 隐藏线</span>' : ''}${done ? `<span class="checkmark">${doneTxt}</span>` : ''}</h3>
             <div class="meta">${l.subtitle}</div>
             <p>${l.desc}</p>
-          </div>
+          </div>${normal}
         </button>`;
     });
     el.innerHTML = html;
     $$('.line-btn', el).forEach(b => {
-      b.onclick = () => startRun(b.dataset.line);
+      // 教皇线的主按钮＝简易版；完整版藏在角落的 NORMAL 里
+      b.onclick = () => startRun(b.dataset.line, b.dataset.line === 'pope' ? 'easy' : 'normal');
+      const nb = $('.normal-badge', b);
+      if (nb) nb.onclick = e => { e.stopPropagation(); startRun('pope', 'normal'); };
     });
   }
 
   /* ---------------- 开始一条线 ---------------- */
-  function startRun(lineId) {
+  function startRun(lineId, mode) {
     const line = GAME_DATA.lines[lineId];
+    const easy = lineId === 'pope' && mode !== 'normal';   // 简易线：只有教皇线有
     const st = lineStart(lineId);   // 每线按史实开局，不再三线共用 50/50/50
     run = {
-      lineId, line,
+      lineId, line, easy,
+      flow: (easy && line.flowEasy) ? line.flowEasy : line.flow,
       idx: 0,
       factions: copyObj(st),
       canon: copyObj(st),
@@ -308,13 +357,13 @@
       curAudio: null,
       curId: null
     };
-    renderStep();
     show('game');
+    renderStep();
   }
 
   /* ---------------- 游戏主屏 ---------------- */
   function renderStep() {
-    const flow = run.line.flow;
+    const flow = run.flow;
     if (run.idx >= flow.length) { finishLine(); return; }
     const node = GAME_DATA.scenes[flow[run.idx]];
     run.curNode = node;
@@ -324,7 +373,7 @@
     if (node.type === 'interlude') renderInterlude(node);
     else renderScene(node);
     toTop();
-    $('#tb-title').textContent = `${run.line.name} · ${Math.min(run.idx + 1, countScenes(flow))}/${countScenes(flow)}`;
+    $('#tb-title').textContent = `${run.line.name}${run.easy ? ' · 简易' : ''} · ${Math.min(run.idx + 1, countScenes(flow))}/${countScenes(flow)}`;
   }
   function countScenes(flow) {
     return flow.filter(id => GAME_DATA.scenes[id].type === 'scene').length;
@@ -393,8 +442,10 @@
     }));
   }
 
-  function headHTML(node) {
-    return `<div class="scene-head"><span>${esc(node.year)}</span><span>${run.line.name}</span></div>`;
+  function headHTML(node, easy) {
+    // 简易线：右半边改用地点，省掉一行 scene-where，一屏放得下
+    const right = easy ? (node.where || run.line.name) : run.line.name;
+    return `<div class="scene-head"><span>${esc(node.year)}</span><span class="sh-where">${esc(right)}</span></div>`;
   }
 
   /* ---------------- 首次进入的一次性教学气泡 ---------------- */
@@ -419,19 +470,25 @@
 
   function renderScene(node) {
     const el = $('#screen-game');
+    const easy = !!run.easy;
     let opts = '';
     node.options.forEach((o, i) => {
       opts += `<button class="opt" data-i="${i}"><span class="olabel">${'ABC'[i] || String(i + 1)}</span>${esc(o.t)}</button>`;
     });
+    // 简易线：不配图、只留一两句情境，保证「剧情 + 选项」一屏之内
+    const body = (easy && node.setupShort) ? [node.setupShort] : node.setup;
+    const visual = easy ? ''
+      : (node.img ? `<img class="scene-img" src="${node.img}" alt=""><div class="scene-img-cap">${esc(node.imgCaption || '')}</div>`
+                  : `<div class="scene-deco">${node.decoIcon || '🏛'}</div>`);
     el.innerHTML = `
-      ${headHTML(node)}
-      <h2 class="scene-title">${esc(node.title)}</h2>
-      <div class="scene-where">${esc(node.where)}</div>
-      ${node.img ? `<img class="scene-img" src="${node.img}" alt=""><div class="scene-img-cap">${esc(node.imgCaption || '')}</div>`
-                 : `<div class="scene-deco">${node.decoIcon || '🏛'}</div>`}
-      <div class="setup">${node.setup.map(p => `<p>${esc(p)}</p>`).join('')}</div>
+      ${headHTML(node, easy)}
+      <h2 class="scene-title" id="scene-title">${esc(node.title)}</h2>
+      ${easy ? '' : `<div class="scene-where">${esc(node.where)}</div>`}
+      ${visual}
+      <div class="setup${easy ? ' setup-easy' : ''}">${body.map(p => `<p>${esc(p)}</p>`).join('')}</div>
       <div class="opts">${opts}</div>`;
     $$('.opt', el).forEach(b => b.onclick = () => chooseOption(node, +b.dataset.i));
+    bindSecretTitle(node, el);
     const im = $('.scene-img', el);
     if (im) { // 图片加载失败兜底为装饰块
       im.onerror = () => {
@@ -471,9 +528,28 @@
     const yourFb = hit
       ? `你与历史同频——${esc(opt.fb)}`
       : esc(opt.fb);
+    // 简易线：只留判定 + 一句后果 + 历史真实（引文不翻译、无朗读键），其余全部不出现
+    if (run.easy) {
+      el.innerHTML = `
+        ${headHTML(node, true)}
+        <h2 class="scene-title" id="scene-title">${esc(node.title)}</h2>
+        <div class="fb-layer fb-your">
+          <div class="fb-verdict ${hit ? 'hit' : 'miss'}">${hit ? '✔ 历史正是这样走的' : '✘ 历史没有这样走'}</div>
+          <p>${yourFb}</p>
+        </div>
+        <div class="fb-layer fb-real">
+          <span class="fb-tag">历史真实</span>
+          <p>${esc(node.historyText)}</p>
+          <div class="quotebox en-only"><span class="en">${esc(node.quote.en)}</span></div>
+        </div>
+        <button class="btn" id="btn-next">${isLastNode() ? '继续' : '下一个抉择 →'}</button>`;
+      toTop();
+      $('#btn-next').onclick = () => { stopAudio(); run.idx++; renderStep(); };
+      return;
+    }
     el.innerHTML = `
       ${headHTML(node)}
-      <h2 class="scene-title">${esc(node.title)}</h2>
+      <h2 class="scene-title" id="scene-title">${esc(node.title)}</h2>
       <div class="fb-layer fb-your">
         <span class="fb-tag">你的选择</span>
         <div class="fb-verdict ${hit ? 'hit' : 'miss'}">${hit ? '✔ 历史正是这样走的' : '✘ 历史没有这样走'}</div>
@@ -486,7 +562,7 @@
         <p>${esc(node.historyText)}</p>
         <div class="quotebox">
           <div class="zh">${esc(node.quote.zh)}</div>
-          <span class="en">${esc(node.quote.en)}</span>${node.audio ? `<button class="quote-play" data-src="${node.audio}" title="听英文原声朗读">🔊</button>` : ''}
+          <span class="en">${esc(node.quote.en)}</span>${(node.audio && featuresOn() && save.sound) ? `<button class="quote-play" data-src="${node.audio}" title="听英文原声朗读">🔊</button>` : ''}
         </div>
       </div>
       <div class="fb-layer fb-point">
@@ -499,6 +575,7 @@
     toTop();
     revealImpact(el);
     bindTutorial(el);
+    bindSecretTitle(node, el);
     $$('.quote-play', el).forEach(b => {
       b.onclick = e => { e.stopPropagation(); toggleQuoteAudio(b.dataset.src, b); };
     });
@@ -522,8 +599,57 @@
   }
 
   function isLastNode() {
-    const flow = run.line.flow;
+    const flow = run.flow;
     return run.idx === flow.length - 1;
+  }
+
+  /* ---------------- 隐藏彩蛋：皇帝线末幕标题三击 ---------------- */
+  function bindSecretTitle(node, root) {
+    if (run.lineId !== 'emperor' || run.curId !== 'e5') return;
+    const t = $('#scene-title', root);
+    if (!t) return;
+    let n = 0, at = 0;
+    t.onclick = () => {
+      const now = Date.now();
+      n = (now - at < 700) ? n + 1 : 1;
+      at = now;
+      if (n >= 3) { n = 0; openVoltaire(); }
+    };
+  }
+  function openVoltaire() {
+    const v = GAME_DATA.secrets.voltaire;
+    openOverlay(`<div class="modal-card">
+      <div class="modal-title">🕯 ${esc(v.title)}</div>
+      <div class="modal-sub dim">Voltaire on the Holy Roman Empire</div>
+      <p class="modal-src" style="font-style:italic">${esc(v.en)}</p>
+      <p class="modal-src dim" style="font-size:13.5px">${esc(v.zh)}</p>
+      <button class="btn small" id="ov-close">合上</button></div>`);
+    $('#ov-close').onclick = closeOverlay;
+  }
+  /** 隐藏要素清单（最终奖牌三击） */
+  function openSecrets() {
+    const list = GAME_DATA.secrets.list;
+    openOverlay(`<div class="modal-card">
+      <div class="modal-title">🗝 隐藏要素</div>
+      <div class="modal-sub dim">这一页正常情况下看不到——你已经把三条线都走完了。</div>
+      <div class="secret-list">
+        ${list.map((s, i) => `<div class="secret-row"><span class="secret-no">${i + 1}</span>
+          <div><b>${esc(s.t)}</b><p>${esc(s.d)}</p></div></div>`).join('')}
+      </div>
+      <button class="btn small" id="ov-close">合上</button></div>`);
+    $('#ov-close').onclick = closeOverlay;
+  }
+  /** 恭喜页引文三击：随机一句书中原文 */
+  function openBookQuote() {
+    const qs = GAME_DATA.secrets.quotes;
+    const q = qs[Math.floor(Math.random() * qs.length)];
+    openOverlay(`<div class="modal-card">
+      <div class="modal-title">📖 书里的一句话</div>
+      <div class="modal-sub dim">The Shortest History of Europe · Chapter 6</div>
+      <p class="modal-src" style="font-style:italic">${esc(q.en)}</p>
+      <p class="modal-src dim" style="font-size:13.5px">${esc(q.zh)}</p>
+      <button class="btn small" id="ov-close">合上</button></div>`);
+    $('#ov-close').onclick = closeOverlay;
   }
 
   /* ---------------- 对照卡 ---------------- */
@@ -538,7 +664,7 @@
       <div class="interlude-body">${node.body.map(p => `<p>${esc(p)}</p>`).join('')}
         <div class="quotebox">
           <div class="zh">${esc(node.quote.zh)}</div>
-          <span class="en">${esc(node.quote.en)}</span>${node.audio ? `<button class="quote-play" data-src="${node.audio}" title="听英文原声朗读">🔊</button>` : ''}
+          <span class="en">${esc(node.quote.en)}</span>${(node.audio && featuresOn() && save.sound) ? `<button class="quote-play" data-src="${node.audio}" title="听英文原声朗读">🔊</button>` : ''}
         </div>
       </div>
       <button class="btn" id="btn-next">继续 →</button>`;
@@ -556,7 +682,41 @@
   }
 
   /* ---------------- 旅程复盘（单列表拖拽排序） ---------------- */
+  /** 简易线：顺序已经排好，不能改；一个按钮直接进结算 */
+  function renderPuzzleEasy() {
+    const p = GAME_DATA.puzzles.pope.easy;
+    const el = $('#screen-puzzle');
+    el.innerHTML = `
+      <h2 class="scene-title" id="puzzle-title">${esc(p.title)}</h2>
+      <p class="puzzle-intro">${esc(p.intro)}</p>
+      <div class="ord-list" id="ord-list">
+        ${p.items.map((it, i) => `
+          <div class="ord-row static">
+            <span class="ord-num">${i + 1}</span>
+            <div class="ord-card"><span class="ord-text">${esc(it)}</span></div>
+          </div>`).join('')}
+      </div>
+      <button class="btn" id="btn-puzzle-done">这段旅程我看完了 →</button>`;
+    bindPuzzleSkip($('#puzzle-title'));
+    $('#btn-puzzle-done').onclick = () => { show(renderEnding()); };
+  }
+  /** 复盘大标题连点三下 = 跳过复盘（自用加速，不提示、不影响成绩） */
+  function bindPuzzleSkip(title) {
+    if (!title) return;
+    let taps = 0, tapTimer = null;
+    title.onclick = () => {
+      taps++;
+      clearTimeout(tapTimer);
+      tapTimer = setTimeout(() => { taps = 0; }, 700);
+      if (taps >= 3) {
+        taps = 0; clearTimeout(tapTimer);
+        show(renderEnding());
+      }
+    };
+  }
+
   function renderPuzzle() {
+    if (run.easy) { renderPuzzleEasy(); return; }
     const p = GAME_DATA.puzzles[run.lineId];
     const el = $('#screen-puzzle');
     el.innerHTML = `
@@ -605,16 +765,7 @@
     }
 
     // 标题连点三下 = 跳过复盘（自用加速，不提示、不影响成绩）
-    let taps = 0, tapTimer = null;
-    $('#puzzle-title').onclick = () => {
-      taps++;
-      clearTimeout(tapTimer);
-      tapTimer = setTimeout(() => { taps = 0; }, 700);
-      if (taps >= 3) {
-        taps = 0; clearTimeout(tapTimer);
-        show(renderEnding());
-      }
-    };
+    bindPuzzleSkip($('#puzzle-title'));
 
     // ↑↓ 按钮
     $$('.ord-btn', el).forEach(b => b.onclick = () => {
@@ -697,38 +848,32 @@
 
   /* ---------------- 结算 ---------------- */
   function renderEnding() {
-    const line = run.line;
     const end = GAME_DATA.endings[run.lineId];
     const total = run.choices.length;
     const matches = run.choices.filter(c => c.isHistory).length;
     // 存档（先记录本局之前是否已全通关，用于判断是否是「最后一条线」）
     const wasAllDone = allDone();
-    save.done[run.lineId] = true;
-    save.best[run.lineId] = Math.max(save.best[run.lineId] || 0, matches);
+    if (run.easy) {
+      save.done.pope_easy = true;
+      save.best.pope_easy = Math.max(save.best.pope_easy || 0, matches);
+    } else {
+      save.done[run.lineId] = true;
+      save.best[run.lineId] = Math.max(save.best[run.lineId] || 0, matches);
+    }
     persist();
-    const justCleared = allDone() && !wasAllDone;
+    const justCleared = !run.easy && allDone() && !wasAllDone;
 
     const rank = GAME_DATA.ranks.find(r => matches >= r.min) || GAME_DATA.ranks[GAME_DATA.ranks.length - 1];
-    const el = $('#screen-ending');
-    el.innerHTML = `
-      <div class="ending-head">
-        <div class="big">${esc(end.headline)}</div>
-        <div class="rank-badge">${esc(rank.title)}</div>
-        <div class="rank-note">${esc(rank.note)}</div>
-      </div>
-      <div class="card">
-        <p>${esc(end.body)}</p>
-        <div class="quotebox">
-          <div class="zh">${esc(end.closingQuote.zh)}</div>
-          <span class="en">${esc(end.closingQuote.en)}</span>
-        </div>
-      </div>
-      <div class="ending-stats">
+    // 简易线：成绩只留「与历史同频」，不摆曲线与三方数值
+    const stats = run.easy
+      ? `<div class="ending-stats one"><div class="stat-box"><div class="v">${matches} / ${total}</div><div class="k">与历史同频</div></div></div>`
+      : `<div class="ending-stats">
         <div class="stat-box"><div class="v">${matches} / ${total}</div><div class="k">与历史同频</div></div>
         <div class="stat-box"><div class="v">${countInterludes(run.line)}</div><div class="k">对照卡收集</div></div>
         <div class="stat-box"><div class="v">${run.factions[mainKey()]}</div><div class="k">你这一方的权力</div></div>
         <div class="stat-box"><div class="v">${ratioStr(run.factions, run.canon)}</div><div class="k">与历史的偏离</div></div>
-      </div>
+      </div>`;
+    const chart = run.easy ? '' : `
       <div class="card chart-card">
         <div class="bal-title">势力曲线 · 实线＝你走过的路</div>
         <div class="chart-wrap" id="chart-wrap">${chartBoxHTML()}</div>
@@ -748,11 +893,33 @@
         <div class="bal-title" style="margin-top:16px">权力份额 · 你与历史的差距</div>
         ${shareBarsHTML(run.factions, run.canon)}
         ${finalVerdictHTML()}
+      </div>`;
+    const buttons = run.easy
+      ? `<button class="btn" id="btn-other-line">再走一条线 →</button>
+         <button class="btn ghost" id="btn-hist">📜 史书模式：串起整章时间线</button>
+         <button class="btn ghost small" id="btn-home2">回到首页</button>`
+      : `<button class="btn" id="btn-other-line">${run.lineId === 'pope' ? '再走一条线：皇帝线 ♛' : '再走一条线：教皇线 ✝'}</button>
+         ${allDone() ? '<button class="btn ghost" id="btn-medal">🎖 全章通关奖章</button>' : ''}
+         <button class="btn ghost" id="btn-hist">📜 史书模式：串起整章时间线</button>
+         <button class="btn ghost small" id="btn-home2">回到首页</button>`;
+
+    const el = $('#screen-ending');
+    el.innerHTML = `
+      <div class="ending-head">
+        <div class="big">${esc(end.headline)}</div>
+        <div class="rank-badge">${esc(rank.title)}</div>
+        <div class="rank-note">${esc(rank.note)}</div>
       </div>
-      <button class="btn" id="btn-other-line">${run.lineId === 'pope' ? '再走一条线：皇帝线 ♛' : '再走一条线：教皇线 ✝'}</button>
-      ${allDone() ? '<button class="btn ghost" id="btn-medal">🎖 全章通关奖章</button>' : ''}
-      <button class="btn ghost" id="btn-hist">📜 史书模式：串起整章时间线</button>
-      <button class="btn ghost small" id="btn-home2">回到首页</button>`;
+      <div class="card">
+        <p>${esc(end.body)}</p>
+        <div class="quotebox">
+          <div class="zh">${esc(end.closingQuote.zh)}</div>
+          <span class="en">${esc(end.closingQuote.en)}</span>
+        </div>
+      </div>
+      ${stats}
+      ${chart}
+      ${buttons}`;
     $('#btn-other-line').onclick = () => { renderLines(); show('lines'); };
     bindChart(el);
     const bm = $('#btn-medal');
@@ -765,12 +932,21 @@
   }
 
   /* ---------------- 恭喜通关页 ---------------- */
-  function medalSVG(size) {
-    const s = size || 96, r = s / 2;
-    return `<svg class="medal-svg" width="${s}" height="${s}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#ffe9a3"/><stop offset=".5" stop-color="#f5c542"/><stop offset="1" stop-color="#c98f16"/>
-      </linearGradient></defs>
+  function medalSVG(size, glow) {
+    const s = size || 96;
+    return `<svg class="medal-svg${glow ? ' glow' : ''}" width="${s}" height="${s}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="mg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffe9a3"/><stop offset=".5" stop-color="#f5c542"/><stop offset="1" stop-color="#c98f16"/>
+        </linearGradient>
+        ${glow ? `<radialGradient id="mglow">
+          <stop offset="0" stop-color="#ffe9a3" stop-opacity=".26"/>
+          <stop offset=".6" stop-color="#f5c542" stop-opacity=".1"/>
+          <stop offset="1" stop-color="#f5c542" stop-opacity="0"/>
+        </radialGradient>` : ''}
+      </defs>
+      ${glow ? `<circle class="medal-halo" cx="50" cy="52" r="49.5" fill="url(#mglow)"/>
+      <circle cx="50" cy="52" r="40.5" fill="none" stroke="#ffe9a3" stroke-width=".9" opacity=".26"/>` : ''}
       <circle cx="50" cy="52" r="34" fill="url(#mg)" stroke="#8a5f10" stroke-width="2"/>
       <circle cx="50" cy="52" r="27" fill="none" stroke="#8a5f10" stroke-width="1" opacity=".55"/>
       <path d="M50 30 L54 44 L68 44 L57 53 L61 67 L50 58 L39 67 L43 53 L32 44 L46 44 Z" fill="#8a5f10" opacity=".85"/>
@@ -786,7 +962,7 @@
       .reduce((a, id) => a + countScenes(GAME_DATA.lines[id].flow), 0);
     el.innerHTML = `
       <div class="clear-hero">
-        <div class="medal-wrap">${medalSVG(104)}</div>
+        <div class="medal-wrap">${medalSVG(104, finalMedal())}</div>
         <div class="clear-title">恭 喜 通 关</div>
         <div class="clear-sub">三条线，十二个抉择，一千年——你已亲手走完《皇帝与教皇》的全章。</div>
       </div>
@@ -808,7 +984,7 @@
           <span>你的选择与历史重合的次数 · 满分 ${sceneTotal}</span>
         </div>
         <div class="quotebox">
-          <div class="zh">教皇与皇帝互斗千年，谁也没能吃掉谁；而在两大巨头的夹缝里，地方势力悄悄长大了。</div>
+          <div class="zh" id="clear-quote">教皇与皇帝互斗千年，谁也没能吃掉谁；而在两大巨头的夹缝里，地方势力悄悄长大了。</div>
           <span class="en">Neither side ever won — and in the space between them, local power quietly grew.</span>
         </div>
         <p class="dim" style="margin-top:12px;font-size:13.5px">
@@ -825,6 +1001,17 @@
     if (ce) ce.onclick = () => show('ending');
     $('#clr-hist').onclick = () => { renderHistory(); show('history'); };
     $('#clr-lines').onclick = () => { renderLines(); show('lines'); };
+    // 隐藏彩蛋：论点引文连点三下，随机掉一句书中原文
+    const cq = $('#clear-quote');
+    if (cq) {
+      let n = 0, at = 0;
+      cq.onclick = () => {
+        const now = Date.now();
+        n = (now - at < 700) ? n + 1 : 1;
+        at = now;
+        if (n >= 3) { n = 0; openBookQuote(); }
+      };
+    }
     if (isFresh) {
       // 首次达成：奖章放大一下
       requestAnimationFrame(() => {
@@ -889,7 +1076,7 @@
   }
   function chartTipHTML(hi) {
     if (hi == null) return '👆 点曲线上的任意一步，看那一年你选了什么、天平怎么动的';
-    const sceneIds = run.line.flow.filter(id => GAME_DATA.scenes[id].type === 'scene');
+    const sceneIds = run.flow.filter(id => GAME_DATA.scenes[id].type === 'scene');
     if (hi === 0) {
       const st = run.snaps[0];
       return `<b>起点 · 这一局的初始天平</b>
@@ -921,7 +1108,7 @@
     const ys = v => padT + (hiV - v) / (hiV - lo) * (H - padT - padB);
     const path = (arr, key) => arr.map((p, i) => `${i ? 'L' : 'M'}${xs(i).toFixed(1)},${ys(p[key]).toFixed(1)}`).join(' ');
 
-    const sceneIds = run.line.flow.filter(id => GAME_DATA.scenes[id].type === 'scene');
+    const sceneIds = run.flow.filter(id => GAME_DATA.scenes[id].type === 'scene');
     const yearLabels = sceneIds.map(id => (GAME_DATA.scenes[id].year.match(/\d{3,4}/) || [''])[0]);
 
     let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">`;
@@ -980,14 +1167,14 @@
     if (!hits.length && e.id === 'end_hre') return ['emperor'];  // 收尾节点归入皇帝线
     return hits;
   }
-  function eventUnlocked(e) { return linesOfEvent(e).some(l => save.done[l]); }
+  function eventUnlocked(e) { return linesOfEvent(e).some(l => lineDone(l)); }
 
   function renderHistory() {
     const all = GAME_DATA.historyMode.events.slice().sort((a, b) => a.year - b.year);
     // 只显示已通关路线对应的节点
     const evs = all.filter(eventUnlocked);
     const locked = all.length - evs.length;
-    const doneLines = ['pope', 'emperor', 'local'].filter(l => save.done[l]);
+    const doneLines = ['pope', 'emperor', 'local'].filter(l => lineDone(l));
     // 隐藏线解锁前不透露任何地方线信息：图例只列已点亮节点涉及的车道，总数也不显示
     const showTotal = allMainDone();
     const lanesShown = ['church', 'state', 'local'].filter(l => evs.some(e => e.lane === l));
