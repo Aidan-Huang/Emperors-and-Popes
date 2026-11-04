@@ -871,14 +871,17 @@
         </div>
         ${finalVerdictHTML()}
       </div>`;
+    // 第三条线（地方线）已解锁时，不再给「再走一条线」——否则会被直接带到选线页，
+    // 把还没露面的隐藏线路提前摊开；此时只引导回首页，从首页的解锁提示进去
+    const suggOther = !allMainDone();
     const buttons = run.easy
-      ? `<button class="btn" id="btn-other-line">再走一条线 →</button>
+      ? `${suggOther ? '<button class="btn" id="btn-other-line">再走一条线 →</button>' : ''}
          <button class="btn ghost" id="btn-hist">📜 史书模式：串起整章时间线</button>
-         <button class="btn ghost small" id="btn-home2">回到首页</button>`
-      : `<button class="btn" id="btn-other-line">${run.lineId === 'pope' ? '再走一条线：皇帝线 ♛' : '再走一条线：教皇线 ✝'}</button>
+         <button class="${suggOther ? 'btn ghost small' : 'btn'}" id="btn-home2">${suggOther ? '回到首页' : '回到首页 →'}</button>`
+      : `${suggOther ? `<button class="btn" id="btn-other-line">${run.lineId === 'pope' ? '再走一条线：皇帝线 ♛' : '再走一条线：教皇线 ✝'}</button>` : ''}
          ${allDone() ? '<button class="btn ghost" id="btn-medal">🎖 全章通关奖章</button>' : ''}
          <button class="btn ghost" id="btn-hist">📜 史书模式：串起整章时间线</button>
-         <button class="btn ghost small" id="btn-home2">回到首页</button>`;
+         <button class="${suggOther ? 'btn ghost small' : 'btn'}" id="btn-home2">${suggOther ? '回到首页' : '回到首页 →'}</button>`;
 
     const el = $('#screen-ending');
     el.innerHTML = `
@@ -896,7 +899,8 @@
       ${stats}
       ${chart}
       ${buttons}`;
-    $('#btn-other-line').onclick = () => { renderLines(); show('lines'); };
+    const bo = $('#btn-other-line');
+    if (bo) bo.onclick = () => { renderLines(); show('lines'); };
     bindChart(el);
     const bm = $('#btn-medal');
     if (bm) bm.onclick = () => { renderClear(); show('clear'); };
