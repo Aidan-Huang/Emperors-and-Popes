@@ -598,6 +598,15 @@ input.ed-num, .ed-start-num {
 /* ---------- 首页进度 ---------- */
 .home-menu { margin-top: 8px; }
 .progress-line { font-size: 13.5px; color: var(--text-dim); margin-top: 10px; text-align: center; }
+/* 中途退出的检查点入口：一行小字，不抢主按钮 */
+.resume-line {
+  display: block; width: 100%; margin-top: 9px; padding: 2px 0;
+  background: none; border: 0; cursor: pointer;
+  font: inherit; font-size: 12.5px; color: var(--text-dim);
+  text-align: center; text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.resume-line:hover, .resume-line:focus-visible { color: var(--text); }
 
 /* ---------- 简易线：更紧凑的排版 ---------- */
 .sh-where { opacity: .9; }

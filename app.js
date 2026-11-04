@@ -81,6 +81,8 @@
   function copyObj(o) { return Object.assign({}, o); }
 
   const SAVE_KEY = 'eap_save_v1';
+  // 进行中一局的检查点：只在「进入某个抉择」时保存，中途退出后可回到该场重来
+  const RUN_KEY = 'eap_run_v1';
   // 首次进入的一次性教学气泡（独立于通关记录，清空进度也不会再弹第二次）
   const TUT_KEY = 'eap_tut_v1';
   function tutSeen() { try { return localStorage.getItem(TUT_KEY) === '1'; } catch (e) { return true; } }
@@ -100,11 +102,55 @@
     } catch (e) {}
     return { v: 1, done: {}, best: {}, sound: true };
   }
-  function persist() { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }
+  function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+
+  /* ---------------- 进行中一局的检查点 ----------------
+     只存可序列化的进度；curNode / curAudio 等由 flow[idx] 重建。
+     反馈页不落盘，因此恢复到的是「当前这一场」的开头，最多重做一题。 */
+  function saveRun() {
+    if (!run) return;
+    try {
+      localStorage.setItem(RUN_KEY, JSON.stringify({
+        v: 1, lineId: run.lineId, easy: run.easy, idx: run.idx,
+        factions: run.factions, canon: run.canon,
+        snaps: run.snaps, canonSnaps: run.canonSnaps,
+        choices: run.choices, hi: run.hi
+      }));
+    } catch (e) {}
+  }
+  function clearRun() { try { localStorage.removeItem(RUN_KEY); } catch (e) {} }
+  function readRun() {
+    try {
+      const r = JSON.parse(localStorage.getItem(RUN_KEY));
+      if (!r || r.v !== 1 || !GAME_DATA.lines[r.lineId] ||
+          !Array.isArray(r.choices) || !Array.isArray(r.snaps)) return null;
+      return r;
+    } catch (e) { return null; }
+  }
+  /** 从检查点回到游戏中；返回是否成功 */
+  function resumeRun() {
+    const r = readRun();
+    if (!r) return false;
+    const line = GAME_DATA.lines[r.lineId];
+    const flow = (r.easy && line.flowEasy) ? line.flowEasy : line.flow;
+    run = {
+      lineId: r.lineId, line, easy: !!r.easy, flow,
+      idx: Math.max(0, Math.min(r.idx, flow.length - 1)),
+      factions: r.factions, canon: r.canon,
+      snaps: r.snaps, canonSnaps: r.canonSnaps,
+      choices: r.choices, lastDelta: null, prevFactions: null,
+      hi: null, curAudio: null, curId: null
+    };
+    show('game');
+    renderStep();
+    return true;
+  }
 
   /* ---------------- 屏幕路由 ---------------- */
   const screens = ['home', 'lines', 'game', 'puzzle', 'ending', 'clear', 'history', 'gallery', 'editor'];
   function show(name) {
+    // 任何跨屏跳转都先收起浮窗，否则遮罩会盖在新页面上、body 滚动也一直被锁住
+    closeOverlay();
     screens.forEach(s => {
       const el = $('#screen-' + s);
       if (el) el.classList.toggle('active', s === name);
@@ -147,17 +193,25 @@
   }
 
   /* ---------------- 浮窗（书中原文 / 图片放大） ---------------- */
+  let overlayReturnFocus = null;
   function openOverlay(html, mode) {
     const ov = $('#overlay');
+    overlayReturnFocus = document.activeElement;
     ov.classList.remove('hidden');
     ov.classList.toggle('lightbox', mode === 'lightbox');
     $('#overlay-body').innerHTML = html;
     document.body.style.overflow = 'hidden';
+    const first = $('#overlay-body button');
+    if (first) first.focus();
   }
   function closeOverlay() {
-    $('#overlay').classList.add('hidden');
+    const ov = $('#overlay');
+    if (ov.classList.contains('hidden')) { document.body.style.overflow = ''; return; }
+    ov.classList.add('hidden');
     $('#overlay-body').innerHTML = '';
     document.body.style.overflow = '';
+    if (overlayReturnFocus && overlayReturnFocus.focus) overlayReturnFocus.focus();
+    overlayReturnFocus = null;
   }
   $('#overlay-backdrop').addEventListener('click', closeOverlay);
 
@@ -221,6 +275,13 @@
     const el = $('#screen-home');
     const canHistory = anyDone(), canGallery = anyDone();
     const hiddenOpen = allMainDone() && !save.done.local;   // 双主线已通、隐藏线未走
+    const rr = readRun();
+    const resume = rr ? (() => {
+      const ln = GAME_DATA.lines[rr.lineId];
+      const fl = (rr.easy && ln.flowEasy) ? ln.flowEasy : ln.flow;
+      const cur = Math.min(rr.choices.length + 1, countScenes(fl));
+      return `<button class="resume-line" id="btn-resume">↩ 继续上次 · ${esc(ln.name)} 第 ${cur} / ${countScenes(fl)} 场</button>`;
+    })() : '';
     el.innerHTML = `
       <div class="cover">
         <div class="scales">⚖️</div>
@@ -229,6 +290,7 @@
         <div class="sub-en">EMPERORS AND POPES</div>
         <button class="btn${hiddenOpen ? ' hidden-open' : ''}" id="btn-start">进入剧场${hiddenOpen ? '<span class="btn-badge" id="home-unlock">⚔ 隐藏线已解锁</span>' : ''}</button>
         ${hiddenOpen ? '<div class="start-tip">地方线已开放 · 两大巨头都走完了，第三条路出现在选线页</div>' : ''}
+        ${resume}
         <button class="btn ghost small" id="btn-history" ${canHistory ? '' : 'disabled style="opacity:.45"'}>📜 史书模式${canHistory ? '' : '（通关任一路线解锁）'}</button>
         ${canGallery ? '<button class="btn ghost small" id="btn-gallery">🏛 文物图鉴</button>' : ''}
         <div class="source">改编自 John Hirst《The Shortest History of Europe》<br>第六章 · Emperors and Popes</div>
@@ -251,6 +313,8 @@
         ${anyDone() ? '<button class="btn ghost small danger" id="btn-clear-data">🗑 清空通关记录</button>' : ''}
       </div>`;
     $('#btn-start').onclick = () => { renderLines(); show('lines'); };
+    const rb = $('#btn-resume');
+    if (rb) rb.onclick = () => { resumeRun(); };
     if (canHistory) $('#btn-history').onclick = () => { renderHistory(); show('history'); };
     if (canGallery) $('#btn-gallery').onclick = () => { renderGallery(); show('gallery'); };
     const medal = $('#home-medal');
@@ -283,6 +347,7 @@
       if (!confirm(`清空全部通关记录（${n} 条线的进度与最佳成绩）？\n\n后台数值调参不会被清除。此操作不可撤销。`)) return;
       save = { v: 1, done: {}, best: {}, sound: save.sound };
       persist();
+      clearRun();
       renderHome();
       toast('通关记录已清空');
     };
@@ -360,6 +425,7 @@
 
   /* ---------------- 游戏主屏 ---------------- */
   function renderStep() {
+    saveRun();   // 每进入一个新抉择，就把检查点前移一场
     const flow = run.flow;
     if (run.idx >= flow.length) { finishLine(); return; }
     const node = GAME_DATA.scenes[flow[run.idx]];
@@ -465,12 +531,20 @@
     };
   }
 
+  /** 玩家眼前看到的选项顺序：返回 [{opt, idx}]，idx 始终是 data.js 里的原始下标。
+   *  只换显示位置，判定与数值仍按 idx 取，因此 deltas / tuning / 结算曲线都不受影响。 */
+  function shownOptions(node, sid) {
+    const order = (GAME_DATA.optionOrder || {})[sid];
+    if (!order) return node.options.map((opt, idx) => ({ opt, idx }));
+    return order.map(idx => ({ opt: node.options[idx], idx }));
+  }
+
   function renderScene(node) {
     const el = $('#screen-game');
     const easy = !!run.easy;
     let opts = '';
-    node.options.forEach((o, i) => {
-      opts += `<button class="opt" data-i="${i}"><span class="olabel">${'ABC'[i] || String(i + 1)}</span>${esc(o.t)}</button>`;
+    shownOptions(node, run.curId).forEach((it, pos) => {
+      opts += `<button class="opt" data-i="${it.idx}"><span class="olabel">${'ABC'[pos] || String(pos + 1)}</span>${esc(it.opt.t)}</button>`;
     });
     // 简易线：背景只留三句情境，配图统一用卡通图标（不用书中截图）
     const body = (easy && node.setupShort)
@@ -850,15 +924,18 @@
       save.best[run.lineId] = Math.max(save.best[run.lineId] || 0, matches);
     }
     persist();
+    clearRun();   // 这一局已经走完，不再留「继续上次」
     const justCleared = !run.easy && allDone() && !wasAllDone;
 
-    const rank = GAME_DATA.ranks.find(r => matches >= r.min) || GAME_DATA.ranks[GAME_DATA.ranks.length - 1];
+    // 按同频比例取称号：5 场线仍是 5/4/3 三档，2 场的地方线也能拿到满分档
+    const pct = total ? matches / total : 0;
+    const rank = GAME_DATA.ranks.find(r => pct >= r.min) || GAME_DATA.ranks[GAME_DATA.ranks.length - 1];
     // 简易线：成绩只留「与历史同频」，不摆曲线与三方数值
     const stats = run.easy
       ? `<div class="ending-stats one"><div class="stat-box"><div class="v">${matches} / ${total}</div><div class="k">与历史同频</div></div></div>`
       : `<div class="ending-stats">
         <div class="stat-box"><div class="v">${matches} / ${total}</div><div class="k">与历史同频</div></div>
-        <div class="stat-box"><div class="v">${countInterludes(run.line)}</div><div class="k">对照卡收集</div></div>
+        <div class="stat-box"><div class="v">${total}</div><div class="k">亲历的抉择</div></div>
         <div class="stat-box"><div class="v">${run.factions[mainKey()]}</div><div class="k">你这一方的权力</div></div>
         <div class="stat-box"><div class="v">${ratioStr(run.factions, run.canon)}</div><div class="k">与历史的偏离</div></div>
       </div>`;
@@ -1000,10 +1077,6 @@
         if (m) m.classList.add('pop');
       });
     }
-  }
-
-  function countInterludes(line) {
-    return line.flow.filter(id => GAME_DATA.scenes[id].type === 'interlude').length;
   }
 
   /* ---------------- 势力曲线图（实线＝你，虚线＝历史，动态范围） ---------------- */
@@ -1444,6 +1517,10 @@
   else { renderHome(); show('home'); }
 
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !$('#overlay').classList.contains('hidden')) {
+      closeOverlay();
+      return;
+    }
     if (e.ctrlKey && e.shiftKey && (e.key === 'E' || e.key === 'e')) {
       e.preventDefault();
       openEditor();
