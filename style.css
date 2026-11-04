@@ -618,16 +618,6 @@ input.ed-num, .ed-start-num {
 }
 .tip-sound:active { transform: scale(.88); }
 
-/* ---------- 最终奖牌：多一圈极淡的光 ---------- */
-.medal-svg.glow .medal-halo { animation: haloBreathe 5.2s ease-in-out infinite; }
-@keyframes haloBreathe {
-  0%, 100% { opacity: .55; }
-  50%      { opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .medal-svg.glow .medal-halo { animation: none; opacity: .85; }
-}
-
 /* ---------- 结算：简易线只留一个成绩格 ---------- */
 .ending-stats.one .stat-box { flex: 1 1 100%; }
 

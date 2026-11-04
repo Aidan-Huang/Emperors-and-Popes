@@ -908,26 +908,23 @@
   }
 
   /* ---------------- 恭喜通关页 ---------------- */
-  function medalSVG(size, glow) {
+  function medalSVG(size, final) {
     const s = size || 96;
-    return `<svg class="medal-svg${glow ? ' glow' : ''}" width="${s}" height="${s}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    const ring = final
+      ? `<circle cx="50" cy="52" r="29.6" fill="none" stroke="#5f3f06" stroke-width=".9" opacity=".55"/>
+      <circle cx="50" cy="52" r="24.6" fill="none" stroke="#5f3f06" stroke-width=".9" opacity=".55"/>
+      <circle cx="50" cy="52" r="27" fill="none" stroke="#5f3f06" stroke-width="2.2" stroke-dasharray="2.2 11.9"/>`
+      : `<circle cx="50" cy="52" r="27.5" fill="none" stroke="#7d5510" stroke-width="1" opacity=".45"/>`;
+    return `<svg class="medal-svg${final ? ' glow' : ''}" width="${s}" height="${s}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="mg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#ffe9a3"/><stop offset=".5" stop-color="#f5c542"/><stop offset="1" stop-color="#c98f16"/>
-        </linearGradient>
-        ${glow ? `<radialGradient id="mglow">
-          <stop offset="0" stop-color="#ffe9a3" stop-opacity=".26"/>
-          <stop offset=".6" stop-color="#f5c542" stop-opacity=".1"/>
-          <stop offset="1" stop-color="#f5c542" stop-opacity="0"/>
-        </radialGradient>` : ''}
+        <radialGradient id="mg" cx=".38" cy=".3" r=".82">
+          <stop offset="0" stop-color="#fff0bb"/><stop offset=".5" stop-color="#f2be3e"/><stop offset="1" stop-color="#bc880f"/>
+        </radialGradient>
       </defs>
-      ${glow ? `<circle class="medal-halo" cx="50" cy="52" r="49.5" fill="url(#mglow)"/>
-      <circle cx="50" cy="52" r="40.5" fill="none" stroke="#ffe9a3" stroke-width=".9" opacity=".26"/>` : ''}
-      <circle cx="50" cy="52" r="34" fill="url(#mg)" stroke="#8a5f10" stroke-width="2"/>
-      <circle cx="50" cy="52" r="27" fill="none" stroke="#8a5f10" stroke-width="1" opacity=".55"/>
-      <path d="M50 30 L54 44 L68 44 L57 53 L61 67 L50 58 L39 67 L43 53 L32 44 L46 44 Z" fill="#8a5f10" opacity=".85"/>
-      <path d="M32 26 q9 -12 18 0 M68 26 q-9 -12 -18 0" fill="none" stroke="#5bbf7a" stroke-width="3" stroke-linecap="round"/>
-      <path d="M28 84 q22 10 44 0" fill="none" stroke="#5bbf7a" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="50" cy="52" r="34" fill="url(#mg)" stroke="${final ? '#5f3f06' : '#7d5510'}" stroke-width="${final ? 2.6 : 2}"/>
+      ${ring}
+      <path d="M50 33.5L54 47.5L68 47.5L57 56.5L61 70.5L50 61.5L39 70.5L43 56.5L32 47.5L46 47.5Z" fill="#6b4708" opacity=".82"/>
+      <path d="M27 84q23 11 46 0" fill="none" stroke="${final ? '#b9860e' : '#2f6b4f'}" stroke-width="3.4" stroke-linecap="round"/>
     </svg>`;
   }
   function renderClear(isFresh) {
