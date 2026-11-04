@@ -129,9 +129,9 @@ const GAME_DATA = {
     p3: {
       type: 'scene', lane: 'church', year: '1073 年', where: '罗马 · 教廷',
       title: '主教是谁的？',
-      img: 'images/investiture-woodcut.jpg',
+      img: 'images/investiture-woodcut-wide.jpg',
       imgCaption: '主教任免之争：权杖该由谁递到主教手里',
-      imgCredit: 'Philip Van Ness Myers 原作 / ReneeWrites 改绘 · CC BY 4.0 · Wikimedia Commons',
+      imgCredit: 'Philip Van Ness Myers 原作 / ReneeWrites 改绘 · CC BY 4.0 · 本站补边成横幅 · Wikimedia Commons',
       imgCreditUrl: 'https://commons.wikimedia.org/wiki/File:Investiturewoodcut.png',
       decoIcon: '⚡',
       audio: 'audio/p3.mp3',
@@ -415,8 +415,10 @@ const GAME_DATA = {
     e5: {
       type: 'scene', lane: 'state', year: '1804 年 12 月 2 日', where: '巴黎 · 圣母院',
       title: '谁为皇帝戴冠？',
-      img: 'images/arc-de-triomphe-paris.jpg',
-      imgCaption: '巴黎凯旋门：1806 年，拿破仑在权力顶峰下令建造',
+      img: 'images/coronation-napoleon-versailles.jpg',
+      imgCaption: '大卫笔下的加冕礼：教皇庇护七世就坐在皇帝身后',
+      imgCredit: 'Jacques-Louis David · 凡尔赛宫藏版本 · 公有领域 · Wikimedia Commons',
+      imgCreditUrl: 'https://commons.wikimedia.org/wiki/File:Jacques_Louis_David_-_Le_couronnement_de_l%27Empereur_et_de_l%27Imp%C3%A9ratrice,_2_d%C3%A9cembre_1804_-_Google_Art_Project.jpg',
       audio: 'audio/e5.mp3',
       setup: [
         '你是拿破仑，法兰西第一帝国的皇帝。上一场加冕，距今已经整整一千年。',
