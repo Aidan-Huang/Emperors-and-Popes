@@ -210,10 +210,10 @@
   function anyDone() { return !!(lineDone('pope') || save.done.emperor || save.done.local); }
   /** 隐藏线（地方线）解锁条件：教皇线（简易或普通）与皇帝线都通关 */
   function allMainDone() { return !!(lineDone('pope') && save.done.emperor); }
-  /** 三条线（普通教皇 + 皇帝 + 地方）全部通关 */
-  function allDone() { return !!(save.done.pope && save.done.emperor && save.done.local); }
-  /** 最终奖牌：全章通关之外，还要走完简易教皇线 */
-  function finalMedal() { return allDone() && easyDone(); }
+  /** 三条线（教皇 + 皇帝 + 地方）全部通关：教皇线走简易形态也算 */
+  function allDone() { return !!(lineDone('pope') && save.done.emperor && save.done.local); }
+  /** 最终奖牌：三条线之外，还要求普通教皇线与简易教皇线都走完 */
+  function finalMedal() { return !!(allDone() && save.done.pope && save.done.pope_easy); }
   const MAIN_LINES = ['pope', 'emperor'];
 
   /* ---------------- 首页 ---------------- */
@@ -234,9 +234,7 @@
         <div class="source">改编自 John Hirst《The Shortest History of Europe》<br>第六章 · Emperors and Popes</div>
         <div class="cover-tips card">
           <b>这不是历史考试，是一场亲历。</b><br>
-          你将扮演教皇或皇帝，面对历史上那些真正的抉择——
-          凭直觉去选。<b>选错不扣分</b>：每个错误选项都会告诉你，
-          「如果历史这么走，会发生什么」。猜错，恰恰是讲解的开始。
+          你将扮演教皇或皇帝，面对历史上那些真正的抉择——凭直觉去选，不同的<b class="hl">抉择</b>恰恰是讲解的开始。
         </div>
         ${anyDone() ? `<div class="progress-line">已完成：${doneBadge('pope')}${doneBadge('emperor')}${doneBadge('local')}</div>` : ''}
         ${allDone() ? `
@@ -245,13 +243,11 @@
             <div class="cm-txt"><b>全章通关</b><span>教皇 · 皇帝 · 地方三条线已全部走完</span></div>
             <span class="cm-go">查看 ›</span>
           </button>` : ''}
-        ${featuresOn() ? `
-          <div class="cover-tips card src-tip">
-            <button class="sound-btn" id="btn-sound" aria-label="${save.sound ? '静音' : '取消静音'}">${save.sound ? '🔊' : '🔇'}</button>
-            <div>${save.sound
-              ? '游戏中点右上角 📄 可随时查看该场景的书中原文<br>引文旁的 🔊 可播放对应的英文有声书选段'
-              : '已静音：所有引文旁的朗读键都不再显示<br>再点一次左边的按钮即可恢复'}</div>
-          </div>` : ''}
+        ${featuresOn() ? `<div class="progress-line dim" style="margin-top:14px">
+          📄 游戏中点右上角可随时查看该场景的书中原文<br>
+          <button class="tip-sound" id="btn-sound" title="${save.sound ? '点击静音' : '点击恢复声音'}" aria-label="${save.sound ? '静音' : '取消静音'}">${save.sound ? '🔊' : '🔇'}</button>
+          ${save.sound ? '引文旁的喇叭键可播放对应的英文有声书选段' : '引文朗读已静音 · 再点一次恢复'}
+        </div>` : ''}
         ${anyDone() ? '<button class="btn ghost small danger" id="btn-clear-data">🗑 清空通关记录</button>' : ''}
       </div>`;
     $('#btn-start').onclick = () => { renderLines(); show('lines'); };
@@ -453,7 +449,7 @@
     return `<div class="tut-tip" id="tut-tip">
       <div class="tut-h">先花 10 秒看这里</div>
       <p>你刚才的选择，已经拨动了下面这三根条——<b>教权 · 皇权 · 地方</b>，<b>条越高，这一方越重</b>。</p>
-      <p>以后每次选完都会这样变。<b>不扣分、不判对错</b>，它只负责让你看见：这一步，把天平推向了谁。</p>
+      <p>以后每次选完都会这样变。它只负责让你看见：这一步，把天平推向了谁。</p>
       <button class="btn small" id="tut-ok">知道了，继续</button>
     </div>`;
   }
@@ -551,25 +547,17 @@
       ${headHTML(node)}
       <h2 class="scene-title" id="scene-title">${esc(node.title)}</h2>
       <div class="fb-layer fb-your">
-        <span class="fb-tag">你的选择</span>
         <div class="fb-verdict ${hit ? 'hit' : 'miss'}">${hit ? '✔ 历史正是这样走的' : '✘ 历史没有这样走'}</div>
-        <p>${yourFb}</p>
       </div>
       ${(!tutSeen() && run.choices.length === 1) ? tutorialHTML() : ''}
       <div id="fb-impact-slot"></div>
       <div class="fb-layer fb-real">
         <span class="fb-tag">历史真实</span>
         <p>${esc(node.historyText)}</p>
-        <div class="quotebox">
-          <div class="zh">${esc(node.quote.zh)}</div>
+        <div class="quotebox en-only">
           <span class="en">${esc(node.quote.en)}</span>${(node.audio && featuresOn() && save.sound) ? `<button class="quote-play" data-src="${node.audio}" title="听英文原声朗读">🔊</button>` : ''}
         </div>
       </div>
-      <div class="fb-layer fb-point">
-        <span class="fb-tag">点睛一句</span>
-        <p>${esc(node.point)}</p>
-      </div>
-      ${node.truth ? `<div class="truth-line"><span class="tl-tag">真实历史 · 后来</span><p>${esc(node.truth)}</p></div>` : ''}
       <button class="btn" id="btn-next">${isLastNode() ? '继续' : '下一个抉择 →'}</button>`;
     // 影响块紧跟判定出现，且延后半拍淡入：先看「选对没有」，再看天平怎么动
     toTop();
@@ -662,8 +650,7 @@
       ${node.img ? `<img class="scene-img" src="${node.img}" alt=""><div class="scene-img-cap">${esc(node.imgCaption || '')}</div>`
                  : `<div class="scene-deco">${node.decoIcon || '🃏'}</div>`}
       <div class="interlude-body">${node.body.map(p => `<p>${esc(p)}</p>`).join('')}
-        <div class="quotebox">
-          <div class="zh">${esc(node.quote.zh)}</div>
+        <div class="quotebox en-only">
           <span class="en">${esc(node.quote.en)}</span>${(node.audio && featuresOn() && save.sound) ? `<button class="quote-play" data-src="${node.audio}" title="听英文原声朗读">🔊</button>` : ''}
         </div>
       </div>
@@ -835,11 +822,11 @@
       });
       const hint = $('#puzzle-hint');
       if (wrong === 0) {
-        hint.textContent = '✔ 全部正确！这条千年因果线，你已经亲手走了一遍。';
+        hint.textContent = '✔ 顺序和历史一致——这条千年因果线，你已经亲手走了一遍。';
         $('#btn-check').style.display = 'none';
         $('#btn-puzzle-done').style.display = 'block';
       } else {
-        hint.textContent = `还有 ${wrong} 处顺序不对——看看红框里的提示，调整后再查一次。`;
+        hint.textContent = `还有 ${wrong} 处顺序与历史不同——看看红框里的提示，调整后再查一次。`;
         hint.classList.remove('shake'); void hint.offsetWidth; hint.classList.add('shake');
       }
     };
@@ -880,18 +867,8 @@
         <div class="chart-legend">
           ${FACTIONS.map(f => `<span><i style="background:${f.color}"></i>${f.name}</span>`).join('')}
           <span class="lg-line"><b class="solid"></b>你的路线</span>
-          <span class="lg-line faint"><b class="dash"></b>本章真实（背景参考）</span>
+          <span class="lg-line faint"><b class="dash"></b>本章真实</span>
         </div>
-        <div class="dev-row">
-          ${FACTIONS.map(f => {
-            const d = run.factions[f.key] - run.canon[f.key];
-            return `<span class="dev-chip"><i style="background:${f.color}"></i>${f.name}
-              <b>${run.factions[f.key]}</b><em>/ 史 ${run.canon[f.key]}</em>
-              <s class="${d > 0 ? 'up' : d < 0 ? 'down' : 'flat'}">${d > 0 ? '+' : ''}${d}</s></span>`;
-          }).join('')}
-        </div>
-        <div class="bal-title" style="margin-top:16px">权力份额 · 你与历史的差距</div>
-        ${shareBarsHTML(run.factions, run.canon)}
         ${finalVerdictHTML()}
       </div>`;
     const buttons = run.easy
@@ -912,8 +889,7 @@
       </div>
       <div class="card">
         <p>${esc(end.body)}</p>
-        <div class="quotebox">
-          <div class="zh">${esc(end.closingQuote.zh)}</div>
+        <div class="quotebox en-only">
           <span class="en">${esc(end.closingQuote.en)}</span>
         </div>
       </div>
@@ -956,10 +932,12 @@
   }
   function renderClear(isFresh) {
     const el = $('#screen-clear');
-    const totalBest = ['pope', 'emperor', 'local']
-      .reduce((a, id) => a + (save.best[id] || 0), 0);
-    const sceneTotal = ['pope', 'emperor', 'local']
-      .reduce((a, id) => a + countScenes(GAME_DATA.lines[id].flow), 0);
+    // 教皇线若只走过简易形态，就按简易线的成绩与场次显示
+    const popeEasyOnly = !save.done.pope && !!save.done.pope_easy;
+    const lineBest = id => id === 'pope' && popeEasyOnly ? (save.best.pope_easy || 0) : (save.best[id] || 0);
+    const lineFlow = id => id === 'pope' && popeEasyOnly ? GAME_DATA.lines.pope.flowEasy : GAME_DATA.lines[id].flow;
+    const totalBest = ['pope', 'emperor', 'local'].reduce((a, id) => a + lineBest(id), 0);
+    const sceneTotal = ['pope', 'emperor', 'local'].reduce((a, id) => a + countScenes(lineFlow(id)), 0);
     el.innerHTML = `
       <div class="clear-hero">
         <div class="medal-wrap">${medalSVG(104, finalMedal())}</div>
@@ -970,22 +948,22 @@
         <div class="clear-lines">
           ${['pope', 'emperor', 'local'].map(id => {
             const l = GAME_DATA.lines[id];
-            const best = save.best[id] || 0;
-            const tot = countScenes(l.flow);
+            const best = lineBest(id);
+            const tot = countScenes(lineFlow(id));
+            const tag = id === 'pope' && popeEasyOnly ? '（简易）' : '';
             return `<div class="cl-row" style="border-left:3px solid ${l.color}">
               <span class="cl-ic" style="color:${l.color}">${l.icon}</span>
-              <div class="cl-mid"><b>${l.name}</b><span class="dim">${l.flavorTitle}</span></div>
+              <div class="cl-mid"><b>${l.name}${tag}</b><span class="dim">${l.flavorTitle}</span></div>
               <span class="cl-best">${best} / ${tot}<em>同频</em></span>
             </div>`;
           }).join('')}
         </div>
         <div class="clear-total">
           <b>${totalBest} / ${sceneTotal}</b>
-          <span>你的选择与历史重合的次数 · 满分 ${sceneTotal}</span>
+          <span>你的选择与历史重合的次数 · 共 ${sceneTotal} 次抉择</span>
         </div>
-        <div class="quotebox">
-          <div class="zh" id="clear-quote">教皇与皇帝互斗千年，谁也没能吃掉谁；而在两大巨头的夹缝里，地方势力悄悄长大了。</div>
-          <span class="en">Neither side ever won — and in the space between them, local power quietly grew.</span>
+        <div class="quotebox en-only">
+          <span class="en" id="clear-quote">Neither side ever won — and in the space between them, local power quietly grew.</span>
         </div>
         <p class="dim" style="margin-top:12px;font-size:13.5px">
           这就是本章的论点：欧洲之所以是欧洲，正因为没有任何一方赢到最后。
@@ -1033,19 +1011,6 @@
     const s = FKEYS.reduce((a, k) => a + Math.abs(you[k] - his[k]), 0);
     return '±' + Math.round(s / 3);
   }
-  function shareBarsHTML(you, his) {
-    const row = (label, vals) => {
-      const sum = FKEYS.reduce((a, k) => a + vals[k], 0) || 1;
-      return `<div class="share-row"><span class="sh-lab">${label}</span><div class="sh-bar">${
-        FKEYS.map(k => {
-          const f = FACTIONS.find(x => x.key === k);
-          const p = vals[k] / sum * 100;
-          return `<span class="sh-seg" style="width:${p.toFixed(1)}%;background:${f.color}">${p >= 12 ? `<i>${Math.round(p)}%</i>` : ''}</span>`;
-        }).join('')
-      }</div></div>`;
-    };
-    return `<div class="shares">${row('你', you)}${row('本章真实', his)}</div>`;
-  }
   /** 终局判读：直接用最终三方数值说话，避免写死的结论和数字对不上 */
   function finalVerdictHTML() {
     const sorted = FACTIONS.slice().sort((a, b) => run.factions[b.key] - run.factions[a.key]);
@@ -1055,7 +1020,6 @@
       <div class="bal-title" style="margin-top:16px">终局 · 谁最重</div>
       <div class="fv-nums">${line}</div>
       <p class="fv-say">最重的是<b>${hi.name}</b>（${gradeWord(run.factions[hi.key])}），最轻的是<b>${lo.name}</b>（${gradeWord(run.factions[lo.key])}）。</p>
-      <p class="dim fv-tail">教权与皇权互斗千年、谁也没能吃掉谁——这才是本章的论点：欧洲之所以是欧洲，正因为没有任何一方赢到最后。</p>
     </div>`;
   }
   /* ---------------- 势力曲线（主图只画你这条线，历史做弱化背景；可点选某一步） ---------------- */
@@ -1194,7 +1158,7 @@
         ${evs.map((e, i) => {
           const scene = GAME_DATA.scenes[e.id] || (e.alsoId ? GAME_DATA.scenes[e.alsoId] : null);
           const q = scene && scene.quote
-            ? `<div class="quotebox" style="margin-top:6px"><div class="zh" style="font-size:13.5px">${esc(scene.quote.zh)}</div><span class="en" style="font-size:12.5px">${esc(scene.quote.en)}</span></div>` : '';
+            ? `<div class="quotebox en-only" style="margin-top:6px"><span class="en" style="font-size:12.5px">${esc(scene.quote.en)}</span></div>` : '';
           return `<div class="vt-ev" style="--c:${laneColor(e.lane)}" data-i="${i}">
             <div class="vt-yr">${e.year}${e.approx ? '±' : ''} · ${laneName(e.lane)}</div>
             <div class="vt-lb">${esc(e.label)} <span class="vt-toggle">▾</span></div>

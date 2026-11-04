@@ -197,6 +197,7 @@ body {
   font-size: 14px; color: var(--text-dim);
 }
 .cover-tips b { color: var(--text); }
+.cover-tips b.hl { color: var(--gold); }
 
 /* ---------- 选线 ---------- */
 .line-btn {
@@ -281,17 +282,13 @@ body {
   display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 1px;
   padding: 2px 10px; border-radius: 99px; margin-bottom: 8px;
 }
-.fb-your .fb-tag { background: rgba(239, 159, 39, .2); color: var(--state); }
 .fb-real .fb-tag { background: rgba(55, 138, 221, .2); color: #7db8f0; }
-.fb-point { background: rgba(255, 204, 0, .07); border-color: #574a13; }
-.fb-point .fb-tag { background: rgba(255, 204, 0, .18); color: var(--gold); }
 .fb-layer p { margin: 6px 0; font-size: 15px; }
-.fb-verdict { font-size: 20px; font-weight: 800; margin: 10px 0 2px; }
+.fb-verdict { font-size: 20px; font-weight: 800; margin: 4px 0 2px; }
 .fb-verdict.hit { color: var(--good); }
 .fb-verdict.miss { color: var(--state); }
 
 .quotebox { border-left: 3px solid var(--gold); padding-left: 12px; margin-top: 10px; }
-.quotebox .zh { font-size: 15px; color: var(--text); }
 .quote-play {
   display: inline-flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; margin-left: 8px; vertical-align: middle;
@@ -379,18 +376,6 @@ body {
 .lever { transition: opacity .45s ease, transform .45s cubic-bezier(.25,.8,.3,1); }
 .lever.pending { opacity: 0; transform: translateY(12px); }
 
-/* 真实历史 · 后来：一行小字，学习落点 */
-.truth-line {
-  margin-top: 12px; padding: 10px 14px; border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(55,138,221,.09), rgba(55,138,221,.03));
-  border: 1px dashed #2f4a6e;
-}
-.truth-line .tl-tag {
-  display: inline-block; font-size: 11px; letter-spacing: 1px; font-weight: 700;
-  color: #7db8f0; margin-bottom: 3px;
-}
-.truth-line p { margin: 2px 0 0; font-size: 13.5px; line-height: 1.72; color: #c3cee6; }
-
 /* 首次进入的一次性教学气泡 */
 .tut-tip {
   margin-top: 14px; padding: 14px 16px 12px; border-radius: var(--radius);
@@ -425,38 +410,12 @@ body {
 .ct-nums em { font-style: normal; opacity: .65; margin-left: 3px; }
 .chart-legend .lg-line.faint { opacity: .6; }
 
-/* ---------- 结算：份额带 / 偏差 ---------- */
-.shares { margin-top: 8px; }
-.share-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
-.sh-lab { flex: 0 0 62px; font-size: 12px; color: var(--text-dim); }
-.sh-bar {
-  flex: 1; display: flex; height: 22px; border-radius: 6px;
-  overflow: hidden; background: var(--bg2);
-}
-.sh-seg {
-  display: flex; align-items: center; justify-content: center;
-  transition: width .6s ease;
-}
-.sh-seg i { font-size: 11px; font-style: normal; color: #10162a; font-weight: 700; }
-.dev-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.dev-chip {
-  display: inline-flex; align-items: center; gap: 5px; font-size: 12px;
-  background: var(--bg2); border: 1px solid var(--line);
-  border-radius: 99px; padding: 3px 10px;
-}
-.dev-chip i { width: 8px; height: 8px; border-radius: 99px; }
-.dev-chip b { font-weight: 800; }
-.dev-chip em { font-style: normal; color: var(--text-dim); font-size: 11.5px; }
-.dev-chip s { text-decoration: none; font-weight: 700; }
-.dev-chip s.up { color: var(--good); }
-.dev-chip s.down { color: #ef7d7d; }
-.dev-chip s.flat { color: var(--text-dim); }
+/* ---------- 结算：终局判读 ---------- */
 .final-verdict { margin-top: 4px; }
 .fv-nums { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13.5px; color: var(--text-dim); }
 .fv-nums b { font-size: 16px; font-weight: 800; }
 .fv-say { font-size: 14px; margin: 8px 0 0; }
 .fv-say b { color: var(--gold); }
-.fv-tail { font-size: 13px; line-height: 1.7; margin: 6px 0 0; }
 
 .chart-legend .lg-line { display: inline-flex; align-items: center; gap: 5px; }
 .chart-legend .lg-line b { width: 18px; height: 0; border-top: 2.5px solid #c8d0e4; }
@@ -651,18 +610,13 @@ input.ed-num, .ed-start-num {
 
 /* ---------- 首页：原文/喇叭功能开关 ---------- */
 #btn-source.gone { display: none; }
-.src-tip {
-  display: flex; align-items: center; gap: 12px;
-  margin-top: 14px; text-align: left;
-  font-size: 13px; line-height: 1.6; color: var(--text-dim);
+.tip-sound {
+  font: inherit; font-size: 13.5px; line-height: 1;
+  background: none; border: 0; padding: 0 1px;
+  color: inherit; cursor: pointer; vertical-align: -1px;
+  transition: transform .12s ease;
 }
-.sound-btn {
-  flex: 0 0 auto; width: 46px; height: 46px; border-radius: 13px;
-  background: var(--panel2); border: 1px solid var(--line);
-  color: var(--text); font-size: 19px; line-height: 1; cursor: pointer;
-  transition: background .2s ease, transform .12s ease;
-}
-.sound-btn:active { transform: scale(.94); background: #2f3d63; }
+.tip-sound:active { transform: scale(.88); }
 
 /* ---------- 最终奖牌：多一圈极淡的光 ---------- */
 .medal-svg.glow .medal-halo { animation: haloBreathe 5.2s ease-in-out infinite; }
