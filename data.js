@@ -91,7 +91,9 @@ const GAME_DATA = {
     p2: {
       type: 'scene', lane: 'church', year: '800 年', where: '罗马 · 圣诞夜弥撒',
       title: '加冕之后',
-      img: null, decoIcon: '👑',
+      img: 'images/coronation-charlemagne-raffaello.jpg',
+      imgCaption: '公元 800 年圣诞夜：教皇把皇冠戴在查理曼头上 · 拉斐尔画派，梵蒂冈',
+      decoIcon: '👑',
       audio: 'audio/p2.mp3',
       setup: [
         '公元 800 年圣诞夜，罗马大教堂。弥撒进行到一半，你在众人毫无准备的情况下，把皇冠戴在了查理曼头上，宣布他为「罗马人的皇帝」。',
@@ -127,7 +129,11 @@ const GAME_DATA = {
     p3: {
       type: 'scene', lane: 'church', year: '1073 年', where: '罗马 · 教廷',
       title: '主教是谁的？',
-      img: null, decoIcon: '⚡',
+      img: 'images/investiture-woodcut.jpg',
+      imgCaption: '主教任免之争：权杖该由谁递到主教手里',
+      imgCredit: 'Philip Van Ness Myers 原作 / ReneeWrites 改绘 · CC BY 4.0 · Wikimedia Commons',
+      imgCreditUrl: 'https://commons.wikimedia.org/wiki/File:Investiturewoodcut.png',
+      decoIcon: '⚡',
       audio: 'audio/p3.mp3',
       setup: [
         '时间来到 11 世纪。你是教皇格里高利七世（Gregory VII）。',
@@ -164,7 +170,12 @@ const GAME_DATA = {
     p4: {
       type: 'scene', lane: 'church', year: '1077 年 1 月', where: '意大利北部 · 卡诺莎城堡',
       title: '卡诺莎的雪',
-      img: null, decoIcon: '❄',
+      img: 'images/canossa-pietro-aldi-1885.jpg',
+      imgCaption: '卡诺莎，1077 年 1 月：赤足的皇帝跪在教皇宝座前，满庭的人都看着',
+      imgCredit: 'Pietro Aldi, 1885 · 摄影 Sailko / CC BY 3.0 · Wikimedia Commons',
+      imgCreditUrl: 'https://commons.wikimedia.org/wiki/File:Pietro_aldi,_enrico_iv_a_canossa,_1883-85.jpg',
+      imgHero: true,
+      decoIcon: '❄',
       audio: 'audio/p4.mp3',
       setup: [
         '被绝罚的亨利四世，翻越了封冻的阿尔卑斯山，出现在卡诺莎城堡门外。',
@@ -197,10 +208,10 @@ const GAME_DATA = {
     },
 
     p5: {
-      type: 'scene', lane: 'church', year: '文艺复兴时期', where: '罗马 · 城墙',
+      type: 'scene', lane: 'church', year: '约 1527 年', where: '罗马 · 城墙',
       title: '教皇的城墙',
-      img: 'images/statue-of-saint-peter-st-peters-basilica-rome.jpg',
-      imgCaption: '圣彼得铜像：中世纪的教皇就该像君主一样气派',
+      img: 'images/sack-of-rome-1527.jpg',
+      imgCaption: '1527 年的罗马：城墙挡不住兵火，教皇也得像君主一样督战',
       decoIcon: '⚔',
       audio: 'audio/p5.mp3',
       setup: [
@@ -254,7 +265,9 @@ const GAME_DATA = {
 
     i_boss: {
       type: 'interlude', lane: 'church', year: '千年拉锯的总结', title: '对照卡 · 老板与工人',
-      img: null, decoIcon: '⚖',
+      img: 'images/scriptorium-monks.jpg',
+      imgCaption: '各司其职的抄写坊：谁也离不开谁，却各有各的位置',
+      decoIcon: '⚖',
       audio: 'audio/i_boss.mp3',
       body: [
         '教皇与皇帝斗了几个世纪，谁也没能彻底吃掉谁。',
@@ -273,7 +286,9 @@ const GAME_DATA = {
     e1: {
       type: 'scene', lane: 'state', year: '814 年前夕', where: '亚琛 · 王宫',
       title: '庞大的家业',
-      img: null, decoIcon: '📜',
+      img: 'images/division-empire-843.jpg',
+      imgCaption: '帝国分给子孙：843 年《凡尔登条约》之前的家业分割',
+      decoIcon: '📜',
       audio: 'audio/e1.mp3',
       setup: [
         '你是查理曼（Charlemagne）。你把法兰克王国扩张成了罗马帝国崩溃以来西欧最大的国家：疆域跨过比利牛斯山进入西班牙，南抵意大利中部，东至奥地利。',
@@ -301,7 +316,9 @@ const GAME_DATA = {
     e2: {
       type: 'scene', lane: 'state', year: '约 790 年', where: '亚琛 · 书房',
       title: '你晚年最大的心事',
-      img: null, decoIcon: '✒',
+      img: 'images/carolingian-minuscule.jpg',
+      imgCaption: '加洛林小写字母：抄写员把古典文献一笔一笔留了下来',
+      decoIcon: '✒',
       audio: 'audio/e2.mp3',
       setup: [
         '你还是查理曼。你能读拉丁文，但写字始终不得要领——到死床边都放着块练字的蜡板。',
@@ -332,7 +349,11 @@ const GAME_DATA = {
     e3: {
       type: 'scene', lane: 'state', year: '962 年', where: '德意志 · 王帐',
       title: '教皇的邀请函',
-      img: null, decoIcon: '✉',
+      img: 'images/otto-i-dietrich.jpg',
+      imgCaption: '奥托一世：德意志国王与帝位从此绑在一起',
+      imgCredit: 'Anton Dietrich · 摄影 Derbrauni / CC BY 4.0 · Wikimedia Commons',
+      imgCreditUrl: 'https://commons.wikimedia.org/wiki/File:Anton_Dietrich_-_Otto_der_Gro%C3%9Fe_am_Ottensund.jpg',
+      decoIcon: '✉',
       audio: 'audio/e3.mp3',
       setup: [
         '你是奥托一世（Otto I），德意志地区最强的新锐国王。',
@@ -360,7 +381,12 @@ const GAME_DATA = {
     e4: {
       type: 'scene', lane: 'state', year: '1077 年 1 月', where: '德意志 · 内堡',
       title: '被绝罚的皇帝',
-      img: null, decoIcon: '⚔',
+      img: 'images/canossa-walk-foxe-1563.jpg',
+      imgCaption: '城门紧闭，皇帝赤足站在雪里——门开不开，得等里面的人点头',
+      imgCredit: 'John Foxe, 1563 · CC0 · Wikimedia Commons',
+      imgCreditUrl: 'https://commons.wikimedia.org/wiki/File:The_Walk_to_Canossa.jpg',
+      imgHero: true,
+      decoIcon: '⚔',
       audio: 'audio/e4.mp3',
       setup: [
         '你是亨利四世。三天前，教皇格里高利七世把你绝罚出了教会。',
@@ -440,7 +466,9 @@ const GAME_DATA = {
     f1: {
       type: 'scene', lane: 'local', year: '1521 年', where: '萨克森 · 瓦尔特堡附近',
       title: '皇帝要抓的人',
-      img: null, decoIcon: '🏰',
+      img: 'images/luther-wartburg-1521.jpg',
+      imgCaption: '瓦特堡：被「劫走」的路德在这里把《圣经》译成德文',
+      decoIcon: '🏰',
       audio: 'audio/f1.mp3',
       setup: [
         '你是萨克森选帝侯「智者」腓特烈（Frederick the Wise）。',
@@ -467,7 +495,7 @@ const GAME_DATA = {
     },
 
     f2: {
-      type: 'scene', lane: 'local', year: '文艺复兴时期', where: '意大利北部 · 你的城邦',
+      type: 'scene', lane: 'local', year: '约 1494 年', where: '意大利北部 · 你的城邦',
       title: '两大巨头之间',
       img: 'images/map-states-of-italy-renaissance-c1494.jpg',
       imgCaption: '文艺复兴时期的意大利（c. 1494）：城邦的天下',
@@ -504,7 +532,7 @@ const GAME_DATA = {
   puzzles: {
     pope: {
       title: '旅程复盘 · 教会的千年之路',
-      intro: '下面是你这一路亲历的六件大事，顺序已经打乱。按住 ⋮⋮ 拖动（或用右侧箭头微调）排回应有的先后，再点「检查顺序」——错的地方会给提示。',
+      intro: '下面是你这一路亲历的六件大事，顺序已经打乱。按住 ⋮⋮ 拖动（或用右侧箭头微调）排回应有的先后，再点「检查顺序」——卡住的地方会给一条线索。',
       items: [
         { label: '伦巴第人威胁罗马', hint: '一切的起点：教皇需要一个保护人。' },
         { label: '教皇求援丕平，获封教皇国', hint: '有了自己的领地，教会才有独立。' },
@@ -528,7 +556,7 @@ const GAME_DATA = {
     },
     emperor: {
       title: '旅程复盘 · 帝国的千年之路',
-      intro: '下面是你这一路亲历的六件大事，顺序已经打乱。按住 ⋮⋮ 拖动（或用右侧箭头微调）排回应有的先后，再点「检查顺序」——错的地方会给提示。',
+      intro: '下面是你这一路亲历的六件大事，顺序已经打乱。按住 ⋮⋮ 拖动（或用右侧箭头微调）排回应有的先后，再点「检查顺序」——卡住的地方会给一条线索。',
       items: [
         { label: '查理曼帝国系于个人威望', hint: '没有制度的帝国，全系于一人。' },
         { label: '帝国按日耳曼习俗分给子孙', hint: '人亡政息的第一步。' },

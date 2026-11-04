@@ -254,6 +254,22 @@ body {
   aspect-ratio: 16/9; object-fit: cover; border: 1px solid var(--line);
 }
 .scene-img-cap { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+/* 卡诺莎：全章戏剧冲突最盛的一幕，图放大一档 + 一圈极淡的金边（不闪烁、不加装饰） */
+.scene-img.hero {
+  aspect-ratio: 16/10;
+  border-color: rgba(245, 197, 66, .34);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .36);
+}
+.scene-img-cap.hero {
+  font-size: 12.5px; line-height: 1.6; color: var(--text-dim);
+  border-left: 2px solid rgba(245, 197, 66, .5);
+  padding-left: 9px; margin: 9px 0 6px;
+}
+/* 素材署名：CC BY 图片必须署名，压成一行极小的字，不干扰阅读 */
+.scene-img-credit { font-size: 10.5px; color: #6f7a97; line-height: 1.5; margin: 0 0 8px; }
+.scene-img-credit a { color: inherit; text-decoration: underline; text-underline-offset: 2px; opacity: .9; }
+.scene-img-credit a:hover { color: var(--gold); opacity: 1; }
+.scene-img-cap.hero + .scene-img-credit { padding-left: 11px; margin-top: -2px; }
 
 .scene-deco {
   height: 130px; border-radius: 14px; margin: 12px 0 4px;
@@ -289,6 +305,13 @@ body {
 .fb-verdict { font-size: 20px; font-weight: 800; margin: 4px 0 2px; }
 .fb-verdict.hit { color: var(--good); }
 .fb-verdict.miss { color: var(--state); }
+/* 判定下回显玩家刚才点的那一项：低调，但让「后果描述」对得上号 */
+.fb-pick { font-size: 13px; color: var(--text-dim); margin: 5px 0 2px; line-height: 1.55; }
+/* 仅屏幕阅读器可见的播报区 */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 
 .quotebox { border-left: 3px solid var(--gold); padding-left: 12px; margin-top: 10px; }
 .quote-play {
@@ -411,11 +434,10 @@ body {
 .ct-nums b { color: var(--text); font-weight: 800; }
 .ct-nums em { font-style: normal; opacity: .65; margin-left: 3px; }
 .chart-legend .lg-line.faint { opacity: .6; }
+.chart-legend .lg-axis { font-size: 11px; color: var(--text-dim); opacity: .85; }
 
 /* ---------- 结算：终局判读 ---------- */
 .final-verdict { margin-top: 4px; }
-.fv-nums { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13.5px; color: var(--text-dim); }
-.fv-nums b { font-size: 16px; font-weight: 800; }
 .fv-say { font-size: 14px; margin: 8px 0 0; }
 .fv-say b { color: var(--gold); }
 

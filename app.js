@@ -377,7 +377,7 @@
       if (id === 'local' && !allMainDone()) return;   // 隐藏线：双主线通关前不出现
       const fresh = id === 'local' && allMainDone() && !save.done[id];
       const done = lineDone(id);
-      const doneTxt = (id === 'pope' && !save.done.pope) ? '✓ 简易已通' : '✓ 已通关';
+      const doneTxt = '✓ 已通关';
       // 隐藏入口：简易教皇线通关后，按钮角落浮出一个几乎融进底色的 NORMAL
       const normal = (id === 'pope' && easyDone())
         ? `<span class="normal-badge" data-mode="normal" aria-label="进入普通教皇线">${save.done.pope ? '✓ NORMAL' : 'NORMAL'}</span>` : '';
@@ -539,6 +539,16 @@
     return order.map(idx => ({ opt: node.options[idx], idx }));
   }
 
+  /** 素材署名：CC BY 图片必须标明作者与许可，链接指向 Commons 文件页看完整条款 */
+  function creditLine(node) {
+    if (!node.imgCredit) return '';
+    const txt = esc(node.imgCredit);
+    const link = node.imgCreditUrl
+      ? `<a href="${node.imgCreditUrl}" target="_blank" rel="noopener noreferrer">${txt}</a>`
+      : txt;
+    return `<div class="scene-img-credit">${link}</div>`;
+  }
+
   function renderScene(node) {
     const el = $('#screen-game');
     const easy = !!run.easy;
@@ -550,9 +560,11 @@
     const body = (easy && node.setupShort)
       ? (Array.isArray(node.setupShort) ? node.setupShort : [node.setupShort])
       : node.setup;
+    const hero = !easy && !!node.imgHero;
+    const creditHTML = creditLine(node);
     const visual = easy
       ? `<div class="scene-deco compact">${node.decoIcon || '🏛'}</div>`
-      : (node.img ? `<img class="scene-img" src="${node.img}" alt=""><div class="scene-img-cap">${esc(node.imgCaption || '')}</div>`
+      : (node.img ? `<img class="scene-img${hero ? ' hero' : ''}" src="${node.img}" alt=""><div class="scene-img-cap${hero ? ' hero' : ''}">${esc(node.imgCaption || '')}</div>${creditHTML}`
                   : `<div class="scene-deco">${node.decoIcon || '🏛'}</div>`);
     el.innerHTML = `
       ${headHTML(node, easy)}
@@ -599,13 +611,17 @@
   function renderFeedback(node, opt, optionIdx) {
     const el = $('#screen-game');
     const hit = opt.isHistory;
+    const verdictTxt = hit ? '✔ 历史正是这样走的' : '✘ 历史没有这样走';
+    const sr = $('#sr-status');
+    if (sr) sr.textContent = (hit ? '历史正是这样走的' : '历史没有这样走') + '。你选了：' + opt.t;
     // 简易线：只留判定 + 历史真实（引文不翻译、无朗读键），其余全部不出现
     if (run.easy) {
       el.innerHTML = `
         ${headHTML(node, true)}
         <h2 class="scene-title" id="scene-title">${esc(node.title)}</h2>
         <div class="fb-layer fb-your">
-          <div class="fb-verdict ${hit ? 'hit' : 'miss'}">${hit ? '✔ 历史正是这样走的' : '✘ 历史没有这样走'}</div>
+          <div class="fb-verdict ${hit ? 'hit' : 'miss'}">${verdictTxt}</div>
+          <div class="fb-pick">你选了：${esc(opt.t)}</div>
           ${!hit ? `<p>${esc(opt.fb)}</p>` : ''}
         </div>
         <div class="fb-layer fb-real">
@@ -622,7 +638,8 @@
       ${headHTML(node)}
       <h2 class="scene-title" id="scene-title">${esc(node.title)}</h2>
       <div class="fb-layer fb-your">
-        <div class="fb-verdict ${hit ? 'hit' : 'miss'}">${hit ? '✔ 历史正是这样走的' : '✘ 历史没有这样走'}</div>
+        <div class="fb-verdict ${hit ? 'hit' : 'miss'}">${verdictTxt}</div>
+        <div class="fb-pick">你选了：${esc(opt.t)}</div>
         ${!hit ? `<p>${esc(opt.fb)}</p>` : ''}
       </div>
       ${(!tutSeen() && run.choices.length === 1) ? tutorialHTML() : ''}
@@ -723,7 +740,7 @@
       <div style="margin-top:6px"><span class="interlude-badge">对照卡 · 冷知识</span></div>
       <h2 class="interlude-title">${esc(node.title)}</h2>
       <div class="dim" style="margin-top:-6px">${esc(node.year)}</div>
-      ${node.img ? `<img class="scene-img" src="${node.img}" alt=""><div class="scene-img-cap">${esc(node.imgCaption || '')}</div>`
+      ${node.img ? `<img class="scene-img" src="${node.img}" alt=""><div class="scene-img-cap">${esc(node.imgCaption || '')}</div>${creditLine(node)}`
                  : `<div class="scene-deco">${node.decoIcon || '🃏'}</div>`}
       <div class="interlude-body">${node.body.map(p => `<p>${esc(p)}</p>`).join('')}
         <div class="quotebox en-only">
@@ -947,6 +964,7 @@
           ${FACTIONS.map(f => `<span><i style="background:${f.color}"></i>${f.name}</span>`).join('')}
           <span class="lg-line"><b class="solid"></b>你的路线</span>
           <span class="lg-line faint"><b class="dash"></b>本章真实</span>
+          <span class="lg-axis">横轴＝第几次抉择</span>
         </div>
         ${finalVerdictHTML()}
       </div>`;
@@ -1030,10 +1048,9 @@
             const l = GAME_DATA.lines[id];
             const best = lineBest(id);
             const tot = countScenes(lineFlow(id));
-            const tag = id === 'pope' && popeEasyOnly ? '（简易）' : '';
             return `<div class="cl-row" style="border-left:3px solid ${l.color}">
               <span class="cl-ic" style="color:${l.color}">${l.icon}</span>
-              <div class="cl-mid"><b>${l.name}${tag}</b><span class="dim">${l.flavorTitle}</span></div>
+              <div class="cl-mid"><b>${l.name}</b><span class="dim">${l.flavorTitle}</span></div>
               <span class="cl-best">${best} / ${tot}<em>同频</em></span>
             </div>`;
           }).join('')}
@@ -1091,11 +1108,10 @@
   function finalVerdictHTML() {
     const sorted = FACTIONS.slice().sort((a, b) => run.factions[b.key] - run.factions[a.key]);
     const hi = sorted[0], lo = sorted[sorted.length - 1];
-    const line = FACTIONS.map(f => `${f.name} <b style="color:${f.color}">${run.factions[f.key]}</b>`).join(' · ');
+    // 曲线末端已标过三方数值，这里只留一句定性的收束，不再把数字列第二遍
     return `<div class="final-verdict">
-      <div class="bal-title" style="margin-top:16px">终局 · 谁最重</div>
-      <div class="fv-nums">${line}</div>
-      <p class="fv-say">最重的是<b>${hi.name}</b>（${gradeWord(run.factions[hi.key])}），最轻的是<b>${lo.name}</b>（${gradeWord(run.factions[lo.key])}）。</p>
+      <div class="bal-title" style="margin-top:16px">这一局 · 天平倒向哪边</div>
+      <p class="fv-say">走完全程，最重的是<b>${hi.name}</b>（${gradeWord(run.factions[hi.key])}），最轻的是<b>${lo.name}</b>（${gradeWord(run.factions[lo.key])}）。每一次抉择都在挪动它。</p>
     </div>`;
   }
   /* ---------------- 势力曲线（主图只画你这条线，历史做弱化背景；可点选某一步） ---------------- */
@@ -1149,7 +1165,10 @@
     const path = (arr, key) => arr.map((p, i) => `${i ? 'L' : 'M'}${xs(i).toFixed(1)},${ys(p[key]).toFixed(1)}`).join(' ');
 
     const sceneIds = run.flow.filter(id => GAME_DATA.scenes[id].type === 'scene');
-    const yearLabels = sceneIds.map(id => (GAME_DATA.scenes[id].year.match(/\d{3,4}/) || [''])[0]);
+    // 横轴是「这一局的第几次抉择」，不是严格时间轴：皇帝线 814→790、
+    // 地方线 1521→1494 在剧情里本就是回溯，标年份会显得倒退、非数字年份还会留空格。
+    // 完整年份留在点选后的详情条里（chartTipHTML）。
+    const stepLabels = sceneIds.map((_, i) => String(i + 1));
 
     let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">`;
     for (let t = lo; t <= hiV; t += Math.max(5, Math.round((hiV - lo) / 5 / 5) * 5)) {
@@ -1181,8 +1200,8 @@
       const x = xs(i + 1), y = ys(you[i + 1][mk]) - 10;
       svg += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="12" text-anchor="middle" fill="${c.isHistory ? '#6fd08c' : '#8a8fa0'}">${c.isHistory ? '✔' : '✘'}</text>`;
     });
-    yearLabels.forEach((y, i) => {
-      if (y) svg += `<text x="${xs(i + 1).toFixed(1)}" y="${H - 8}" font-size="9" fill="#6f7a97" text-anchor="middle">${y}</text>`;
+    stepLabels.forEach((y, i) => {
+      svg += `<text x="${xs(i + 1).toFixed(1)}" y="${H - 8}" font-size="9" fill="#6f7a97" text-anchor="middle">${y}</text>`;
     });
     svg += `<text x="${xs(0).toFixed(1)}" y="${H - 8}" font-size="9" fill="#6f7a97" text-anchor="middle">起点</text>`;
     // 每列一个透明热区：点哪里都行，不用精确点到线上
