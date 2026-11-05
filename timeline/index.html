@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Timeline：皇帝与教皇 · 第六章年表</title>
 <meta name="description" content="基于《The Shortest History of Europe》第六章的年表排序游戏：把 41 张历史卡牌放进正确的时间缝隙。">
 <link rel="stylesheet" href="style.css">
@@ -18,6 +18,7 @@
         <span class="brand-mark">⏳</span>
         <h1>Timeline · 皇帝与教皇</h1>
         <p class="sub">The Shortest History of Europe · 第六章 · 年表排序</p>
+        <p class="beta-note">测试版 · 第一幕已打磨，第 2–4 幕仍在调整</p>
       </div>
       <div class="progress-card">
         <div class="prog-row">
@@ -32,7 +33,7 @@
     <div class="mode-list">
       <button class="mode big" data-go="acts">
         <span class="mode-icon">🎬</span>
-        <span class="mode-txt"><b>闯关模式</b><small>四幕推进 · 每幕 3 次失误预算</small></span>
+        <span class="mode-txt"><b>闯关模式</b><small>四幕推进 · 失误预算随难度变化</small></span>
         <span class="mode-arrow">›</span>
       </button>
       <button class="mode" data-go="review">
@@ -50,9 +51,9 @@
     <div class="diff-box">
       <div class="diff-title">难度</div>
       <div class="diff-btns" id="diff-btns">
-        <button data-diff="easy">简单<small>显示世纪 · 5 次失误</small></button>
-        <button data-diff="normal" class="on">普通<small>无提示 · 3 次失误</small></button>
-        <button data-diff="hard">困难<small>隐去势力 · 2 次失误</small></button>
+        <button data-diff="easy">简单<small>5 次失误 · 显世纪</small></button>
+        <button data-diff="normal" class="on">普通<small>3 次失误 · 无提示</small></button>
+        <button data-diff="hard">困难<small>2 次失误 · 隐势力</small></button>
       </div>
     </div>
 
@@ -93,7 +94,10 @@
     </div>
 
     <div class="timeline-wrap">
-      <div class="timeline-hint" id="timeline-hint">点一张手牌，再点时间线上的缝隙</div>
+      <div class="timeline-hint" id="timeline-hint">点一张手牌，再点亮起的插入位</div>
+      <div class="tl-axis"><span>← 更早</span><b id="tl-count">时间线 · 1 张</b><span>更晚 →</span></div>
+      <button class="tl-nav tl-nav-l" id="tl-nav-l" type="button" aria-label="看更早的卡片" hidden>‹</button>
+      <button class="tl-nav tl-nav-r" id="tl-nav-r" type="button" aria-label="看更晚的卡片" hidden>›</button>
       <div class="timeline" id="timeline"></div>
     </div>
 

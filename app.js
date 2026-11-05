@@ -309,6 +309,11 @@
             <div class="cm-txt"><b>全章通关</b><span>教皇 · 皇帝 · 地方三条线已全部走完</span></div>
             <span class="cm-go">查看 ›</span>
           </button>` : ''}
+        ${finalMedal() ? `<a class="tl-beta" href="./timeline/" target="_blank" rel="noopener" aria-label="姊妹作 Timeline 年表排序，测试版">
+          <span class="tl-beta-tag">测试版</span>
+          <span class="tl-beta-txt"><b>姊妹作 · Timeline 年表排序</b><small>把第六章的事件按年份排回时间线 · 尚在打磨</small></span>
+          <span class="tl-beta-go">›</span>
+        </a>` : ''}
         ${featuresOn() ? `<div class="progress-line dim" style="margin-top:14px">
           📄 游戏中点右上角可随时查看该场景的书中原文<br>
           <button class="tip-sound${save.sound ? '' : ' muted'}" id="btn-sound" title="${save.sound ? '点击静音' : '点击恢复声音'}" aria-label="${save.sound ? '静音' : '取消静音'}">🔊</button>

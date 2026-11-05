@@ -166,7 +166,7 @@ const CARDS = [
     zh: '拜占庭女帝伊琳妮篡位',
     en: 'Empress Irene seizes the throne',
     faction: 'state', act: 1, diff: 'hard', icon: '👑',
-    img: null,
+    img: 'cards/irene.jpg',   // Pala d'Oro 珐琅圣像 · 公有领域 · Wikimedia Commons
     explain: '君士坦丁堡出了个女皇帝——教皇正好拿它当借口：西方不再有皇帝了，所以我要另立一个。',
     quote: {
       en: 'A woman had become emperor in Constantinople; she had blinded her son, who was the emperor, got rid of him and put herself on the throne.',

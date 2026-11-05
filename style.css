@@ -143,6 +143,24 @@ body {
 /* 奖章图标自带一块点击区（隐藏清单的三击入口），不参与卡片跳转 */
 .medal-hit { display: inline-flex; flex: 0 0 auto; }
 
+/* 拿到最终奖章后才出现的姊妹作入口：低调、明确标注「测试版」 */
+.tl-beta {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  margin-top: 10px; padding: 10px 12px;
+  border: 1px dashed var(--line); border-radius: var(--radius);
+  background: rgba(255,255,255,.02); color: var(--text-dim);
+  text-decoration: none; transition: .18s;
+}
+.tl-beta:hover, .tl-beta:focus-visible { border-color: var(--gold-dim); color: var(--text); }
+.tl-beta-tag {
+  flex: 0 0 auto; font-size: 11px; padding: 2px 7px; border-radius: 99px;
+  border: 1px solid var(--line); letter-spacing: .5px;
+}
+.tl-beta-txt { flex: 1; min-width: 0; }
+.tl-beta-txt b { display: block; font-size: 13.5px; font-weight: 600; color: var(--text); }
+.tl-beta-txt small { display: block; font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
+.tl-beta-go { font-size: 18px; }
+
 /* ---------- 恭喜通关页 ---------- */
 .clear-hero { text-align: center; padding: 10px 0 4px; }
 .medal-wrap { display: inline-block; filter: drop-shadow(0 8px 18px rgba(255, 204, 0, .3)); }

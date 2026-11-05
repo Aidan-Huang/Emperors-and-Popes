@@ -139,7 +139,7 @@
       const hint = (opts.century && c.approx !== false) ? '' : '';
       yearHtml = '<div class="yr">?</div>' + (opts.century ? '<div class="hint">' + Engine.centuryLabel(c.y) + '</div>' : hint);
     }
-    return '<div class="' + cls + '">' +
+    return '<div class="face ' + cls + '">' +
       '<div class="fstrip"></div>' +
       '<div class="art">' + artHTML(c) + '</div>' +
       '<div class="nm">' + esc(c.zh) + '</div>' +
@@ -255,7 +255,6 @@
     $('#game-act-span').textContent = act.span || '';
     go('game');
     renderGame();
-    $('#timeline-hint').textContent = '点一张手牌，再点时间线上的缝隙';
   }
 
   function renderGame() {
@@ -270,14 +269,16 @@
     $('#hud-combo').textContent = '🔥 ' + g.combo;
     $('#hud-progress').textContent = g.timeline.length + '/' + g.totalCards();
 
-    // 时间线
+    // 时间线（选中手牌也会重绘，保留横向滚动位置，避免视图乱跳）
     const tl = $('#timeline');
+    const keepScroll = tl.scrollLeft || 0;
     tl.innerHTML = '';
     g.timeline.forEach((c, i) => {
       tl.appendChild(slotEl(i));
       tl.appendChild(timelineCardEl(c));
     });
     tl.appendChild(slotEl(g.timeline.length));
+    tl.scrollLeft = keepScroll;
 
     // 手牌
     const hand = $('#hand');
@@ -296,22 +297,64 @@
         state.selectedId = (state.selectedId === c.id) ? null : c.id;
         g.select(state.selectedId);
         renderGame();
-        if (state.selectedId) {
-          $('#timeline-hint').textContent = '现在点时间线上的缝隙（共 ' + (g.timeline.length + 1) + ' 个）';
-        }
       };
       hand.appendChild(el);
     });
     if (!g.hand.length) {
       hand.innerHTML = '<div class="empty">手牌已空</div>';
     }
+
+    const sel = g.hand.find(c => c.id === state.selectedId);
+    $('#timeline-hint').innerHTML = sel
+      ? '已选中 <b>' + esc(sel.zh) + '</b> · 点一个金色插入位放进去'
+      : '点一张手牌，再点亮起的插入位';
+    updateTlNav();
   }
+
+  /* 桌面端卡片超过一屏时，给时间线加左右翻页按钮和滚动提示。
+     手机上时间线是纵向的，CSS 会把按钮隐藏。 */
+  function updateTlNav() {
+    const tl = $('#timeline'), g = state.session;
+    const l = $('#tl-nav-l'), r = $('#tl-nav-r');
+    if (!tl || !l || !r || !g) return;
+    const max = tl.scrollWidth - tl.clientWidth;
+    const scrollable = max > 4 && window.innerWidth > 760;
+    l.hidden = !scrollable || tl.scrollLeft <= 2;
+    r.hidden = !scrollable || tl.scrollLeft >= max - 2;
+    const cnt = $('#tl-count');
+    if (cnt) cnt.textContent = '时间线 · ' + g.timeline.length + ' 张 / 共 ' + g.totalCards() + ' 张' +
+      (scrollable ? ' · 可左右翻看' : '');
+  }
+
+  function scrollTl(dir) {
+    const tl = $('#timeline');
+    if (!tl) return;
+    const step = Math.max(320, Math.round(tl.clientWidth * 0.7));
+    try { tl.scrollBy({ left: dir * step, behavior: 'smooth' }); }
+    catch (e) { tl.scrollLeft += dir * step; }
+  }
+
+  $('#timeline').addEventListener('scroll', updateTlNav, { passive: true });
+  window.addEventListener('resize', updateTlNav);
+  $('#tl-nav-l').onclick = () => scrollTl(-1);
+  $('#tl-nav-r').onclick = () => scrollTl(1);
 
   function slotEl(i) {
     const el = document.createElement('div');
+    const g = state.session;
     el.className = 'slot' + (state.selectedId ? ' armed' : '');
     el.dataset.slot = i;
-    el.innerHTML = '+';
+    const prev = g.timeline[i - 1];
+    const next = g.timeline[i];
+    // 把「夹在哪两个年份之间」直接写在插入位上：年表练习，区间本来就是公开信息
+    let label;
+    if (!prev && !next) label = '放在时间线起点';
+    else if (!prev) label = next.dy + ' 之前';
+    else if (!next) label = prev.dy + ' 之后';
+    else label = prev.dy + ' — ' + next.dy + ' 之间';
+    el.innerHTML = '<span class="slot-plus">＋</span><span class="slot-txt">' + esc(label) + '</span>';
+    el.setAttribute('aria-label', '插入位置 ' + (i + 1) + '：' + label);
+    el.title = label;
     el.onclick = () => onPlace(i);
     return el;
   }
@@ -355,7 +398,7 @@
     const fb = $('#feedback');
     $('#fb-verdict').textContent = res.ok ? '✓ 放对了' : '✕ 放错了';
     $('#fb-verdict').className = 'fb-verdict ' + (res.ok ? 'ok' : 'bad');
-    $('#fb-year').textContent = c.dy + (c.approx ? '（约）' : '');
+    $('#fb-year').textContent = c.dy;   // dy 本身已含「约」，不再追加「（约）」避免重复
     $('#fb-event').textContent = c.zh;
     $('#fb-explain').textContent = c.explain || '';
 
@@ -498,9 +541,11 @@
         '<button id="res-home">回首页</button>' +
         '<button id="res-again">再来一局</button>' +
         '<button id="res-gallery">看卡册</button>' +
-        (state.mode === 'act' && nextAct && actUnlocked(nextAct.id) ? '<button class="primary" id="res-next">下一幕 ›</button>' :
-          (state.mode === 'act' ? '<button class="primary" id="res-next">下一幕 ›</button>' : '<button class="primary" id="res-home2">回首页</button>')) +
-      '</div>';
+        (state.mode === 'act'
+          ? '<button class="primary" id="res-next">' + (nextAct ? '下一幕 ›' : '看卡册 ›') + '</button>'
+          : '<button class="primary" id="res-home2">回首页</button>') +
+      '</div>' +
+      (state.mode === 'act' ? '<div class="result-beta">测试版 · 第 2–4 幕仍在打磨，第一幕已完成打磨</div>' : '');
 
     go('result');
 
