@@ -935,6 +935,8 @@
     const end = GAME_DATA.endings[run.lineId];
     const total = run.choices.length;
     const matches = run.choices.filter(c => c.isHistory).length;
+    // 成绩不再评级：只陈述这一局在几个路口走出了与史实不同的可能
+    const variants = total - matches;
     // 存档（先记录本局之前是否已全通关，用于判断是否是「最后一条线」）
     const wasAllDone = allDone();
     if (run.easy) {
@@ -988,8 +990,8 @@
     el.innerHTML = `
       <div class="ending-head">
         <div class="big">${esc(end.headline)}</div>
+        <div class="ending-variant">你走出了 ${variants} 种不同的历史</div>
         <div class="rank-badge">${esc(rank.title)}</div>
-        <div class="rank-note">${esc(rank.note)}</div>
       </div>
       <div class="card">
         <p>${esc(end.body)}</p>
