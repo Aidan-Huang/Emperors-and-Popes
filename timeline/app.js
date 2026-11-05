@@ -54,7 +54,8 @@
     session: null,
     selectedId: null,
     galleryTab: 'all',
-    locked: false          // 判定反馈展示期间锁输入
+    locked: false,         // 判定反馈展示期间锁输入
+    sessionSeq: 0          // 每开一局 +1，用于手牌增量重绘时识别旧闭包
   };
 
   const audio = new Audio();
@@ -249,6 +250,7 @@
   }
 
   function afterStart(act) {
+    state.sessionSeq++;
     state.locked = false;
     $('#feedback').classList.remove('show');
     $('#game-act-name').textContent = act.name;
@@ -280,28 +282,37 @@
     tl.appendChild(slotEl(g.timeline.length));
     tl.scrollLeft = keepScroll;
 
-    // 手牌
+    // 手牌：内容没变时只切换 .sel，避免点选一次就重播发牌动画、
+    // 也避免鼠标悬浮时 DOM 被重建导致「浮起」被打断。
     const hand = $('#hand');
-    hand.innerHTML = '';
-    g.hand.forEach(c => {
-      const el = document.createElement('div');
-      el.className = 'hand-card ' + factionClass(c.faction) + (c.id === state.selectedId ? ' sel' : '');
-      el.dataset.id = c.id;
-      el.innerHTML = cardFace(c, {
-        year: false,
-        century: cfg.showCentury,
-        showFaction: cfg.showFaction
+    const handSig = state.sessionSeq + '#' + cfg.showCentury + '#' + cfg.showFaction +
+      '#' + g.hand.map(c => c.id).join('|');
+    if (hand.dataset.sig === handSig && !hand.querySelector('.empty')) {
+      $$('#hand .hand-card').forEach(el => {
+        el.classList.toggle('sel', el.dataset.id === state.selectedId);
       });
-      el.onclick = () => {
-        if (state.locked) return;
-        state.selectedId = (state.selectedId === c.id) ? null : c.id;
-        g.select(state.selectedId);
-        renderGame();
-      };
-      hand.appendChild(el);
-    });
-    if (!g.hand.length) {
-      hand.innerHTML = '<div class="empty">手牌已空</div>';
+    } else {
+      hand.dataset.sig = handSig;
+      hand.innerHTML = '';
+      g.hand.forEach((c, n) => {
+        const el = document.createElement('div');
+        el.className = 'hand-card ' + factionClass(c.faction) + (c.id === state.selectedId ? ' sel' : '');
+        el.dataset.id = c.id;
+        el.style.animationDelay = (n * 70) + 'ms';   // 错落发牌
+        el.innerHTML = cardFace(c, {
+          year: false,
+          century: cfg.showCentury,
+          showFaction: cfg.showFaction
+        });
+        el.onclick = () => {
+          if (state.locked) return;
+          state.selectedId = (state.selectedId === c.id) ? null : c.id;
+          g.select(state.selectedId);
+          renderGame();
+        };
+        hand.appendChild(el);
+      });
+      if (!g.hand.length) hand.innerHTML = '<div class="empty">手牌已空</div>';
     }
 
     const sel = g.hand.find(c => c.id === state.selectedId);
