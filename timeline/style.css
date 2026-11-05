@@ -160,8 +160,9 @@ small{font-size:.78em;opacity:.85}
    最前面的锚点卡永远滚不回来。用首尾 auto 外边距实现「放得下就居中」。 */
 .timeline{
   flex:0 0 auto;display:flex;align-items:center;justify-content:flex-start;gap:8px;
-  /* 上下留 24px padding：hover 卡牌上浮/放大时不会被 overflow-y:hidden 裁掉 */
-  height:260px;padding:24px 4px;position:relative;overflow-x:auto;overflow-y:hidden;
+  /* 上下留 36px padding：hover 上浮 15px + 放大后顶部仍有余量，
+     否则 overflow-y:hidden 会把投影和金色光晕一起裁掉，时间线卡看起来「没浮起来」 */
+  height:288px;padding:36px 4px;position:relative;overflow-x:auto;overflow-y:hidden;
   scrollbar-width:thin;scrollbar-color:var(--gold-dim) transparent;
   scroll-behavior:smooth;
 }
@@ -300,8 +301,8 @@ small{font-size:.78em;opacity:.85}
 /* 深蓝底上纯黑阴影不显眼，补一圈金色细光晕让卡真正「浮出来」 */
 .tl-card:hover,.hand-card:hover{
   transform:translateY(-15px) scale(1.075);
-  box-shadow:0 22px 40px rgba(0,0,0,.62),0 0 0 2px rgba(255,204,0,.5),
-             0 0 26px rgba(255,204,0,.2);
+  box-shadow:0 16px 30px rgba(0,0,0,.62),0 0 0 2px rgba(255,204,0,.55),
+             0 0 20px rgba(255,204,0,.24);
   border-color:#ffe08a;
   filter:brightness(1.05);
   z-index:20;
@@ -325,11 +326,11 @@ small{font-size:.78em;opacity:.85}
   to{opacity:1;transform:none}
 }
 @keyframes land{from{transform:translateY(-16px) scale(.72) rotate(-5deg);opacity:0}to{transform:none;opacity:1}}
+/* 系统开了「减少动态效果」（远程桌面 / 辅助功能常见）时：
+   只取消发牌、落地、脉冲这些持续动画，hover 的「浮起来」是静态状态反馈，
+   必须原样保留，否则整个浮现效果会消失。过渡压到极短即可。 */
 @media (prefers-reduced-motion:reduce){
-  .tl-card,.hand-card,.tl-card .art img,.hand-card .art img{transition:none}
-  .tl-card:hover,.hand-card:hover,.hand-card.sel,.hand-card.sel:hover{
-    transform:none;filter:none;box-shadow:0 0 0 2px rgba(255,204,0,.5);
-  }
+  .tl-card,.hand-card,.tl-card .art img,.hand-card .art img{transition-duration:.08s}
   .hand-card,.tl-card.new,.slot.armed{animation:none}
 }
 
@@ -563,13 +564,6 @@ small{font-size:.78em;opacity:.85}
   }
   .hand-card .hint{left:auto;right:58px;bottom:3px;font-size:9px}
   .hand-card .faction-tag{top:4px;right:4px;font-size:9px}
-  /* 触屏没有 hover：避免点过之后卡片一直浮着；选中只留一圈金边 */
-  .tl-card:hover,.hand-card:hover,.hand-card.sel,.hand-card.sel:hover,.gcard:hover{
-    transform:none;box-shadow:var(--shadow);border-color:#d9d2c0;
-  }
-  .tl-card:hover .art img,.hand-card:hover .art img{transform:none}
-  .hand-card.sel{outline:2px solid var(--gold)}
-
   .fb-inner{max-height:66vh;border-radius:14px 14px 0 0;padding:12px 13px 16px}
   .gallery-grid{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:9px}
   .gcard .art{height:92px}
@@ -577,4 +571,20 @@ small{font-size:.78em;opacity:.85}
   .bigcard .art{flex:0 0 auto;width:100%;height:220px}
   .stats{flex-wrap:wrap}
   .stat{flex:0 0 calc(50% - 5px)}
+}
+
+/* 窄窗口桌面：横条卡几乎占满整行，放大 1.075 会撑破视口，改用小幅上浮 */
+@media (max-width:760px) and (hover:hover){
+  .tl-card:hover,.hand-card:hover,.hand-card.sel:hover{transform:translateY(-8px) scale(1.02)}
+}
+
+/* 只在真正没有鼠标悬停能力的触屏设备上关闭浮起，
+   避免把「窄窗口桌面 / 远程桌面」也误判成手机、把 hover 一起禁掉。
+   触屏上点过之后卡片不该一直浮着，选中只留一圈金边。 */
+@media (hover:none),(pointer:coarse){
+  .tl-card:hover,.hand-card:hover,.hand-card.sel,.hand-card.sel:hover,.gcard:hover{
+    transform:none;box-shadow:var(--shadow);border-color:#d9d2c0;filter:none;
+  }
+  .tl-card:hover .art img,.hand-card:hover .art img{transform:none}
+  .hand-card.sel{outline:2px solid var(--gold)}
 }
