@@ -933,6 +933,9 @@
   /* ---------------- 结算 ---------------- */
   function renderEnding() {
     const end = GAME_DATA.endings[run.lineId];
+    // 正文末尾的收束按「这一局最偏向哪一方」换一句：只讲你这一趟的做法，不重复天平终态
+    const lead = FACTIONS.slice().sort((a, b) => run.factions[b.key] - run.factions[a.key])[0];
+    const tail = (end.tails && end.tails[lead.key]) || '';
     const total = run.choices.length;
     const matches = run.choices.filter(c => c.isHistory).length;
     // 成绩不再评级：只陈述这一局在几个路口走出了与史实不同的可能
@@ -995,6 +998,7 @@
       </div>
       <div class="card">
         <p>${esc(end.body)}</p>
+        ${tail ? `<p class="ending-tail">${esc(tail)}</p>` : ''}
         <div class="quotebox en-only">
           <span class="en">${esc(end.closingQuote.en)}</span>
         </div>
