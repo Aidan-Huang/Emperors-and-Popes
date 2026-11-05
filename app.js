@@ -112,7 +112,7 @@
     try {
       localStorage.setItem(RUN_KEY, JSON.stringify({
         v: 1, lineId: run.lineId, easy: run.easy, idx: run.idx,
-        factions: run.factions, canon: run.canon,
+        flow: run.flow, factions: run.factions, canon: run.canon,
         snaps: run.snaps, canonSnaps: run.canonSnaps,
         choices: run.choices, hi: run.hi
       }));
@@ -124,6 +124,10 @@
       const r = JSON.parse(localStorage.getItem(RUN_KEY));
       if (!r || r.v !== 1 || !GAME_DATA.lines[r.lineId] ||
           !Array.isArray(r.choices) || !Array.isArray(r.snaps)) return null;
+      // 流程顺序若已调整（例如按年份重排），旧检查点的下标与 snaps 会错位，直接作废
+      const ln = GAME_DATA.lines[r.lineId];
+      const fl = (r.easy && ln.flowEasy) ? ln.flowEasy : ln.flow;
+      if (!Array.isArray(r.flow) || r.flow.join(',') !== fl.join(',')) return null;
       return r;
     } catch (e) { return null; }
   }

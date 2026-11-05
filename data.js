@@ -6,6 +6,10 @@
 
 const GAME_DATA = {
 
+  /* 时间轴约定：每条线 flow 里的每个节点（含对照卡）year 都必须含 3-4 位数字，
+     且按 flow 顺序取首个数字后单调不减——玩家按年份推进来读这段历史。
+     区间标签写成「1648 → 1804 年」这类形式，锚点取第一个数字。
+     增删场景或调整顺序时，test_numeric.js 的「时间轴守卫」会校验。 */
   lines: {
     pope: {
       id: 'pope', name: '教皇线', icon: '✝', color: '#378ADD',
@@ -25,11 +29,11 @@ const GAME_DATA = {
       subtitle: '扮演皇帝 · 5 个抉择 · 约 10 分钟',
       desc: '从查理曼的庞大帝国，到拿破仑自己戴上的皇冠——你来执掌帝冠的沉浮。',
       recommended: false,
-      flow: ['e1', 'e2', 'e3', 'e4', 'i_voltaire', 'e5'],
+      flow: ['e2', 'e1', 'e3', 'e4', 'i_voltaire', 'e5'],
       flavorTitle: '帝冠的执掌者',
-      // 814 年开局：查理曼武功巅峰，伯爵公爵尚被压住；教皇刚拿到领地，仍需皇帝保护
+      // 约 790 年开局：查理曼武功巅峰，伯爵公爵尚被压住；教皇国已在意大利立足，仍需皇帝保护
       start: { church: 45, state: 65, local: 40 },
-      startNote: '814 年：查理曼的帝国如日中天，教皇刚有了领地、仍要靠你保护，地方豪强尚未成气候。'
+      startNote: '约 790 年：查理曼的帝国如日中天，教皇国已在意大利立足，却仍要靠皇帝保护；地方豪强尚未成气候。'
     },
     local: {
       id: 'local', name: '地方线', icon: '⚔', color: '#888780',
@@ -37,11 +41,11 @@ const GAME_DATA = {
       desc: '教皇和皇帝斗了千年，真正的赢家另有其人——体验权力夹缝中的自由。',
       recommended: false,
       lockedUntilAnyLineDone: true,
-      flow: ['f1', 'f2'],
+      flow: ['f2', 'f1'],
       flavorTitle: '乱世的地方豪强',
-      // 1521 年开局：教会在改革前夜看似鼎盛，皇帝强势却被法国与奥斯曼牵着走，诸侯正要起飞
+      // 约 1494 年开局：教皇与皇帝都伸手不到北意城邦，城邦富庶、地方自治正当高峰
       start: { church: 55, state: 50, local: 45 },
-      startNote: '1521 年：教会表面上如日中天，查理五世强势却被法国与奥斯曼牵着走——诸侯的机会来了。'
+      startNote: '约 1494 年：北意城邦富甲欧洲，教皇与皇帝谁都拿你没办法——权力真空正开出文艺复兴。'
     }
   },
 
@@ -246,7 +250,7 @@ const GAME_DATA = {
     /* ---------------- 教皇线对照卡 ---------------- */
 
     i_byz: {
-      type: 'interlude', lane: 'church', year: '同一时代的东方', title: '对照卡 · 君士坦丁堡的一手遮天',
+      type: 'interlude', lane: 'church', year: '约 800 年 · 同一时代的东方', title: '对照卡 · 君士坦丁堡的一手遮天',
       img: 'images/arch-of-constantine-rome.jpg',
       imgCaption: '君士坦丁的凯旋门：皇帝的权力纪念碑（罗马）',
       audio: 'audio/i_byz.mp3',
@@ -264,7 +268,7 @@ const GAME_DATA = {
     },
 
     i_boss: {
-      type: 'interlude', lane: 'church', year: '千年拉锯的总结', title: '对照卡 · 老板与工人',
+      type: 'interlude', lane: 'church', year: '约 1527 年 · 千年回望', title: '对照卡 · 老板与工人',
       img: 'images/scriptorium-monks.jpg',
       imgCaption: '各司其职的抄写坊：谁也离不开谁，却各有各的位置',
       decoIcon: '⚖',
@@ -321,7 +325,7 @@ const GAME_DATA = {
       decoIcon: '✒',
       audio: 'audio/e2.mp3',
       setup: [
-        '你还是查理曼。你能读拉丁文，但写字始终不得要领——到死床边都放着块练字的蜡板。',
+        '你是查理曼。你能读拉丁文，但写字始终不得要领——到死床边都放着块练字的蜡板。',
         '你清楚地记得圣奥古斯丁在《上帝之城》里的话：「如果没有正义，王国算什么？不过是大型劫掠团伙。」你的日耳曼祖先正是靠劫掠起家的；你不想让帝国只是一台换了招牌的劫掠机器。',
         '你还隐隐担心：罗马那些伟大的书——西塞罗、维吉尔——正在虫蛀与遗忘中消失。',
         '你手里有一笔钱，花在哪？'
@@ -446,7 +450,7 @@ const GAME_DATA = {
     /* ---------------- 皇帝线对照卡 ---------------- */
 
     i_voltaire: {
-      type: 'interlude', lane: 'state', year: '1648 → 1806', title: '冷知识 · 伏尔泰的吐槽',
+      type: 'interlude', lane: 'state', year: '1648 → 1804 年', title: '冷知识 · 伏尔泰的吐槽',
       img: 'images/map-western-and-central-europe-1648.jpg',
       imgCaption: '1648 年的中西欧：一盘散沙的「 patchwork 」',
       audio: 'audio/i_voltaire.mp3',
@@ -635,8 +639,8 @@ const GAME_DATA = {
     introFull: '通关后解锁的复习时间线：你亲历过的一切，按年份排开。教权在上、皇权在下、地方居中——看看这千年双人舞的全貌。',
     events: [
       { id: 'p1', year: 751, label: '教皇求援丕平', lane: 'church', detail: '伦巴第威胁罗马，教皇弃东投西；丕平献土，教皇国诞生。' },
-      { id: 'p2', year: 800, label: '查理曼加冕', lane: 'church', detail: '圣诞夜，教皇为查理曼加冕「罗马皇帝」——随后行了个礼，千年公案就此埋下。' },
       { id: 'e2', year: 790, label: '抄写古典手稿', lane: 'state', detail: '查理曼命学者搜罗抄写古代手稿，古典文明赖此存世。', approx: true },
+      { id: 'p2', year: 800, label: '查理曼加冕', lane: 'church', detail: '圣诞夜，教皇为查理曼加冕「罗马皇帝」——随后行了个礼，千年公案就此埋下。' },
       { id: 'e1', year: 814, label: '帝国分给子孙', lane: 'state', detail: '查理曼死后，帝国按日耳曼习俗分裂；孙辈混战后一分为三。' },
       { id: 'e3', year: 962, label: '奥托加冕', lane: 'state', detail: '教皇为奥托一世加冕，德王与帝位从此绑定——选帝侯制度随后成形。' },
       { id: 'p3', year: 1073, label: '主教任免之争', lane: 'church', detail: '格里高利七世宣布主教只许罗马任命，亨利四世针锋相对。' },
