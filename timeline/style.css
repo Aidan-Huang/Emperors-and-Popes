@@ -19,8 +19,11 @@
   --both:#c8b271;
   --ok:#4CAF7D;
   --bad:#E2504B;
-  --card-bg:#f6f2e8;
-  --card-ink:#241f18;
+  /* 卡面按原版：纯白、极淡投影，不用米黄底和重阴影 */
+  --card-bg:#fff;
+  --card-ink:#2b2b2b;
+  --card-shadow:0 2px 6px rgba(0,0,0,.27);
+  --card-shadow-hover:0 8px 16px rgba(0,0,0,.32);
   --shadow:0 6px 20px rgba(0,0,0,.35);
 }
 
@@ -160,9 +163,8 @@ small{font-size:.78em;opacity:.85}
    最前面的锚点卡永远滚不回来。用首尾 auto 外边距实现「放得下就居中」。 */
 .timeline{
   flex:0 0 auto;display:flex;align-items:center;justify-content:flex-start;gap:8px;
-  /* 上下留 36px padding：hover 上浮 15px + 放大后顶部仍有余量，
-     否则 overflow-y:hidden 会把投影和金色光晕一起裁掉，时间线卡看起来「没浮起来」 */
-  height:288px;padding:36px 4px;position:relative;overflow-x:auto;overflow-y:hidden;
+  /* hover 收敛为轻微上浮后，24px 留白已足够，区块也更紧凑 */
+  height:260px;padding:24px 4px;position:relative;overflow-x:auto;overflow-y:hidden;
   scrollbar-width:thin;scrollbar-color:var(--gold-dim) transparent;
   scroll-behavior:smooth;
 }
@@ -215,16 +217,20 @@ small{font-size:.78em;opacity:.85}
 /* 时间线上的卡 */
 /* 桌面卡牌统一 2:3（140×210），与旧版 120×180 同一比例 */
 .tl-card{
-  flex:0 0 140px;height:210px;background:var(--card-bg);color:var(--card-ink);border-radius:11px;
-  border:1px solid #d9d2c0;box-shadow:var(--shadow);overflow:hidden;position:relative;
+  flex:0 0 140px;height:210px;background:var(--card-bg);color:var(--card-ink);border-radius:8px;
+  border:0;box-shadow:var(--card-shadow);overflow:hidden;position:relative;
   display:flex;flex-direction:column;cursor:pointer;
 }
-.tl-card .fstrip{height:5px;background:var(--local);flex:0 0 5px}
+.tl-card .fstrip{height:3px;background:var(--local);flex:0 0 3px}
 .tl-card.f-church .fstrip{background:var(--church)}
 .tl-card.f-state .fstrip{background:var(--state)}
 .tl-card.f-local .fstrip{background:var(--local)}
 .tl-card.f-both .fstrip{background:var(--both)}
-.tl-card .art{height:108px;flex:0 0 108px;background:#e9e3d4;overflow:hidden;display:flex;align-items:center;justify-content:center}
+/* 原版：图片四周留白边 + 小圆角，不铺满卡面 */
+.tl-card .art{
+  height:104px;flex:0 0 104px;margin:8px 8px 0;border-radius:4px;
+  background:#f0efec;overflow:hidden;display:flex;align-items:center;justify-content:center;
+}
 .tl-card .art img{width:100%;height:100%;object-fit:cover;display:block}
 .tl-card .crest{
   width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:30px;
@@ -240,13 +246,20 @@ small{font-size:.78em;opacity:.85}
   content:'';position:absolute;inset:6%;border-radius:50%;
   border:1px dashed rgba(120,100,60,.18);
 }
-.tl-card .nm{padding:7px 9px;font-size:13px;line-height:1.4;font-weight:600;flex:1;display:flex;align-items:center}
+.tl-card .nm{
+  padding:6px 10px;font-size:12.5px;line-height:1.45;font-weight:500;color:#333;
+  flex:1;display:flex;align-items:center;justify-content:center;text-align:center;
+}
+/* 年份按原版收成底部一行小灰字，不做整条色带 */
 .tl-card .yr{
-  text-align:center;font-size:13.5px;font-weight:700;color:#7a6a45;background:#efe9da;
-  border-top:1px solid #ddd5c2;padding:6px 2px;flex:0 0 auto;
+  text-align:center;font-size:12px;font-weight:600;color:#8a8578;
+  background:none;border:0;padding:0 0 10px;flex:0 0 auto;
 }
 .tl-card .yr .approx{font-size:10px;font-weight:400}
-.tl-card .faction-tag{position:absolute;top:11px;right:8px;z-index:2;font-size:10px;padding:1px 6px;border-radius:6px;color:#fff}
+.tl-card .faction-tag{
+  position:absolute;top:12px;right:10px;z-index:2;font-size:9.5px;font-weight:600;
+  padding:1px 5px;border-radius:4px;
+}
 .tl-card.new{animation:land .5s cubic-bezier(.2,1.2,.3,1)}
 .tl-card.focus{outline:3px solid var(--gold);outline-offset:2px}
 .tl-card.ghost{opacity:.55;outline:2px dashed var(--gold);outline-offset:2px}
@@ -265,72 +278,72 @@ small{font-size:.78em;opacity:.85}
 }
 .hand .empty{grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;padding:18px 0}
 .hand-card{
-  height:210px;min-height:210px;background:var(--card-bg);color:var(--card-ink);border-radius:11px;
-  border:1px solid #d9d2c0;box-shadow:var(--shadow);overflow:hidden;position:relative;
+  height:210px;min-height:210px;background:var(--card-bg);color:var(--card-ink);border-radius:8px;
+  border:0;box-shadow:var(--card-shadow);overflow:hidden;position:relative;
   display:flex;flex-direction:column;cursor:pointer;
 }
-.hand-card .fstrip{height:4px;background:var(--local)}
+.hand-card .fstrip{height:3px;background:var(--local)}
 .hand-card.f-church .fstrip{background:var(--church)}
 .hand-card.f-state .fstrip{background:var(--state)}
 .hand-card.f-both .fstrip{background:var(--both)}
-.hand-card .art{height:108px;flex:0 0 108px;background:#e9e3d4;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.hand-card .art{
+  height:104px;flex:0 0 104px;margin:8px 8px 0;border-radius:4px;
+  background:#f0efec;display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
 .hand-card .art img{width:100%;height:100%;object-fit:cover}
 .hand-card .crest{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:34px;
   background:radial-gradient(circle at 50% 40%,#fbf8f0,#e6dfcd)}
-.hand-card .nm{padding:7px 9px;font-size:13px;line-height:1.4;font-weight:600;flex:1}
-.hand-card .yr{text-align:center;background:#2c2a17;color:var(--gold);font-weight:700;font-size:15px;padding:4px 0}
-.hand-card .hint{position:absolute;left:0;right:0;bottom:26px;text-align:center;font-size:10px;color:#8a7a55}
+.hand-card .nm{
+  padding:6px 10px;font-size:12.5px;line-height:1.45;font-weight:500;color:#333;
+  flex:1;display:flex;align-items:center;justify-content:center;text-align:center;
+}
+.hand-card .yr{
+  text-align:center;background:none;color:#a08b4a;font-weight:600;font-size:14px;
+  padding:0 0 10px;flex:0 0 auto;
+}
+.hand-card .hint{position:absolute;left:0;right:0;bottom:28px;text-align:center;font-size:9px;color:#aaa}
 .hand-card.sel{outline:3px solid var(--gold)}
 .hand-card .faction-tag{
-  position:absolute;top:8px;right:6px;font-size:10px;padding:1px 5px;border-radius:6px;color:#fff;
+  position:absolute;top:12px;right:10px;font-size:9.5px;font-weight:600;
+  padding:1px 5px;border-radius:4px;
 }
-.faction-tag.church{background:var(--church)}
-.faction-tag.state{background:var(--state)}
-.faction-tag.local{background:#8f8e86}
-.faction-tag.both{background:var(--both)}
+/* 势力标签按原版的 category 小字处理：白底、彩色细字，不用实心胶囊 */
+.faction-tag.church,.faction-tag.state,.faction-tag.local,.faction-tag.both{
+  background:rgba(255,255,255,.94);border:1px solid currentColor;
+}
+.faction-tag.church{color:#2f6fb5}
+.faction-tag.state{color:#b87610}
+.faction-tag.local{color:#7c7b74}
+.faction-tag.both{color:#96813c}
 .faction-tag.hidden{display:none}
 
-/* ---------- 卡牌浮现：时间线卡与手牌卡共用同一套动效 ----------
-   旧版 .card:hover 只有 scale(1.05)，这里保留「整张卡浮起来」的感觉，
-   并补上更高层投影、金色描边和图片轻微推近，鼠标滑过时更立体。 */
+/* ---------- 卡牌浮现：按原版的克制手感 ----------
+   原版 .card:hover = scale(1.05) + transition:transform .2s，
+   没有位移、金边、光晕、投影暴涨、卡面提亮或图片推近。
+   这里只保留一点点上浮让「浮」可感，其余一律不加，避免突兀。 */
 .tl-card,.hand-card{
-  transition:transform .24s cubic-bezier(.2,.85,.25,1),box-shadow .24s ease,
-             border-color .24s ease,filter .24s ease;
+  transition:transform .2s ease,box-shadow .2s ease;
 }
-.tl-card .art img,.hand-card .art img{transition:transform .3s ease}
-/* 深蓝底上纯黑阴影不显眼，补一圈金色细光晕让卡真正「浮出来」 */
 .tl-card:hover,.hand-card:hover{
-  transform:translateY(-15px) scale(1.075);
-  box-shadow:0 16px 30px rgba(0,0,0,.62),0 0 0 2px rgba(255,204,0,.55),
-             0 0 20px rgba(255,204,0,.24);
-  border-color:#ffe08a;
-  filter:brightness(1.05);
+  transform:translateY(-3px) scale(1.04);
+  box-shadow:var(--card-shadow-hover);
   z-index:20;
 }
-.tl-card:hover .art img,.hand-card:hover .art img{transform:scale(1.07)}
-/* 选中的手牌保持「已拿在手上」的状态，hover 时再抬一层 */
-.hand-card.sel{
-  transform:translateY(-9px) scale(1.03);
-  box-shadow:0 14px 30px rgba(0,0,0,.5),0 0 0 3px var(--gold);
-  z-index:15;
-}
-.hand-card.sel:hover{
-  transform:translateY(-14px) scale(1.07);
-  box-shadow:0 22px 40px rgba(0,0,0,.6),0 0 0 3px var(--gold);
-  z-index:21;
-}
-/* 新手牌发牌时错落浮入，避免每次重绘都重播（见 renderGame 的手牌签名） */
-.hand-card{animation:deal .42s cubic-bezier(.2,.9,.3,1) backwards}
+/* 选中沿用原版的纯金边，不额外抬升卡片 */
+.hand-card.sel{z-index:15}
+.hand-card.sel:hover{z-index:21}
+/* 发牌 / 落位也一并收敛，保持整体「淡淡的」节奏 */
+.hand-card{animation:deal .3s cubic-bezier(.2,.9,.3,1) backwards}
 @keyframes deal{
-  from{opacity:0;transform:translateY(24px) scale(.93) rotate(-2deg)}
+  from{opacity:0;transform:translateY(10px) scale(.98)}
   to{opacity:1;transform:none}
 }
-@keyframes land{from{transform:translateY(-16px) scale(.72) rotate(-5deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes land{from{transform:translateY(-8px) scale(.94);opacity:0}to{transform:none;opacity:1}}
 /* 系统开了「减少动态效果」（远程桌面 / 辅助功能常见）时：
    只取消发牌、落地、脉冲这些持续动画，hover 的「浮起来」是静态状态反馈，
    必须原样保留，否则整个浮现效果会消失。过渡压到极短即可。 */
 @media (prefers-reduced-motion:reduce){
-  .tl-card,.hand-card,.tl-card .art img,.hand-card .art img{transition-duration:.08s}
+  .tl-card,.hand-card{transition-duration:.08s}
   .hand-card,.tl-card.new,.slot.armed{animation:none}
 }
 
@@ -425,25 +438,24 @@ small{font-size:.78em;opacity:.85}
 .gallery-tabs button.on{background:#2c2a17;border-color:var(--gold);color:var(--gold)}
 .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
 .gcard{
-  background:var(--card-bg);color:var(--card-ink);border-radius:11px;overflow:hidden;
-  border:1px solid #d9d2c0;box-shadow:var(--shadow);cursor:pointer;position:relative;
-  transition:transform .24s cubic-bezier(.2,.85,.25,1),box-shadow .24s ease,border-color .24s ease;
+  background:var(--card-bg);color:var(--card-ink);border-radius:8px;overflow:hidden;
+  border:0;box-shadow:var(--card-shadow);cursor:pointer;position:relative;
+  transition:transform .2s ease,box-shadow .2s ease;
 }
 .gcard:hover{
-  transform:translateY(-9px) scale(1.045);
-  box-shadow:0 18px 32px rgba(0,0,0,.55),0 0 0 2px rgba(255,204,0,.5),0 0 22px rgba(255,204,0,.18);
-  border-color:#ffe08a;z-index:2;
+  transform:translateY(-3px) scale(1.035);
+  box-shadow:var(--card-shadow-hover);z-index:2;
 }
-.gcard .fstrip{height:4px;background:var(--local)}
+.gcard .fstrip{height:3px;background:var(--local)}
 .gcard.f-church .fstrip{background:var(--church)}
 .gcard.f-state .fstrip{background:var(--state)}
 .gcard.f-both .fstrip{background:var(--both)}
-.gcard .art{height:118px;background:#e9e3d4;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.gcard .art{height:112px;margin:8px 8px 0;border-radius:4px;background:#f0efec;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .gcard .art img{width:100%;height:100%;object-fit:cover}
 .gcard .crest{font-size:38px;width:100%;height:100%;display:flex;align-items:center;justify-content:center;
   background:radial-gradient(circle at 50% 40%,#fbf8f0,#e6dfcd)}
-.gcard .nm{padding:7px 8px;font-size:12px;font-weight:600;line-height:1.35;min-height:36px}
-.gcard .yr{text-align:center;font-size:12px;font-weight:700;color:#7a6a45;background:#efe9da;padding:3px 0;border-top:1px solid #ddd5c2}
+.gcard .nm{padding:7px 8px;font-size:12px;font-weight:500;line-height:1.35;min-height:36px;color:#333;text-align:center}
+.gcard .yr{text-align:center;font-size:11.5px;font-weight:600;color:#8a8578;background:none;padding:0 0 8px}
 .gcard.locked{filter:grayscale(1) brightness(.72)}
 .gcard.locked .nm{color:#5d5748}
 .gcard.locked .yr{color:#6d6350}
@@ -541,12 +553,14 @@ small{font-size:.78em;opacity:.85}
     flex:0 0 auto;width:100%;height:80px;min-height:80px;
     flex-direction:row;align-items:center;
   }
-  .tl-card .fstrip{width:5px;height:100%;flex:0 0 5px}
-  .tl-card .art{width:64px;height:100%;flex:0 0 64px}
-  .tl-card .nm{flex:1;font-size:13px;padding:6px 9px}
+  .tl-card .fstrip{width:3px;height:100%;flex:0 0 3px}
+  /* 手机横条卡：撤掉桌面的图片白边，恢复满高缩略图 */
+  .tl-card .art{width:64px;height:100%;flex:0 0 64px;margin:0;border-radius:0}
+  .tl-card .nm{flex:1;font-size:13px;padding:6px 9px;justify-content:flex-start;text-align:left}
   .tl-card .yr{
-    flex:0 0 78px;height:100%;background:none;border:none;border-left:1px solid #ddd5c2;
+    flex:0 0 78px;height:100%;background:none;border:none;border-left:1px solid #eeeae1;
     display:flex;align-items:center;justify-content:center;font-size:12.5px;padding:0 4px;
+    color:#8a8578;
   }
   .tl-card .faction-tag{display:none}
 
@@ -555,27 +569,27 @@ small{font-size:.78em;opacity:.85}
   /* 手机上改成单列横条卡：三张手牌一屏看全，无需横向滚动 */
   .hand{grid-template-columns:1fr;gap:7px}
   .hand-card{height:74px;min-height:74px;flex-direction:row;align-items:center}
-  .hand-card .fstrip{flex:0 0 4px}
-  .hand-card .art{width:62px;height:100%;flex:0 0 62px}
-  .hand-card .nm{flex:1;font-size:12.5px;padding:4px 8px;display:flex;align-items:center}
+  .hand-card .fstrip{flex:0 0 3px}
+  .hand-card .art{width:62px;height:100%;flex:0 0 62px;margin:0;border-radius:0}
+  .hand-card .nm{flex:1;font-size:12.5px;padding:4px 8px;display:flex;align-items:center;justify-content:flex-start;text-align:left}
   .hand-card .yr{
     height:100%;flex:0 0 52px;display:flex;align-items:center;justify-content:center;
-    font-size:16px;padding:0;
+    font-size:15px;padding:0;color:#a08b4a;
   }
   .hand-card .hint{left:auto;right:58px;bottom:3px;font-size:9px}
   .hand-card .faction-tag{top:4px;right:4px;font-size:9px}
   .fb-inner{max-height:66vh;border-radius:14px 14px 0 0;padding:12px 13px 16px}
   .gallery-grid{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:9px}
-  .gcard .art{height:92px}
+  .gcard .art{height:86px;margin:6px 6px 0}
   .bigcard{flex-direction:column}
   .bigcard .art{flex:0 0 auto;width:100%;height:220px}
   .stats{flex-wrap:wrap}
   .stat{flex:0 0 calc(50% - 5px)}
 }
 
-/* 窄窗口桌面：横条卡几乎占满整行，放大 1.075 会撑破视口，改用小幅上浮 */
+/* 窄窗口桌面：横条卡几乎占满整行，放大到 1.04 会撑破视口，再收一档 */
 @media (max-width:760px) and (hover:hover){
-  .tl-card:hover,.hand-card:hover,.hand-card.sel:hover{transform:translateY(-8px) scale(1.02)}
+  .tl-card:hover,.hand-card:hover,.gcard:hover{transform:translateY(-2px) scale(1.02)}
 }
 
 /* 只在真正没有鼠标悬停能力的触屏设备上关闭浮起，
@@ -583,8 +597,7 @@ small{font-size:.78em;opacity:.85}
    触屏上点过之后卡片不该一直浮着，选中只留一圈金边。 */
 @media (hover:none),(pointer:coarse){
   .tl-card:hover,.hand-card:hover,.hand-card.sel,.hand-card.sel:hover,.gcard:hover{
-    transform:none;box-shadow:var(--shadow);border-color:#d9d2c0;filter:none;
+    transform:none;box-shadow:var(--card-shadow);
   }
-  .tl-card:hover .art img,.hand-card:hover .art img{transform:none}
   .hand-card.sel{outline:2px solid var(--gold)}
 }
