@@ -556,7 +556,7 @@
           ? '<button class="primary" id="res-next">' + (nextAct ? '下一幕 ›' : '看卡册 ›') + '</button>'
           : '<button class="primary" id="res-home2">回首页</button>') +
       '</div>' +
-      (state.mode === 'act' ? '<div class="result-beta">测试版 · 第 2–4 幕仍在打磨，第一幕已完成打磨</div>' : '');
+      (state.mode === 'act' ? '<div class="result-beta">四幕已全部完成 · 去卡册查看 41 张卡的原文与讲解</div>' : '');
 
     go('result');
 

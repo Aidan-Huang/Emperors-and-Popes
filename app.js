@@ -309,9 +309,9 @@
             <div class="cm-txt"><b>全章通关</b><span>教皇 · 皇帝 · 地方三条线已全部走完</span></div>
             <span class="cm-go">查看 ›</span>
           </button>` : ''}
-        ${finalMedal() ? `<a class="tl-beta" href="./timeline/" target="_blank" rel="noopener" aria-label="姊妹作 Timeline 年表排序，测试版">
-          <span class="tl-beta-tag">测试版</span>
-          <span class="tl-beta-txt"><b>姊妹作 · Timeline 年表排序</b><small>把第六章的事件按年份排回时间线 · 尚在打磨</small></span>
+        ${finalMedal() ? `<a class="tl-beta" href="./timeline/" target="_blank" rel="noopener" aria-label="姊妹作 Timeline 年表排序">
+          <span class="tl-beta-tag">姊妹作</span>
+          <span class="tl-beta-txt"><b>姊妹作 · Timeline 年表排序</b><small>把第六章 41 个事件按年份排回时间线 · 四幕全开</small></span>
           <span class="tl-beta-go">›</span>
         </a>` : ''}
         ${featuresOn() ? `<div class="progress-line dim" style="margin-top:14px">

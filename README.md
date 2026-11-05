@@ -4,7 +4,9 @@
 
 **在线试玩：** https://aidan-huang.github.io/Emperors-and-Popes/
 
-**姊妹作（同仓库 `/timeline/`）：** https://aidan-huang.github.io/Emperors-and-Popes/timeline/ —《Timeline：皇帝与教皇》，把本章 41 个事件排进正确的年代缝隙。两作首页互通。
+**姊妹作（同仓库 `/timeline/`）：** https://aidan-huang.github.io/Emperors-and-Popes/timeline/ —《Timeline：皇帝与教皇》，把本章 41 个事件排进正确的年代缝隙。四幕已全部完成、41 张卡全部配图。两作首页互通。
+
+Timeline 卡图取自 Wikimedia Commons 的公有领域 / CC0 历史画作、版画、手稿与照片，统一裁切为 480×700，来源与许可见 [`timeline/CREDITS.md`](timeline/CREDITS.md)。
 
 ## 玩法
 

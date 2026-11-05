@@ -218,7 +218,7 @@ const CARDS = [
     zh: '查理曼建亚琛宫殿，罗马柱从意大利运回',
     en: 'The palace at Aachen, with Roman pillars',
     faction: 'state', act: 2, diff: 'hard', icon: '🏛',
-    img: null,
+    img: 'cards/aachen.jpg',
     explain: '一个识字困难的蛮族国王，执意把罗马的柱子搬回北方——他要的是"罗马"这个样子。',
     quote: {
       en: 'The pillars supporting the arches were actually Roman; Charlemagne brought them back from Italy.',
@@ -235,7 +235,7 @@ const CARDS = [
     zh: '查理曼命学者抄写古典手稿',
     en: 'The copying of the ancient manuscripts',
     faction: 'state', act: 2, diff: 'medium', icon: '📜',
-    img: null,
+    img: 'cards/manuscripts.jpg',
     explain: '今天能读到的拉丁古典著作，几乎全靠这一次抄写——文明有时只悬于一个人的兴趣。',
     quote: {
       en: 'Nearly all the Latin works that have survived were copied in Charlemagne’s time. Without him the classical inheritance would have been very slim.',
@@ -252,7 +252,7 @@ const CARDS = [
     zh: '查理曼去世，帝国按日耳曼习俗分给子孙',
     en: 'Charlemagne dies; the empire to be subdivided',
     faction: 'state', act: 2, diff: 'medium', icon: '⚰',
-    img: null,
+    img: 'cards/charlemagne-814.jpg',
     explain: '帝国靠一个人，而不是一套制度——没有官僚、没有财政、没有常备军，人亡则政息。',
     quote: {
       en: 'There was no institutional base to this empire; its government depended on the personal power of its leader.',
@@ -286,7 +286,7 @@ const CARDS = [
     zh: '维京入侵乱世，伯爵公爵坐大',
     en: 'Norse invasions; counts and dukes entrench',
     faction: 'local', act: 2, diff: 'medium', icon: '🛡',
-    img: null,
+    img: 'cards/viking.jpg',
     explain: '中央一乱，地方就实：伯爵与公爵变成土皇帝，欧洲退回罗马陷落时的散装状态。',
     quote: {
       en: 'The counts and dukes established themselves as local strongmen with only very weak allegiance to whomever might be king.',
@@ -302,7 +302,7 @@ const CARDS = [
     zh: '教皇为德王奥托一世加冕',
     en: 'Otto I crowned Roman emperor',
     faction: 'church', act: 2, diff: 'easy', icon: '👑',
-    img: null,
+    img: 'cards/otto-962.jpg',
     explain: '"德意志国王 = 罗马皇帝"从此绑定：想要皇冠，就得去罗马低头。',
     quote: {
       en: 'Thereafter whoever became the king of Germany was, after being crowned by the pope, also Roman emperor and later Holy Roman emperor.',
@@ -319,7 +319,7 @@ const CARDS = [
     zh: '德意志国王由选举产生，选帝侯渐成',
     en: 'The German king is elected; the electors',
     faction: 'local', act: 2, diff: 'hard', icon: '🗳',
-    img: null,
+    img: 'cards/electors.jpg',
     explain: '别国都在世袭，唯独德意志坚持选举——于是皇帝不得不向选他的人让权。',
     quote: {
       en: 'Since the emperor had to curry favour with the electors to win his post, he was sometimes yielding power rather than claiming it from them.',
@@ -336,7 +336,7 @@ const CARDS = [
     zh: '教会土地占德意志近半，主教任免成战场',
     en: 'The church holds almost half of Germany',
     faction: 'church', act: 2, diff: 'hard', icon: '⛪',
-    img: null,
+    img: 'cards/church-land.jpg',
     explain: '主教手里有土地、有官职、有收入——谁任命主教，谁就掌握了半个德意志。',
     quote: {
       en: 'Sometimes a third of the land was in the church’s hands; in Germany it was almost half.',
@@ -356,7 +356,7 @@ const CARDS = [
     zh: '格里高利七世当选教皇，要收回主教任免权',
     en: 'Gregory VII becomes pope',
     faction: 'church', act: 3, diff: 'medium', icon: '✝',
-    img: null,
+    img: 'cards/gregory-1073.jpg',
     explain: '他要把教会从"各地老板说了算"，变回"罗马说了算"——冲突由此无可避免。',
     quote: {
       en: 'He declared that he would in future appoint bishops. The emperor Henry IV replied that he would continue to do so.',
@@ -373,7 +373,7 @@ const CARDS = [
     zh: '格里高利宣布：主教只许罗马任命',
     en: 'Bishops to be appointed from Rome alone',
     faction: 'church', act: 3, diff: 'easy', icon: '📜',
-    img: null,
+    img: 'cards/dictatus-1075.jpg',
     explain: '一句话废掉了国王们最值钱的一项专利——等于宣布各地主教的"老板"换了人。',
     quote: {
       en: 'From the eleventh century the two fell out because popes began to insist that the church should be run from Rome and kings and princes should not meddle in its affairs.',
@@ -389,7 +389,7 @@ const CARDS = [
     zh: '亨利四世被绝罚，臣民"可以不服从他"',
     en: 'Henry IV excommunicated',
     faction: 'church', act: 3, diff: 'easy', icon: '⚡',
-    img: null,
+    img: 'cards/excommunication-1076.jpg',
     explain: '绝罚不杀皇帝本人，杀的是"臣民必须服从他"这条纽带——德意志诸侯大喜过望。',
     quote: {
       en: 'Having excommunicated a king, they told the people in his territories that they did not have to obey him.',
@@ -439,7 +439,7 @@ const CARDS = [
     zh: '沃尔姆斯协定：皇帝提名、教皇授权',
     en: 'The Concordat of Worms',
     faction: 'both', act: 3, diff: 'medium', icon: '⚖',
-    img: null,
+    img: 'cards/worm-concordat-1122.jpg',
     explain: '争了半个世纪，最后是各让一步：皇帝可以出主意，权杖和法衣仍由教皇授予。',
     quote: {
       en: 'The emperor was allowed to have some influence in choosing bishops but it was to be the pope who actually gave them their staff of office and their official robes.',
@@ -459,7 +459,7 @@ const CARDS = [
     zh: '威廉征服英格兰，强行建立更强的王权',
     en: 'William conquers England',
     faction: 'state', act: 4, diff: 'medium', icon: '🏹',
-    img: null,
+    img: 'cards/william-1066.jpg',
     explain: '对照线：英格兰被武力一次性压平，反而比欧陆更早长出统一国家。',
     quote: {
       en: 'In England this was much helped by its conquest in 1066 by Duke William who, in seizing control of all parts of the country by force, established a stronger monarchy than in mainland Europe.',
@@ -475,7 +475,7 @@ const CARDS = [
     zh: '哈布斯堡家族开始垄断神圣罗马帝国皇位',
     en: 'The Hapsburgs monopolise the emperorship',
     faction: 'state', act: 4, diff: 'hard', icon: '🦅',
-    img: null,
+    img: 'cards/hapsburg.jpg',
     explain: '皇帝这个位子本身没多少权力了，但名头依然抢手——哈布斯堡一包就是几百年。',
     quote: {
       en: 'From the late Middle Ages one family always provided the person who was elected Holy Roman emperor. This was the Hapsburgs.',
@@ -492,7 +492,7 @@ const CARDS = [
     zh: '东罗马帝国（拜占庭）灭亡',
     en: 'The eastern empire ends',
     faction: 'state', act: 4, diff: 'medium', icon: '🕯',
-    img: '../images/chart-roman-empire-continuity.jpg',
+    img: 'cards/constantinople-1453.jpg',
     explain: '从奥古斯都数起，这条线走了将近一千五百年才断——"罗马"这个词，到此才算真正落幕。',
     quote: {
       en: 'The eastern empire survived another thousand years until 1453.',
@@ -525,7 +525,7 @@ const CARDS = [
     zh: '沃尔姆斯议会：路德拒不让步，被判异端',
     en: 'Luther refuses to recant at Worms',
     faction: 'state', act: 4, diff: 'medium', icon: '🔥',
-    img: null,
+    img: 'cards/worms-diet.jpg',
     explain: '皇帝有责任扑灭异端，可他的命令出了会场就不算数——德意志的权力是散的。',
     quote: {
       en: 'When Luther refused to recant, the emperor declared that he was a heretic, that no-one should support him and that he should be arrested.',
@@ -542,7 +542,7 @@ const CARDS = [
     zh: '腓特烈选帝侯"劫走"路德，藏于城堡译经',
     en: 'Luther spirited away to Wartburg',
     faction: 'local', act: 4, diff: 'medium', icon: '🏰',
-    img: null,
+    img: 'cards/luther-hidden.jpg',
     explain: '皇帝的逮捕令第二天就被一位诸侯挫败——这正是"地方坐大"最生动的一幕。',
     quote: {
       en: 'His orders were immediately frustrated by Frederick the Elector of Saxony, who seized Luther and took him into hiding.',
@@ -559,7 +559,7 @@ const CARDS = [
     zh: '路德宗诞生：德意志诸侯接管教会与土地',
     en: 'Lutheranism is born',
     faction: 'local', act: 4, diff: 'medium', icon: '✝',
-    img: null,
+    img: 'cards/lutheran.jpg',
     explain: '宗教改革同时是一次产权改革：诸侯接管了教会和教会的地，两头通吃。',
     quote: {
       en: 'They increased their own power at the expense of pope and emperor — and so Lutheranism was born.',
@@ -576,7 +576,7 @@ const CARDS = [
     zh: '切利尼在城墙上为教皇开炮',
     en: 'Cellini fires the cannon for the pope',
     faction: 'church', act: 4, diff: 'hard', icon: '💥',
-    img: null,
+    img: 'cards/cellini.jpg',
     explain: '金匠、炮手、杀人者、忏悔者——教皇一句"我为教会杀的人我都赦了"，把中世纪教权说透了。',
     quote: {
       en: 'Yes, I forgive you; I forgive you all the homicides you commit in the service of the church.',
@@ -610,7 +610,7 @@ const CARDS = [
     zh: '伏尔泰：既不神圣，也不罗马，更非帝国',
     en: 'Voltaire mocks the Holy Roman Empire',
     faction: 'both', act: 4, diff: 'hard', icon: '🖋',
-    img: null,
+    img: 'cards/voltaire.jpg',
     explain: '吐槽很准，可它偏偏一直活着——靠一个名字和一个念头，活成了一个魔法般的遗存。',
     quote: {
       en: 'Voltaire mocked the Holy Roman Empire as neither holy, nor Roman, nor an empire.',
@@ -627,7 +627,7 @@ const CARDS = [
     zh: '法国大革命爆发',
     en: 'The French Revolution begins',
     faction: 'local', act: 4, diff: 'easy', icon: '🚩',
-    img: null,
+    img: 'cards/revolution.jpg',
     explain: '自由、平等、博爱开场，四年后是断头台——欧洲旧秩序的裂缝从这里撕开。',
     quote: {
       en: 'The revolution began by proclaiming liberty, equality and fraternity; within four years there was a Jacobin dictatorship ruling by the guillotine.',
@@ -643,7 +643,7 @@ const CARDS = [
     zh: '拿破仑接管法国',
     en: 'Bonaparte takes charge of France',
     faction: 'state', act: 4, diff: 'easy', icon: '⚔',
-    img: null,
+    img: 'cards/napoleon-1799.jpg',
     explain: '革命十年后，法国人把"人民自治"这项自己搞砸了的权，交给了一个不相信它的将军。',
     quote: {
       en: 'He was a son of the Enlightenment, a believer in the principles of the revolution, except in the right of the people to govern themselves.',
@@ -659,7 +659,7 @@ const CARDS = [
     zh: '拿破仑与教皇签《政教协定》',
     en: 'The Concordat: state nominates, pope invests',
     faction: 'both', act: 4, diff: 'hard', icon: '⚖',
-    img: null,
+    img: 'cards/concordat-1801.jpg',
     explain: '八百年前那一套又回来了：国家提名，教皇授权——卡诺莎吵出来的公式，被一个不信神的皇帝重新启用。',
     quote: {
       en: 'On the appointment of bishops the Concordat re-instated an old practice: the state would nominate bishops and the pope would invest them.',
@@ -692,7 +692,7 @@ const CARDS = [
     zh: '《拿破仑法典》颁布',
     en: 'The Napoleonic Code',
     faction: 'state', act: 4, diff: 'medium', icon: '📕',
-    img: null,
+    img: 'cards/code-napoleon.jpg',
     explain: '效法查士丁尼：一部书里写尽全部法律——罗马留给欧洲最耐用的遗产，是法典而不是帝国。',
     quote: {
       en: 'Their greatest work was the development of the Civil Code, an imitation of the great code of Emperor Justinian.',
@@ -708,7 +708,7 @@ const CARDS = [
     zh: '莱茵联邦成立，神圣罗马帝国终结',
     en: 'The Holy Roman Empire abolished',
     faction: 'state', act: 4, diff: 'medium', icon: '⚰',
-    img: null,
+    img: 'cards/hre-end.jpg',
     explain: '终结一个旧帝国的，是一个新帝国的头领——从查理曼算起，一千零六年。',
     quote: {
       en: 'Napoleon abolished it in 1806 when he regrouped several small states in Germany into the Confederation of the Rhine.',
@@ -741,7 +741,7 @@ const CARDS = [
     zh: '意大利统一，教皇退居梵蒂冈',
     en: 'The pope confined to the Vatican',
     faction: 'church', act: 4, diff: 'hard', icon: '🕊',
-    img: null,
+    img: 'cards/italy-1870.jpg',
     explain: '1114 年的教皇国，最后缩成一块"手帕大的王国"——教皇用一千年换来的独立，只剩这几步地。',
     quote: {
       en: 'It was only then, with the creation of a unified Italian state, that the pope was confined to the pocket-handkerchief kingdom he has today.',

@@ -143,7 +143,7 @@ body {
 /* 奖章图标自带一块点击区（隐藏清单的三击入口），不参与卡片跳转 */
 .medal-hit { display: inline-flex; flex: 0 0 auto; }
 
-/* 拿到最终奖章后才出现的姊妹作入口：低调、明确标注「测试版」 */
+/* 拿到最终奖章后才出现的姊妹作入口：低调的正式入口 */
 .tl-beta {
   display: flex; align-items: center; gap: 10px; width: 100%;
   margin-top: 10px; padding: 10px 12px;
