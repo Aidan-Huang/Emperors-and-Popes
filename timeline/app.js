@@ -540,7 +540,7 @@
     ghost.className = 'flyback shake ' + factionClass(c.faction);
     ghost.innerHTML = cardFace(c, { year: false, showFaction: false });
     const mobile = window.innerWidth <= 760;
-    const w = mobile ? 132 : 96, h = mobile ? 74 : 140;
+    const w = mobile ? 180 : 96, h = mobile ? 74 : 140;
     ghost.style.left = (a.left + a.width / 2 - w / 2) + 'px';
     ghost.style.top = (a.top + a.height / 2 - h / 2) + 'px';
     ghost.style.setProperty('--dx', Math.max(-240, Math.min(240,
