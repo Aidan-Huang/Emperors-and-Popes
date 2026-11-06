@@ -515,6 +515,69 @@ small{font-size:.78em;opacity:.85}
 }
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
+/* ---------- 轻量判定反馈（普通 / 困难） ----------
+   就地展开在「时间线提示」下方的一行小条：不浮层、不遮挡卡牌与提示文字、
+   不锁输入，2.4s 后自动收起；「详情」按需展开底部完整讲解条。 */
+.quick-fb{
+  flex:0 0 auto;display:flex;align-items:center;gap:8px;
+  height:0;overflow:hidden;opacity:0;pointer-events:none;
+  padding:0 10px;border:1px solid transparent;border-radius:9px;
+  background:transparent;font-size:12.5px;color:var(--ink);
+  transition:height .2s ease,opacity .18s ease,background .18s ease;
+}
+.quick-fb.show{
+  height:30px;opacity:1;pointer-events:auto;margin-bottom:6px;
+  background:#1b2340;border-color:var(--line);
+}
+.quick-fb b{flex:0 0 auto;white-space:nowrap}
+.quick-fb.ok b{color:var(--ok)}
+.quick-fb.bad{border-color:rgba(226,80,75,.6)}
+.quick-fb.bad b{color:var(--bad)}
+.quick-fb span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quick-fb .qf-note{flex:0 0 auto}
+.quick-fb button{
+  flex:0 0 auto;background:none;border:1px solid var(--line);border-radius:7px;
+  padding:2px 8px;font-size:11.5px;color:var(--gold);white-space:nowrap;
+}
+.quick-fb button:hover{border-color:var(--gold-dim)}
+
+/* 放错时从插入位弹回手牌并摇一摇的临时卡影 */
+.flyback{
+  position:fixed;z-index:70;width:96px;height:140px;pointer-events:none;
+  background:var(--card-bg);color:var(--card-ink);border-radius:8px;overflow:hidden;
+  box-shadow:var(--card-shadow-hover);display:flex;flex-direction:column;
+}
+.flyback .fstrip{height:3px;flex:0 0 3px;background:var(--local)}
+.flyback.f-church .fstrip{background:var(--church)}
+.flyback.f-state .fstrip{background:var(--state)}
+.flyback.f-both .fstrip{background:var(--both)}
+.flyback .art{
+  height:72px;flex:0 0 72px;margin:6px 6px 0;border-radius:4px;background:#f0efec;
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+}
+.flyback .art img{width:100%;height:100%;object-fit:cover}
+.flyback .crest{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px}
+.flyback .nm{
+  flex:1;padding:4px 6px;font-size:10.5px;line-height:1.35;color:#333;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+}
+.flyback .yr{text-align:center;font-size:10px;color:#a08b4a;padding:0 0 6px}
+.flyback.shake{animation:bounceBack .64s cubic-bezier(.25,.8,.3,1) forwards}
+@keyframes bounceBack{
+  0%   {transform:translate(0,0) scale(1) rotate(0);opacity:1}
+  38%  {transform:translate(var(--dx),var(--dy)) scale(.86) rotate(-3deg);opacity:1}
+  50%  {transform:translate(calc(var(--dx) - 8px),var(--dy)) scale(.86) rotate(-5deg)}
+  62%  {transform:translate(calc(var(--dx) + 8px),var(--dy)) scale(.86) rotate(5deg)}
+  74%  {transform:translate(calc(var(--dx) - 5px),var(--dy)) scale(.86) rotate(-3deg)}
+  86%  {transform:translate(var(--dx),var(--dy)) scale(.86) rotate(0);opacity:1}
+  100% {transform:translate(var(--dx),var(--dy)) scale(.68);opacity:0}
+}
+@media (prefers-reduced-motion:reduce){
+  /* 只取消动画本身，hover 静态浮现状态原样保留 */
+  .quick-fb{transition-duration:.01s}
+  .flyback{display:none}
+}
+
 /* ---------- 手机竖屏：纵向时间线 ---------- */
 @media (max-width:760px){
   #app{padding:0 12px 24px}
@@ -579,6 +642,15 @@ small{font-size:.78em;opacity:.85}
   .hand-card .hint{left:auto;right:58px;bottom:3px;font-size:9px}
   .hand-card .faction-tag{top:4px;right:4px;font-size:9px}
   .fb-inner{max-height:66vh;border-radius:14px 14px 0 0;padding:12px 13px 16px}
+  .quick-fb{font-size:11.5px;gap:6px;padding:0 8px}
+  .quick-fb.show{height:28px}
+  .quick-fb .qf-note{display:none}
+  /* 弹回的卡影跟随手机手牌的横条形状，不出现一张突兀的竖卡 */
+  .flyback{width:132px;height:74px;flex-direction:row;align-items:center}
+  .flyback .fstrip{width:3px;height:100%;flex:0 0 3px}
+  .flyback .art{width:62px;height:100%;flex:0 0 62px;margin:0;border-radius:0}
+  .flyback .nm{flex:1;font-size:10px;padding:4px 6px;justify-content:flex-start;text-align:left}
+  .flyback .yr{flex:0 0 40px;height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;padding:0}
   .gallery-grid{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:9px}
   .gcard .art{height:86px;margin:6px 6px 0}
   .bigcard{flex-direction:column}

@@ -54,9 +54,21 @@
     session: null,
     selectedId: null,
     galleryTab: 'all',
-    locked: false,         // 判定反馈展示期间锁输入
-    sessionSeq: 0          // 每开一局 +1，用于手牌增量重绘时识别旧闭包
+    locked: false,         // 判定反馈展示期间锁输入（仅简单模式 / 主动展开详情时）
+    sessionSeq: 0,         // 每开一局 +1，用于手牌增量重绘时识别旧闭包
+    lastRes: null,         // 最近一次判定结果，供轻量提示的「详情」按需展开
+    quickTimer: null,
+    pendingFinish: null
   };
+
+  /* 简单模式保留弹窗式完整反馈；普通/困难走不打断节奏的轻量反馈 */
+  function quietMode() {
+    return state.session && state.session.difficulty !== 'easy';
+  }
+  function reducedMotion() {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch (e) { return false; }
+  }
 
   const audio = new Audio();
   let audioBtn = null;
@@ -252,7 +264,12 @@
   function afterStart(act) {
     state.sessionSeq++;
     state.locked = false;
+    state.lastRes = null;
+    clearTimeout(state.quickTimer);
+    clearTimeout(state.pendingFinish);
     $('#feedback').classList.remove('show');
+    $('#quick-fb').classList.remove('show');
+    $$('.flyback').forEach(el => el.remove());
     $('#game-act-name').textContent = act.name;
     $('#game-act-span').textContent = act.span || '';
     go('game');
@@ -386,17 +403,26 @@
     const res = g.place(idx);
     if (!res) return;
     state.selectedId = null;
-    state.locked = true;
-    renderGame();
-    showFeedback(res);
+    state.lastRes = res;
+
+    if (quietMode()) {
+      // 普通 / 困难：不弹窗、不锁输入，玩家可立刻选下一张
+      recordOutcome(res);
+      renderGame();
+      quietFeedback(res);
+      scheduleFinish(g);
+    } else {
+      state.locked = true;
+      renderGame();
+      showFeedback(res);
+    }
   }
 
   /* ---------------- 判定反馈 ---------------- */
 
-  function showFeedback(res) {
-    const g = state.session;
+  /* 记录收集与错题，两种反馈模式共用 */
+  function recordOutcome(res) {
     const c = res.card;
-
     if (res.ok) {
       unlock(c.id);
     } else {
@@ -405,8 +431,10 @@
       S.errors[c.id] = e;
       persist();
     }
+  }
 
-    const fb = $('#feedback');
+  function fillFeedback(res) {
+    const c = res.card;
     $('#fb-verdict').textContent = res.ok ? '✓ 放对了' : '✕ 放错了';
     $('#fb-verdict').className = 'fb-verdict ' + (res.ok ? 'ok' : 'bad');
     $('#fb-year').textContent = c.dy;   // dy 本身已含「约」，不再追加「（约）」避免重复
@@ -429,10 +457,19 @@
     $('#fb-src').classList.remove('show');
     $('#fb-src-btn').style.display = c.src ? '' : 'none';
     $('#fb-audio-btn').style.display = c.audio ? '' : 'none';
+  }
 
-    fb.classList.add('show');
+  /* 简单模式 / 主动点「详情」时展开的完整反馈条 */
+  function showFeedback(res) {
+    recordOutcome(res);
+    fillFeedback(res);
+    $('#feedback').classList.add('show');
+    highlightPlacement(res);
+  }
 
-    // 高亮：正确→落位卡；错误→正确位置的幽灵卡
+  // 高亮：正确→落位卡；错误→正确位置的幽灵卡
+  function highlightPlacement(res) {
+    const c = res.card;
     setTimeout(() => {
       const nodes = $$('#timeline .tl-card');
       let target = null;
@@ -460,24 +497,105 @@
     }, 60);
   }
 
-  $('#fb-close').onclick = () => { $('#feedback').classList.remove('show'); state.locked = false; renderGame(); };
-  $('#fb-src-btn').onclick = () => { $('#fb-src').classList.toggle('show'); };
-  $('#fb-audio-btn').onclick = function () {
-    const c = state.session.history[state.session.history.length - 1].card;
-    playAudio(c.audio, this);
-  };
-  $('#fb-next').onclick = () => {
+  /* ---------------- 轻量反馈（普通 / 困难） ---------------- */
+
+  const CHEERS = ['✓ 放对了', '✓ 位置刚好', '✓ 稳稳落位', '✓ 接上了'];
+
+  function quietFeedback(res) {
+    const c = res.card;
+    const el = $('#quick-fb');
+    const cheer = CHEERS[Math.floor(Math.random() * CHEERS.length)];
+    el.className = 'quick-fb show ' + (res.ok ? 'ok' : 'bad');
+    el.innerHTML = '<b>' + (res.ok ? cheer : '✕ 放错了') + '</b>' +
+      '<span>' + esc(c.dy) + ' · ' + esc(c.zh) + '</span>' +
+      (res.ok ? '' : '<span class="qf-note">弹回，再试一次</span>') +
+      '<button type="button" id="qf-detail">详情</button>';
+    $('#qf-detail').onclick = openQuietDetail;
+    clearTimeout(state.quickTimer);
+    state.quickTimer = setTimeout(() => el.classList.remove('show'), 2400);
+
+    if (res.ok) {
+      // 落位卡复用原有的 land 动效
+      const n = $$('#timeline .tl-card').find(x => x.dataset.id === c.id);
+      if (n) {
+        n.classList.add('new');
+        setTimeout(() => n.classList.remove('new'), 600);
+      }
+    } else {
+      bounceBack(c, res.slot);
+    }
+  }
+
+  /* 放错：被放下的卡从插入位弹回手牌区，并摇一摇；
+     reduced-motion 下只保留静态提示，不播动画。 */
+  function bounceBack(c, slot) {
+    if (reducedMotion()) return;
+    $$('.flyback').forEach(el => el.remove());
+    const from = $('#timeline .slot[data-slot="' + slot + '"]');
+    const hand = $('#hand');
+    if (!from || !hand) return;
+    const a = from.getBoundingClientRect();
+    const b = hand.getBoundingClientRect();
+    const ghost = document.createElement('div');
+    ghost.className = 'flyback shake ' + factionClass(c.faction);
+    ghost.innerHTML = cardFace(c, { year: false, showFaction: false });
+    const mobile = window.innerWidth <= 760;
+    const w = mobile ? 132 : 96, h = mobile ? 74 : 140;
+    ghost.style.left = (a.left + a.width / 2 - w / 2) + 'px';
+    ghost.style.top = (a.top + a.height / 2 - h / 2) + 'px';
+    ghost.style.setProperty('--dx', Math.max(-240, Math.min(240,
+      (b.left + b.width / 2) - (a.left + a.width / 2))) + 'px');
+    ghost.style.setProperty('--dy', Math.max(-420, Math.min(420,
+      (b.top + Math.min(b.height / 2, 60)) - (a.top + a.height / 2))) + 'px');
+    document.body.appendChild(ghost);
+    setTimeout(() => ghost.remove(), 700);
+  }
+
+  /* 轻量提示上的「详情」：按需展开原来的完整讲解，不主动打断流程 */
+  function openQuietDetail() {
+    const res = state.lastRes;
+    if (!res) return;
+    clearTimeout(state.pendingFinish);
+    clearTimeout(state.quickTimer);
+    $('#quick-fb').classList.remove('show');
+    fillFeedback(res);
+    $('#feedback').classList.add('show');
+    state.locked = true;
+    highlightPlacement(res);
+  }
+
+  /* 轻量模式下没有「继续」按钮，结算由这里延迟触发，留出看动画的时间 */
+  function scheduleFinish(g) {
+    clearTimeout(state.pendingFinish);
+    if (!g.isOver()) return;
+    state.pendingFinish = setTimeout(() => {
+      if (state.session !== g || state.view !== 'game') return;
+      if ($('#feedback').classList.contains('show')) return;  // 正在看详情，交给关闭时处理
+      stopAudio();
+      finish();
+    }, 900);
+  }
+
+  function dismissFeedback(withTrivia) {
     stopAudio();
     $('#feedback').classList.remove('show');
     state.locked = false;
     const g = state.session;
     if (!g) return;
     if (g.isOver()) { finish(); return; }
-    // 小概率掉落冷知识
+    // 冷知识弹窗只在简单模式的原有节奏里出现，不打扰快节奏模式
     const last = g.history[g.history.length - 1];
-    if (last && last.ok && Math.random() < 0.16) { showTrivia(); }
+    if (withTrivia && !quietMode() && last && last.ok && Math.random() < 0.16) { showTrivia(); }
     renderGame();
+  }
+
+  $('#fb-close').onclick = () => dismissFeedback(false);
+  $('#fb-src-btn').onclick = () => { $('#fb-src').classList.toggle('show'); };
+  $('#fb-audio-btn').onclick = function () {
+    const c = state.session.history[state.session.history.length - 1].card;
+    playAudio(c.audio, this);
   };
+  $('#fb-next').onclick = () => dismissFeedback(true);
 
   function showTrivia() {
     const t = TRIVIA[Math.floor(Math.random() * TRIVIA.length)];
@@ -823,7 +941,9 @@
       '4. 放对：卡翻面落位，露出年份，连击 +1。<br>' +
       '5. 放错：扣 1 格失误预算，游戏会告诉你它应该在哪，并把这张卡送回牌堆——本局还会再见到它。<br>' +
       '6. 失误预算用尽，本幕提前结算；答错的卡进入错题本，可在复习模式里重排。<br>' +
-      '7. 任一卡放对一次，就永久解锁进卡册，可看大图、讲解、书中原文与原声。' +
+      '7. 任一卡放对一次，就永久解锁进卡册，可看大图、讲解、书中原文与原声。<br>' +
+      '8. <b>简单模式</b>每次放置弹出完整讲解；<b>普通 / 困难</b>为快节奏：放对只给一句鼓励，' +
+      '放错卡牌弹回手牌并摇一摇，都不打断操作。想看讲解，点提示上的「详情」即可展开。' +
       '</div></div>' +
       '<div class="detail-sec"><div class="h">关于</div><div class="zh">全部 ' + TOTAL + ' 张卡出自《The Shortest History of Europe》第六章《Emperors and Popes》。' +
       '姊妹作《权力的双人舞》先让你亲历抉择，本作负责把年代刻进记忆。</div></div>' +
