@@ -370,6 +370,12 @@
   $('#tl-nav-l').onclick = () => scrollTl(-1);
   $('#tl-nav-r').onclick = () => scrollTl(1);
 
+  /* 桌面插入位文字竖排：中文直立，数字串用「纵中横」保持正向可读，
+     否则年份会在竖排里横躺 90°，读起来要歪头。手机横排时该样式自然失效。 */
+  function verticalLabel(s) {
+    return esc(s).replace(/\d+/g, '<i class="tcy">$&</i>');
+  }
+
   function slotEl(i) {
     const el = document.createElement('div');
     const g = state.session;
@@ -383,7 +389,7 @@
     else if (!prev) label = next.dy + ' 之前';
     else if (!next) label = prev.dy + ' 之后';
     else label = prev.dy + ' — ' + next.dy + ' 之间';
-    el.innerHTML = '<span class="slot-plus">＋</span><span class="slot-txt">' + esc(label) + '</span>';
+    el.innerHTML = '<span class="slot-plus">＋</span><span class="slot-txt">' + verticalLabel(label) + '</span>';
     el.setAttribute('aria-label', '插入位置 ' + (i + 1) + '：' + label);
     el.title = label;
     el.onclick = () => onPlace(i);

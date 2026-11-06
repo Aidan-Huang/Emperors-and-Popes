@@ -198,12 +198,23 @@ small{font-size:.78em;opacity:.85}
 
 /* 插入位：桌面竖向、手机横向，始终 >=44px 可点 */
 .slot{
-  flex:0 0 96px;height:210px;border-radius:11px;border:2px dashed #46527c;
+  /* 文字改竖排后不再需要为横排年份留 96px，收窄到 52px（仍 >=44px 可点） */
+  flex:0 0 52px;height:210px;border-radius:11px;border:2px dashed #46527c;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
   color:#8792b4;font-size:24px;line-height:1;
   background:rgba(16,22,38,.72);transition:.16s;cursor:pointer;padding:6px 4px;
 }
-.slot .slot-txt{font-size:11.5px;color:#98a4c6;text-align:center;line-height:1.4}
+/* 从上往下写：中文直立、数字随竖排转向，单行不折列 */
+.slot .slot-txt{
+  writing-mode:vertical-rl;text-orientation:mixed;white-space:nowrap;
+  font-size:11.5px;color:#98a4c6;text-align:center;line-height:1.4;
+  letter-spacing:1px;   /* 竖排小字给一点呼吸，避免中文字挨得太紧 */
+}
+/* 纵中横：竖排里的年份数字横向并排、正向可读（手机横排下自动失效） */
+.slot .tcy{
+  font-style:normal;text-combine-upright:all;
+  -webkit-text-combine:horizontal;
+}
 .slot.armed{
   border-color:var(--gold);color:var(--gold);background:rgba(255,204,0,.14);
   box-shadow:0 0 0 3px rgba(255,204,0,.07);animation:pulse 1.2s infinite;
@@ -637,10 +648,15 @@ small{font-size:.78em;opacity:.85}
     background:linear-gradient(180deg,rgba(255,204,0,.05),rgba(255,204,0,.28),rgba(255,204,0,.05));
   }
   .slot{
-    flex:0 0 48px;height:48px;width:100%;min-height:48px;
+    /* 横条再薄一点：48 → 44px，正好守住 44px 最小可点区域 */
+    flex:0 0 44px;height:44px;width:100%;min-height:44px;
     flex-direction:row;gap:8px;font-size:20px;padding:0 10px;
   }
-  .slot .slot-txt{flex:1;text-align:left;font-size:11px}
+  /* 手机上仍是横条，文字恢复横排，覆盖桌面的竖排规则 */
+  .slot .slot-txt{
+    writing-mode:horizontal-tb;text-orientation:mixed;white-space:normal;
+    flex:1;text-align:left;font-size:11px;letter-spacing:normal;
+  }
   .tl-card{
     flex:0 0 auto;width:100%;height:80px;min-height:80px;
     flex-direction:row;align-items:center;
