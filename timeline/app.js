@@ -70,6 +70,18 @@
     try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
     catch (e) { return false; }
   }
+  /* 是否走「竖屏纵向时间线 / 横条卡」布局，与 CSS 媒体查询保持同一条件。
+     窄横屏（手机横屏 740×360）不再命中，避免 JS 与 CSS 判断错位。 */
+  function portraitLayout() {
+    try { return window.matchMedia('(max-width:760px) and (orientation:portrait)').matches; }
+    catch (e) { return window.innerWidth <= 760; }
+  }
+  /* 手机横屏且屏幕较矮：缩放自动生效的范围（与 CSS 同一条件） */
+  function compactLandscape() {
+    try {
+      return window.matchMedia('(orientation:landscape) and (max-height:540px) and (max-width:1000px)').matches;
+    } catch (e) { return false; }
+  }
 
   const audio = new Audio();
   let audioBtn = null;
@@ -349,7 +361,7 @@
     const l = $('#tl-nav-l'), r = $('#tl-nav-r');
     if (!tl || !l || !r || !g) return;
     const max = tl.scrollWidth - tl.clientWidth;
-    const scrollable = max > 4 && window.innerWidth > 760;
+    const scrollable = max > 4 && !portraitLayout();
     l.hidden = !scrollable || tl.scrollLeft <= 2;
     r.hidden = !scrollable || tl.scrollLeft >= max - 2;
     const cnt = $('#tl-count');
@@ -579,7 +591,7 @@
     const ghost = document.createElement('div');
     ghost.className = 'flyback shake ' + factionClass(c.faction);
     ghost.innerHTML = cardFace(c, { year: false, showFaction: false });
-    const mobile = window.innerWidth <= 760;
+    const mobile = portraitLayout();
     const w = mobile ? 180 : 96, h = mobile ? 74 : 140;
     ghost.style.left = (a.left + a.width / 2 - w / 2) + 'px';
     ghost.style.top = (a.top + a.height / 2 - h / 2) + 'px';
@@ -964,6 +976,123 @@
     window.addEventListener('DOMContentLoaded', () => go('editor'));
   }
 
+  /* ---------------- 画面缩放设置（隐藏入口） ----------------
+     只调整两个 CSS 变量，不改布局流、不删任何界面元素、卡牌比例始终 2:3。
+     数值存本机（清空存档不会删），可反复调整、即时看效果。
+     自动生效范围由 CSS 控制：矮横屏（手机横屏）才缩，电脑大屏保持原样。 */
+  const ZOOM_KEY = 'tl_ch6_zoom_v1';
+  const ZOOM_DEF = { tl: 0.56, hand: 0.64 };
+  const ZOOM_PRESETS = {
+    default: { tl: 0.56, hand: 0.64 },
+    small:   { tl: 0.50, hand: 0.58 },
+    large:   { tl: 0.68, hand: 0.78 },
+    off:     { tl: 1,    hand: 1 }
+  };
+
+  function clampZoom(v) {
+    const n = parseFloat(v);
+    if (!isFinite(n)) return 1;
+    return Math.min(1, Math.max(0.4, Math.round(n * 100) / 100));
+  }
+  function loadZoom() {
+    try {
+      const v = JSON.parse(localStorage.getItem(ZOOM_KEY) || 'null');
+      if (v && isFinite(parseFloat(v.tl)) && isFinite(parseFloat(v.hand)))
+        return { tl: clampZoom(v.tl), hand: clampZoom(v.hand) };
+    } catch (e) {}
+    return { tl: ZOOM_DEF.tl, hand: ZOOM_DEF.hand };
+  }
+  let zoomCfg = loadZoom();
+
+  function applyZoom(persist) {
+    const r = document.documentElement.style;
+    r.setProperty('--tl-zoom', zoomCfg.tl);
+    r.setProperty('--hand-zoom', zoomCfg.hand);
+    if (persist !== false) save(ZOOM_KEY, zoomCfg);
+    syncZoomUI();
+    updateTlNav();
+  }
+
+  function syncZoomUI() {
+    const tl = $('#zp-tl'), hand = $('#zp-hand');
+    if (!tl || !hand) return;
+    tl.value = zoomCfg.tl;
+    hand.value = zoomCfg.hand;
+    $('#zp-tl-v').textContent = '×' + Number(zoomCfg.tl).toFixed(2);
+    $('#zp-hand-v').textContent = '×' + Number(zoomCfg.hand).toFixed(2);
+    $$('.zp-presets button').forEach(b => {
+      const p = ZOOM_PRESETS[b.dataset.preset];
+      b.classList.toggle('on', !!p &&
+        Math.abs(p.tl - zoomCfg.tl) < 0.001 && Math.abs(p.hand - zoomCfg.hand) < 0.001);
+    });
+    const st = $('#zp-state');
+    if (!st) return;
+    const force = document.documentElement.classList.contains('zoom-force');
+    const desc = '上排 ×' + Number(zoomCfg.tl).toFixed(2) + ' · 下排 ×' + Number(zoomCfg.hand).toFixed(2);
+    if (compactLandscape()) {
+      st.innerHTML = '<b>当前是手机横屏，缩放已自动生效</b><br>' + desc +
+        '。拖上面两条即可即时看到卡牌变化。';
+    } else if (force) {
+      st.innerHTML = '<i>强制预览已开启</i>：当前屏幕也会缩放（仅本次预览，关闭面板后恢复）<br>' + desc;
+    } else {
+      st.innerHTML = '当前是电脑大屏 / 竖屏，<b>保持原尺寸，不缩放</b>。<br>' +
+        '想在电脑上看效果，勾选上面的「强制预览」即可临时应用；关闭面板会自动恢复。';
+    }
+  }
+
+  function openZoomPanel() {
+    syncZoomUI();
+    $('#zp-mask').classList.add('show');
+  }
+  function closeZoomPanel() {
+    $('#zp-mask').classList.remove('show');
+    // 强制预览只在面板打开期间有效，关掉即恢复自动规则，避免电脑上一直缩着
+    document.documentElement.classList.remove('zoom-force');
+    $('#zp-force').checked = false;
+    syncZoomUI();
+  }
+
+  $('#zp-tl').oninput = e => { zoomCfg.tl = clampZoom(e.target.value); applyZoom(); };
+  $('#zp-hand').oninput = e => { zoomCfg.hand = clampZoom(e.target.value); applyZoom(); };
+  $$('.zp-presets button').forEach(b => b.onclick = () => {
+    const p = ZOOM_PRESETS[b.dataset.preset];
+    if (!p) return;
+    zoomCfg = { tl: p.tl, hand: p.hand };
+    applyZoom();
+  });
+  $('#zp-reset').onclick = () => {
+    zoomCfg = { tl: ZOOM_DEF.tl, hand: ZOOM_DEF.hand };
+    applyZoom();
+    toast('已恢复默认缩放');
+  };
+  $('#zp-force').onchange = e => {
+    document.documentElement.classList.toggle('zoom-force', e.target.checked);
+    syncZoomUI();
+  };
+  $('#zp-close').onclick = closeZoomPanel;
+  $('#zp-done').onclick = closeZoomPanel;
+  $('#zp-mask').onclick = e => { if (e.target === $('#zp-mask')) closeZoomPanel(); };
+  $('#zp-entry').onclick = openZoomPanel;
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && $('#zp-mask').classList.contains('show')) closeZoomPanel();
+  });
+  // 旋转屏幕 / 改窗口大小后刷新状态文案与翻页按钮
+  window.addEventListener('resize', () => { syncZoomUI(); updateTlNav(); });
+
+  /* 隐藏入口：连点对局页标题栏 5 次（与姊妹作后台编辑器同一手势） */
+  let zoomTaps = 0, zoomTapAt = 0;
+  const zoomTitle = $('.game-title');
+  if (zoomTitle) zoomTitle.onclick = () => {
+    const now = Date.now();
+    zoomTaps = (now - zoomTapAt < 700) ? zoomTaps + 1 : 1;
+    zoomTapAt = now;
+    if (zoomTaps >= 5) { zoomTaps = 0; openZoomPanel(); }
+    else if (zoomTaps >= 3) toast('再点 ' + (5 - zoomTaps) + ' 下打开画面缩放设置');
+  };
+  if (/[?&]zoom=1/.test(location.search) || location.hash === '#zoom') {
+    window.addEventListener('DOMContentLoaded', openZoomPanel);
+  }
+
   /* ---------------- 其它按钮 ---------------- */
 
   $$('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
@@ -998,7 +1127,17 @@
 
   /* ---------------- 启动 ---------------- */
 
+  applyZoom(false);   // 启动时套用本机缩放参数（不重复写入存档）
   go('home');
-  window.__TL = { state: state, S: S, go: go, ALL_CARDS: ALL_CARDS, Engine: Engine };
+  window.__TL = {
+    state: state, S: S, go: go, ALL_CARDS: ALL_CARDS, Engine: Engine,
+    zoom: {
+      get: () => ({ tl: zoomCfg.tl, hand: zoomCfg.hand }),
+      cfg: () => zoomCfg, def: ZOOM_DEF, key: ZOOM_KEY,
+      open: openZoomPanel, close: closeZoomPanel,
+      set: (tl, hand) => { zoomCfg = { tl: clampZoom(tl), hand: clampZoom(hand) }; applyZoom(); },
+      compact: compactLandscape, portrait: portraitLayout
+    }
+  };
 
 })();

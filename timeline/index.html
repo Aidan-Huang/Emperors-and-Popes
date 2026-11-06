@@ -142,6 +142,7 @@
       <h2>卡牌编辑器 <small class="tag">隐藏</small></h2>
       <span class="topbar-right" id="editor-count"></span>
     </div>
+    <button class="zp-entry" id="zp-entry" type="button">⚙ 画面缩放设置（手机横屏）</button>
     <div class="editor-body" id="editor-body"></div>
   </section>
 
@@ -171,6 +172,38 @@
 <div class="modal" id="modal">
   <div class="modal-mask" id="modal-mask"></div>
   <div class="modal-box" id="modal-box"></div>
+</div>
+
+<!-- 隐藏设置面板：画面缩放（连点对局页标题 5 次 / ?zoom=1 / 编辑器入口） -->
+<div class="zp-mask" id="zp-mask">
+  <div class="zp-box" role="dialog" aria-modal="true" aria-label="画面缩放设置">
+    <div class="zp-head"><b>⚙ 画面缩放设置</b><button type="button" id="zp-close" aria-label="关闭">✕</button></div>
+    <p class="zp-note">只缩放「时间线卡」和「手牌」两排，布局与界面元素原样保留，卡牌比例始终 2:3。<br>数值存本机浏览器，可反复调整、即时看效果。</p>
+
+    <div class="zp-row">
+      <label for="zp-tl">上排 · 时间线卡 <span id="zp-tl-v">×0.56</span></label>
+      <input type="range" id="zp-tl" min="0.40" max="1.00" step="0.02" value="0.56">
+    </div>
+    <div class="zp-row">
+      <label for="zp-hand">下排 · 手牌 <span id="zp-hand-v">×0.64</span></label>
+      <input type="range" id="zp-hand" min="0.40" max="1.00" step="0.02" value="0.64">
+    </div>
+    <div class="zp-presets">
+      <button type="button" data-preset="default">默认 0.56 / 0.64</button>
+      <button type="button" data-preset="small">更紧凑 0.50 / 0.58</button>
+      <button type="button" data-preset="large">更大 0.68 / 0.78</button>
+      <button type="button" data-preset="off">不缩放 1 / 1</button>
+    </div>
+
+    <label class="zp-force"><input type="checkbox" id="zp-force"> 在当前屏幕强制预览（电脑上也能看效果）</label>
+    <div class="zp-state" id="zp-state"></div>
+
+    <div class="zp-actions">
+      <button type="button" id="zp-reset">恢复默认</button>
+      <button type="button" id="zp-done" class="primary">完成</button>
+    </div>
+    <p class="zp-foot">入口：连点对局页标题 5 次 · 卡牌编辑器里的「⚙ 画面缩放设置」· 网址加 <code>?zoom=1</code>。<br>自动生效范围：手机横屏且屏幕较矮；电脑大屏保持原样不缩放。</p>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
