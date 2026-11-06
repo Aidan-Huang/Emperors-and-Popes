@@ -58,7 +58,8 @@
     sessionSeq: 0,         // 每开一局 +1，用于手牌增量重绘时识别旧闭包
     lastRes: null,         // 最近一次判定结果，供轻量提示的「详情」按需展开
     quickTimer: null,
-    pendingFinish: null
+    pendingFinish: null,
+    hudHitTimer: null      // HUD 失误预算被扣时的高亮计时
   };
 
   /* 简单模式保留弹窗式完整反馈；普通/困难走不打断节奏的轻量反馈 */
@@ -267,8 +268,10 @@
     state.lastRes = null;
     clearTimeout(state.quickTimer);
     clearTimeout(state.pendingFinish);
+    clearTimeout(state.hudHitTimer);
     $('#feedback').classList.remove('show');
     $('#quick-fb').classList.remove('show');
+    $('#hud-mistakes').classList.remove('hit');
     $$('.flyback').forEach(el => el.remove());
     $('#game-act-name').textContent = act.name;
     $('#game-act-span').textContent = act.span || '';
@@ -500,19 +503,38 @@
   /* ---------------- 轻量反馈（普通 / 困难） ---------------- */
 
   const CHEERS = ['✓ 放对了', '✓ 位置刚好', '✓ 稳稳落位', '✓ 接上了'];
+  const QF_OK_MS = 2400;    // 放对：沿用原节奏（已确认没问题），不做改动
+  const QF_BAD_MS = 4200;   // 放错：留足看清文案与弹回动画的时间
+  const FLYBACK_MS = 1600;  // 与 style.css 里 bounceBack 动画时长保持一致
 
   function quietFeedback(res) {
     const c = res.card;
     const el = $('#quick-fb');
-    const cheer = CHEERS[Math.floor(Math.random() * CHEERS.length)];
+    // 玩家不关提示就能继续放牌：新判定一来就清掉上一张还在播的弹回卡影，
+    // 避免「已经放对了，画面上还留着一张红色卡在摇」的错位感。
+    $$('.flyback').forEach(n => n.remove());
     el.className = 'quick-fb show ' + (res.ok ? 'ok' : 'bad');
-    el.innerHTML = '<b>' + (res.ok ? cheer : '✕ 放错了') + '</b>' +
-      '<span>' + esc(c.dy) + ' · ' + esc(c.zh) + '</span>' +
-      (res.ok ? '' : '<span class="qf-note">弹回，再试一次</span>') +
-      '<button type="button" id="qf-detail">详情</button>';
+
+    if (res.ok) {
+      const cheer = CHEERS[Math.floor(Math.random() * CHEERS.length)];
+      el.innerHTML = '<b>' + cheer + '</b>' +
+        '<span>' + esc(c.dy) + ' · ' + esc(c.zh) + '</span>' +
+        '<button type="button" id="qf-detail">详情</button>';
+    } else {
+      // 放错：不再塞事件名，把整条空间留给「发生了什么 + 接下来做什么」，
+      // 手机窄屏也能读全，不像之前那样把说明文字隐藏掉。
+      el.innerHTML = '<b>✕ 放错了</b>' +
+        '<span class="qf-note">已弹回手牌 · 换个缝隙再试</span>' +
+        '<button type="button" id="qf-detail">详情</button>';
+      // 连续放错时 class 从 bad→bad 不会自动重播动画，强制重启一次
+      el.classList.remove('bad-pulse');
+      void el.offsetWidth;
+      el.classList.add('bad-pulse');
+    }
     $('#qf-detail').onclick = openQuietDetail;
     clearTimeout(state.quickTimer);
-    state.quickTimer = setTimeout(() => el.classList.remove('show'), 2400);
+    state.quickTimer = setTimeout(() => el.classList.remove('show'),
+      res.ok ? QF_OK_MS : QF_BAD_MS);
 
     if (res.ok) {
       // 落位卡复用原有的 land 动效
@@ -523,10 +545,22 @@
       }
     } else {
       bounceBack(c, res.slot);
+      flashMistakes();
     }
   }
 
-  /* 放错：被放下的卡从插入位弹回手牌区，并摇一摇；
+  /* 失误预算被扣：让 HUD 里刚少掉的那一格闪一下，强化「放错有代价」的感知 */
+  function flashMistakes() {
+    const el = $('#hud-mistakes');
+    if (!el) return;
+    el.classList.remove('hit');
+    void el.offsetWidth;
+    el.classList.add('hit');
+    clearTimeout(state.hudHitTimer);
+    state.hudHitTimer = setTimeout(() => el.classList.remove('hit'), 900);
+  }
+
+  /* 放错：被放下的卡从插入位弹回手牌区，明显摇一摇、停一拍再淡出；
      reduced-motion 下只保留静态提示，不播动画。 */
   function bounceBack(c, slot) {
     if (reducedMotion()) return;
@@ -548,7 +582,7 @@
     ghost.style.setProperty('--dy', Math.max(-420, Math.min(420,
       (b.top + Math.min(b.height / 2, 60)) - (a.top + a.height / 2))) + 'px');
     document.body.appendChild(ghost);
-    setTimeout(() => ghost.remove(), 700);
+    setTimeout(() => ghost.remove(), FLYBACK_MS);
   }
 
   /* 轻量提示上的「详情」：按需展开原来的完整讲解，不主动打断流程 */
@@ -558,6 +592,7 @@
     clearTimeout(state.pendingFinish);
     clearTimeout(state.quickTimer);
     $('#quick-fb').classList.remove('show');
+    $$('.flyback').forEach(el => el.remove());
     fillFeedback(res);
     $('#feedback').classList.add('show');
     state.locked = true;
@@ -568,12 +603,14 @@
   function scheduleFinish(g) {
     clearTimeout(state.pendingFinish);
     if (!g.isOver()) return;
+    // 放错用尽预算时，等弹回动画播完再结算，别把提示盖掉；放对沿用原 900ms
+    const wait = (state.lastRes && !state.lastRes.ok) ? 1900 : 900;
     state.pendingFinish = setTimeout(() => {
       if (state.session !== g || state.view !== 'game') return;
       if ($('#feedback').classList.contains('show')) return;  // 正在看详情，交给关闭时处理
       stopAudio();
       finish();
-    }, 900);
+    }, wait);
   }
 
   function dismissFeedback(withTrivia) {
@@ -943,7 +980,8 @@
       '6. 失误预算用尽，本幕提前结算；答错的卡进入错题本，可在复习模式里重排。<br>' +
       '7. 任一卡放对一次，就永久解锁进卡册，可看大图、讲解、书中原文与原声。<br>' +
       '8. <b>简单模式</b>每次放置弹出完整讲解；<b>普通 / 困难</b>为快节奏：放对只给一句鼓励，' +
-      '放错卡牌弹回手牌并摇一摇，都不打断操作。想看讲解，点提示上的「详情」即可展开。' +
+      '放错则红色提示 + 卡牌弹回手牌摇一摇，失误预算也会闪一下，都不打断操作。' +
+      '想看讲解，点提示上的「详情」即可展开。' +
       '</div></div>' +
       '<div class="detail-sec"><div class="h">关于</div><div class="zh">全部 ' + TOTAL + ' 张卡出自《The Shortest History of Europe》第六章《Emperors and Popes》。' +
       '姊妹作《权力的双人舞》先让你亲历抉择，本作负责把年代刻进记忆。</div></div>' +

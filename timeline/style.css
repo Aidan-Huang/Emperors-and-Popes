@@ -144,7 +144,12 @@ small{font-size:.78em;opacity:.85}
   background:var(--panel);border:1px solid var(--line);border-radius:9px;
   padding:5px 9px;font-size:12.5px;white-space:nowrap;
 }
-#hud-mistakes{letter-spacing:2px;color:var(--bad)}
+#hud-mistakes{letter-spacing:2px;color:var(--bad);display:inline-block}
+#hud-mistakes.hit{animation:hudHit .9s ease-out}
+@keyframes hudHit{
+  0%,100%{color:var(--bad);text-shadow:none;transform:scale(1)}
+  25%    {color:#ff9a95;text-shadow:0 0 10px rgba(226,80,75,.9);transform:scale(1.18)}
+}
 #hud-combo-box{color:var(--gold)}
 
 .timeline-wrap{
@@ -345,6 +350,7 @@ small{font-size:.78em;opacity:.85}
 @media (prefers-reduced-motion:reduce){
   .tl-card,.hand-card{transition-duration:.08s}
   .hand-card,.tl-card.new,.slot.armed{animation:none}
+  #hud-mistakes.hit{animation:none}
 }
 
 /* ---------- 判定反馈 ---------- */
@@ -516,8 +522,8 @@ small{font-size:.78em;opacity:.85}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
 /* ---------- 轻量判定反馈（普通 / 困难） ----------
-   就地展开在「时间线提示」下方的一行小条：不浮层、不遮挡卡牌与提示文字、
-   不锁输入，2.4s 后自动收起；「详情」按需展开底部完整讲解条。 */
+   就地展开在「时间线提示」下方的一行小条：不浮层、不遮挡卡牌与提示文字、不锁输入；
+   放对 2.4s、放错 4.2s 后自动收起；「详情」按需展开底部完整讲解条。 */
 .quick-fb{
   flex:0 0 auto;display:flex;align-items:center;gap:8px;
   height:0;overflow:hidden;opacity:0;pointer-events:none;
@@ -531,10 +537,21 @@ small{font-size:.78em;opacity:.85}
 }
 .quick-fb b{flex:0 0 auto;white-space:nowrap}
 .quick-fb.ok b{color:var(--ok)}
-.quick-fb.bad{border-color:rgba(226,80,75,.6)}
-.quick-fb.bad b{color:var(--bad)}
+/* 放错：整条改成暗红底 + 左侧红条，和放对的深蓝一眼可分；再脉冲两下吸引视线 */
+.quick-fb.bad{
+  /* 不放 background 过渡：判定瞬间就整条变红，别等 180ms 渐变才看出来 */
+  transition:height .2s ease,opacity .18s ease;
+  background:#3a1b22;border-color:rgba(226,80,75,.85);
+  box-shadow:inset 3px 0 0 var(--bad);
+}
+.quick-fb.bad b{color:#ff8b85;font-size:13.5px}
+.quick-fb.bad-pulse{animation:qfBad .6s ease-out 2}
+@keyframes qfBad{
+  0%,100%{box-shadow:inset 3px 0 0 var(--bad),0 0 0 0 rgba(226,80,75,0)}
+  50%    {box-shadow:inset 3px 0 0 var(--bad),0 0 0 4px rgba(226,80,75,.3)}
+}
 .quick-fb span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.quick-fb .qf-note{flex:0 0 auto}
+.quick-fb .qf-note{flex:1;min-width:0;color:#ffb3ae}
 .quick-fb button{
   flex:0 0 auto;background:none;border:1px solid var(--line);border-radius:7px;
   padding:2px 8px;font-size:11.5px;color:var(--gold);white-space:nowrap;
@@ -562,19 +579,31 @@ small{font-size:.78em;opacity:.85}
   display:flex;align-items:center;justify-content:center;text-align:center;
 }
 .flyback .yr{text-align:center;font-size:10px;color:#a08b4a;padding:0 0 6px}
-.flyback.shake{animation:bounceBack .64s cubic-bezier(.25,.8,.3,1) forwards}
+.flyback.shake{
+  /* 整段动画都带红框，明确告诉用户「这张卡被退回来了」 */
+  box-shadow:0 0 0 2px var(--bad),0 0 18px 4px rgba(226,80,75,.4),var(--card-shadow-hover);
+  animation:bounceBack 1.55s cubic-bezier(.25,.8,.3,1) forwards;
+}
 @keyframes bounceBack{
+  /* 0–22%：从插入位弹回手牌，全程清晰可见 */
   0%   {transform:translate(0,0) scale(1) rotate(0);opacity:1}
-  38%  {transform:translate(var(--dx),var(--dy)) scale(.86) rotate(-3deg);opacity:1}
-  50%  {transform:translate(calc(var(--dx) - 8px),var(--dy)) scale(.86) rotate(-5deg)}
-  62%  {transform:translate(calc(var(--dx) + 8px),var(--dy)) scale(.86) rotate(5deg)}
-  74%  {transform:translate(calc(var(--dx) - 5px),var(--dy)) scale(.86) rotate(-3deg)}
-  86%  {transform:translate(var(--dx),var(--dy)) scale(.86) rotate(0);opacity:1}
-  100% {transform:translate(var(--dx),var(--dy)) scale(.68);opacity:0}
+  22%  {transform:translate(var(--dx),var(--dy)) scale(.94) rotate(0);opacity:1}
+  /* 22–32%：停一拍，让用户看清「卡回来了」 */
+  32%  {transform:translate(var(--dx),var(--dy)) scale(.94) rotate(0);opacity:1}
+  /* 32–72%：加大摆幅与角度，来回摇三下 */
+  40%  {transform:translate(calc(var(--dx) - 16px),var(--dy)) scale(.94) rotate(-8deg)}
+  48%  {transform:translate(calc(var(--dx) + 16px),var(--dy)) scale(.94) rotate(8deg)}
+  56%  {transform:translate(calc(var(--dx) - 13px),var(--dy)) scale(.94) rotate(-6deg)}
+  64%  {transform:translate(calc(var(--dx) + 13px),var(--dy)) scale(.94) rotate(6deg)}
+  72%  {transform:translate(var(--dx),var(--dy)) scale(.94) rotate(0);opacity:1}
+  /* 72–88%：再停一拍，然后才淡出 */
+  88%  {transform:translate(var(--dx),var(--dy)) scale(.94) rotate(0);opacity:1}
+  100% {transform:translate(var(--dx),var(--dy)) scale(.78);opacity:0}
 }
 @media (prefers-reduced-motion:reduce){
   /* 只取消动画本身，hover 静态浮现状态原样保留 */
   .quick-fb{transition-duration:.01s}
+  .quick-fb.bad-pulse{animation:none}
   .flyback{display:none}
 }
 
@@ -644,7 +673,10 @@ small{font-size:.78em;opacity:.85}
   .fb-inner{max-height:66vh;border-radius:14px 14px 0 0;padding:12px 13px 16px}
   .quick-fb{font-size:11.5px;gap:6px;padding:0 8px}
   .quick-fb.show{height:28px}
-  .quick-fb .qf-note{display:none}
+  /* 放错的说明文字在手机上也完整显示，这是本次要传达的关键信息 */
+  .quick-fb .qf-note{font-size:11px}
+  .quick-fb.bad b{font-size:12.5px}
+  .quick-fb button{padding:2px 6px;font-size:11px}
   /* 弹回的卡影跟随手机手牌的横条形状，不出现一张突兀的竖卡 */
   .flyback{width:180px;height:74px;flex-direction:row;align-items:center}
   .flyback .fstrip{width:3px;height:100%;flex:0 0 3px}
