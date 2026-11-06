@@ -196,14 +196,18 @@ small{font-size:.78em;opacity:.85}
 }
 .timeline > *{position:relative;z-index:1}
 
-/* 插入位：桌面竖向、手机横向，始终 >=44px 可点 */
+/* 插入位：桌面竖向、手机横向，视觉细条 24px。
+   ::after 只吃掉两侧 gap 扩大落点，不侵入卡牌（侵入会互相抢点击）。
+   细长条另一维很长（桌面 210px / 手机整行宽），24px 不构成点击障碍。 */
 .slot{
-  /* 文字改竖排后不再需要为横排年份留 96px，收窄到 52px（仍 >=44px 可点） */
-  flex:0 0 52px;height:210px;border-radius:11px;border:2px dashed #46527c;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
-  color:#8792b4;font-size:24px;line-height:1;
-  background:rgba(16,22,38,.72);transition:.16s;cursor:pointer;padding:6px 4px;
+  /* 竖排文字只占一列，24px 足够；左右 padding 归零让这一列居中留空隙 */
+  flex:0 0 24px;height:210px;border-radius:7px;border:2px dashed #46527c;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  color:#8792b4;font-size:16px;line-height:1;
+  background:rgba(16,22,38,.72);transition:.16s;cursor:pointer;padding:6px 0;
 }
+/* 左右各外扩 6px（gap 8px），命中区 36px，透明且不与卡牌重叠 */
+.slot::after{content:'';position:absolute;top:0;bottom:0;left:-8px;right:-8px}
 /* 从上往下写：中文直立、数字随竖排转向，单行不折列 */
 .slot .slot-txt{
   writing-mode:vertical-rl;text-orientation:mixed;white-space:nowrap;
@@ -637,7 +641,7 @@ small{font-size:.78em;opacity:.85}
   .tl-axis{display:none}
   .timeline{
     flex:0 0 auto;flex-direction:column;align-items:stretch;justify-content:flex-start;
-    gap:6px;overflow-x:visible;overflow-y:auto;max-height:44vh;padding:2px 0 4px;
+    gap:6px;overflow-x:visible;overflow-y:auto;max-height:44vh;padding:6px 0 8px;
     height:auto;scroll-behavior:auto;
   }
   .timeline > :first-child{margin-left:0}
@@ -648,13 +652,15 @@ small{font-size:.78em;opacity:.85}
     background:linear-gradient(180deg,rgba(255,204,0,.05),rgba(255,204,0,.28),rgba(255,204,0,.05));
   }
   .slot{
-    /* 横条再薄一点：48 → 44px，正好守住 44px 最小可点区域 */
-    flex:0 0 44px;height:44px;width:100%;min-height:44px;
-    flex-direction:row;gap:8px;font-size:20px;padding:0 10px;
+    /* 横条 44 → 24px；上下各外扩 5px（gap 6px），命中区 34px */
+    flex:0 0 24px;height:24px;width:100%;min-height:24px;border-radius:7px;
+    flex-direction:row;gap:6px;font-size:16px;padding:0 8px;
   }
-  /* 手机上仍是横条，文字恢复横排，覆盖桌面的竖排规则 */
+  .slot::after{left:0;right:0;top:-7px;bottom:-7px}
+  /* 手机上仍是横条，文字恢复横排；24px 高只放单行，超长用省略号兜底 */
   .slot .slot-txt{
-    writing-mode:horizontal-tb;text-orientation:mixed;white-space:normal;
+    writing-mode:horizontal-tb;text-orientation:mixed;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
     flex:1;text-align:left;font-size:11px;letter-spacing:normal;
   }
   .tl-card{
