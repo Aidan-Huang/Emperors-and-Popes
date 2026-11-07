@@ -265,21 +265,22 @@
 
     $('#act-list').innerHTML = ACTS.map(a => {
       const finale = !!(FINALE_ID && a.id === FINALE_ID);
+      /* 终章在解锁前完全不出现（不渲染锁定占位卡）：
+         通关全部四幕、或打开测试口子后才现身。 */
+      if (finale && !actUnlocked(a.id)) return '';
       const cards = Engine.actCards(a.id);
       const got = cards.filter(c => S.collection[c.id]).length;
       const p = S.progress[a.id] || { plays: 0 };
       const unlocked = actUnlocked(a.id);
       const badge = p.cleared ? '<span class="cleared">✔ 已通关</span>'
-        : (finale && testing && !fourCleared() ? '<span class="test-tag">🧪 测试</span>'
-        : (unlocked ? '' : '<span class="lock">🔒</span>'));
+        : (finale && testing && !fourCleared() ? '<span class="test-tag">🧪 测试</span>' : '');
       return '<button class="act-card' + (finale ? ' finale' : '') + (unlocked ? '' : ' locked') +
         '" data-act="' + a.id + '"' + (unlocked ? '' : ' disabled') + '>' +
         badge +
-        '<div class="no">' + (finale ? 'FINALE · ACT ' + a.id : 'ACT ' + a.id) + '</div>' +
+        '<div class="no">' + (finale ? 'FINALE' : 'ACT ' + a.id) + '</div>' +
         '<h3>' + a.name + '</h3>' +
         '<div class="span">' + a.span + ' · ' + cards.length + ' 张卡' + (finale ? ' · 全卡池' : '') + '</div>' +
         '<div class="desc">' + a.desc + '</div>' +
-        (finale && !unlocked ? '<div class="finale-lock">通关全部四幕之后开启 · 全部卡牌一次排完</div>' : '') +
         '<div class="meta"><span>' + got + '/' + cards.length + '</span>' +
         '<span class="mini-bar"><i style="width:' + (got / cards.length * 100) + '%"></i></span>' +
         '<span>' + (p.plays ? ('玩过 ' + p.plays + ' 次' + (p.best != null ? ' · 最佳 ' + p.best + '%' : '')) : '未开始') + '</span></div>' +
