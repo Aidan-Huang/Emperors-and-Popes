@@ -433,12 +433,12 @@ small{font-size:.78em;opacity:.85}
 .fb-close{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px}
 .fb-event{font-size:14px;margin-top:2px}
 .fb-explain{margin-top:8px;font-size:14px;line-height:1.65;color:#e7e3d6}
-.fb-quote{
-  margin-top:10px;padding:9px 11px;background:#161d33;border-left:3px solid var(--gold-dim);
-  border-radius:0 8px 8px 0;font-size:13px;color:#cfd4e4;
-}
-.fb-quote .en{font-style:italic;opacity:.9}
-.fb-quote .zh{display:block;margin-top:4px;color:#aeb6cc}
+/* 反馈条里的「书中原句」与卡册大卡详情同一套排版：
+   无底色无边框，只有一枚金色小标题 + 中文原句；
+   英文原文改用下方 .quotebox 的金色竖线块承载。 */
+.fb-quote{margin-top:10px;font-size:13px;color:#cfd4e4}
+.fb-quote .h{font-size:12px;color:var(--gold-dim);margin-bottom:5px}
+.fb-quote .zh{font-size:13.5px;line-height:1.7;color:var(--ink)}
 .fb-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 .fb-btn{background:#2a3450;border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13px}
 .fb-btn:hover{border-color:var(--gold-dim)}
@@ -450,6 +450,7 @@ small{font-size:.78em;opacity:.85}
 .fb-src.show{display:block}
 .fb-src .en{font-style:italic;color:#cfc9b8}
 .fb-src .zh{display:block;margin-top:6px;color:#a9b0c6}
+.fb-src .quotebox{margin-top:0}
 .fb-pos{margin-top:8px;font-size:13px;color:var(--gold)}
 
 /* ---------- 结算 ---------- */

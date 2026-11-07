@@ -562,9 +562,12 @@
     $('#fb-event').textContent = c.zh;
     $('#fb-explain').textContent = c.explain || '';
 
+    /* 与卡册大卡详情保持同一套结构：
+       「书中原句」只给中文原句；英文原文段落放进金线引用块（点「书中原文」展开）。
+       不再中英各来一遍，也不再把 src.zh 重复一次。 */
     const q = c.quote;
     $('#fb-quote').innerHTML = q
-      ? '<span class="en">“' + esc(q.en) + '”</span><span class="zh">' + esc(q.zh) + '</span>'
+      ? '<div class="h">书中原句</div><div class="zh">' + esc(q.zh) + '</div>'
       : '';
 
     const posTxt = res.ok
@@ -572,7 +575,9 @@
       : '它本该在 ' + (res.correctPrev ? res.correctPrev.dy + ' 之后' : '最前') +
         (res.correctNext ? '、' + res.correctNext.dy + ' 之前' : '、最后') +
         ' —— 这张卡回到牌堆，本局还会再见到它';
-    $('#fb-src').innerHTML = (c.src ? '<div class="en">' + esc(c.src.en) + '</div><div class="zh">' + esc(c.src.zh) + '</div>' : '<div class="zh">（本卡暂无扩展原文）</div>') +
+    $('#fb-src').innerHTML = (c.src
+      ? '<div class="quotebox en-only"><span class="en">' + esc(c.src.en) + '</span></div>'
+      : '<div class="zh">（本卡暂无扩展原文）</div>') +
       '<div class="fb-pos">' + posTxt + '</div>';
 
     $('#fb-src').classList.remove('show');
