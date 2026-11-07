@@ -906,8 +906,10 @@
             ({ easy: '易', medium: '中', hard: '难' }[c.diff] || '中') + '</div>' +
         '</div>' +
       '</div>' +
-      (has && c.quote ? '<div class="detail-sec"><div class="h">书中原句</div><div class="en">“' + esc(c.quote.en) + '”</div><div class="zh">' + esc(c.quote.zh) + '</div></div>' : '') +
-      (has && c.src ? '<div class="detail-sec"><div class="h">书中原文</div><div class="en">' + esc(c.src.en) + '</div><div class="zh">' + esc(c.src.zh) + '</div></div>' : '') +
+      /* 详情下半：只留一句「书中原句」中译，下面用姊妹作《权力的双人舞》的引用块
+         （左侧金色竖线）放书中英文原文。不再中英各来一遍，避免重复繁琐。 */
+      (has && c.quote ? '<div class="card-quote"><div class="h">书中原句</div><div class="zh">' + esc(c.quote.zh) + '</div></div>' : '') +
+      (has && c.src ? '<div class="quotebox en-only"><span class="en">' + esc(c.src.en) + '</span></div>' : '') +
       (!has ? '<div class="detail-sec"><div class="zh">在游戏中把它放对一次，即可解锁这张卡。</div></div>' : '') +
       '<div class="modal-actions">' +
         (has && c.audio ? '<button id="dc-audio">🔊 原声</button>' : '') +

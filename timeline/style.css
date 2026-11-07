@@ -517,6 +517,17 @@ small{font-size:.78em;opacity:.85}
 .detail-sec .h{font-size:12px;color:var(--gold-dim);margin-bottom:5px}
 .detail-sec .en{font-style:italic;font-size:13px;color:#cfc9b8}
 .detail-sec .zh{font-size:13px;color:#a9b0c6;margin-top:5px}
+/* 大卡详情：只留一句「书中原句」中译，下面接一段英文原文。
+   引用块照搬姊妹作《权力的双人舞》的 .quotebox：左侧 3px 金色竖线，
+   无边框、无底色、无标题，英文在右；不再中英各译一遍造成重复。 */
+.card-quote{margin-top:12px}
+.card-quote .h{font-size:12px;color:var(--gold-dim);margin-bottom:5px}
+.card-quote .zh{font-size:13.5px;line-height:1.7;color:var(--ink)}
+.quotebox{border-left:3px solid var(--gold);padding-left:12px;margin-top:10px}
+.quotebox.en-only .en{
+  display:block;margin-top:2px;font-style:italic;
+  font-size:13.5px;line-height:1.65;color:#cfc9b8;
+}
 .modal-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
 .modal-actions button{background:#2a3450;border:1px solid var(--line);border-radius:9px;padding:9px 13px;font-size:13px;flex:1;min-width:110px}
 .modal-actions button.primary{background:var(--gold);color:#241f18;font-weight:700;border-color:var(--gold)}
