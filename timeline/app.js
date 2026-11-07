@@ -291,6 +291,24 @@
     renderGame();
   }
 
+  /* 只同步「选中态」：手牌高亮、插入位点亮、提示文字。
+     点手牌时走这里，不再调用 renderGame()——后者会重建时间线里所有 <img>，
+     手机上每张时间线卡的图片都会闪一下（桌面缓存快、且无 zoom 栅格化，不易察觉）。
+     时间线的卡牌、插入位虚线框与间隔一个都不动。 */
+  function syncSelection() {
+    const g = state.session;
+    const armed = !!state.selectedId;
+    $$('#hand .hand-card').forEach(el => {
+      el.classList.toggle('sel', el.dataset.id === state.selectedId);
+    });
+    $$('#timeline .slot').forEach(el => el.classList.toggle('armed', armed));
+    const sel = g && g.hand.find(c => c.id === state.selectedId);
+    $('#timeline-hint').innerHTML = sel
+      ? '已选中 <b>' + esc(sel.zh) + '</b> · 点一个金色插入位放进去'
+      : '点一张手牌，再点亮起的插入位';
+    updateTlNav();
+  }
+
   function renderGame() {
     const g = state.session;
     if (!g) return;
@@ -303,27 +321,37 @@
     $('#hud-combo').textContent = '🔥 ' + g.combo;
     $('#hud-progress').textContent = g.timeline.length + '/' + g.totalCards();
 
-    // 时间线（选中手牌也会重绘，保留横向滚动位置，避免视图乱跳）
+    // 时间线：卡序没变时不重建 DOM，避免销毁/重建所有 <img> 造成图片闪一下。
+    // 只有真的放下一张卡（卡序变化）才重绘，并保留横向滚动位置防止视图乱跳。
+    // 插入位虚线框、间隔尺寸、24px 收窄规则全部原样保留，这里一个样式都不动。
     const tl = $('#timeline');
-    const keepScroll = tl.scrollLeft || 0;
-    tl.innerHTML = '';
-    g.timeline.forEach((c, i) => {
-      tl.appendChild(slotEl(i));
-      tl.appendChild(timelineCardEl(c));
-    });
-    tl.appendChild(slotEl(g.timeline.length));
-    tl.scrollLeft = keepScroll;
+    const tlSig = state.sessionSeq + '#' + g.timeline.map(c => c.id).join('|');
+    const tlSlots = $$('#timeline .slot');
+    const tlCards = $$('#timeline .tl-card:not(.ghost)');
+    if (tl.dataset.sig === tlSig &&
+        tlSlots.length === g.timeline.length + 1 &&
+        tlCards.length === g.timeline.length) {
+      // 结构未变：清除「正确位置提示」幽灵卡（与原先整体重建的清理效果一致），
+      // 卡片与插入位节点保持不动，图片不会重新解码。
+      $$('#timeline .tl-card.ghost').forEach(el => el.remove());
+    } else {
+      tl.dataset.sig = tlSig;
+      const keepScroll = tl.scrollLeft || 0;
+      tl.innerHTML = '';
+      g.timeline.forEach((c, i) => {
+        tl.appendChild(slotEl(i));
+        tl.appendChild(timelineCardEl(c));
+      });
+      tl.appendChild(slotEl(g.timeline.length));
+      tl.scrollLeft = keepScroll;
+    }
 
-    // 手牌：内容没变时只切换 .sel，避免点选一次就重播发牌动画、
-    // 也避免鼠标悬浮时 DOM 被重建导致「浮起」被打断。
+    // 手牌：内容没变时不重建 DOM，避免重播发牌动画、打断鼠标悬浮「浮起」。
+    // 选中态（.sel / .armed / 提示）统一交给 syncSelection() 处理。
     const hand = $('#hand');
     const handSig = state.sessionSeq + '#' + cfg.showCentury + '#' + cfg.showFaction +
       '#' + g.hand.map(c => c.id).join('|');
-    if (hand.dataset.sig === handSig && !hand.querySelector('.empty')) {
-      $$('#hand .hand-card').forEach(el => {
-        el.classList.toggle('sel', el.dataset.id === state.selectedId);
-      });
-    } else {
+    if (hand.dataset.sig !== handSig || hand.querySelector('.empty')) {
       hand.dataset.sig = handSig;
       hand.innerHTML = '';
       g.hand.forEach((c, n) => {
@@ -340,18 +368,14 @@
           if (state.locked) return;
           state.selectedId = (state.selectedId === c.id) ? null : c.id;
           g.select(state.selectedId);
-          renderGame();
+          syncSelection();   // 只切选中态，不重建时间线图片
         };
         hand.appendChild(el);
       });
       if (!g.hand.length) hand.innerHTML = '<div class="empty">手牌已空</div>';
     }
 
-    const sel = g.hand.find(c => c.id === state.selectedId);
-    $('#timeline-hint').innerHTML = sel
-      ? '已选中 <b>' + esc(sel.zh) + '</b> · 点一个金色插入位放进去'
-      : '点一张手牌，再点亮起的插入位';
-    updateTlNav();
+    syncSelection();
   }
 
   /* 桌面端卡片超过一屏时，给时间线加左右翻页按钮和滚动提示。
