@@ -191,45 +191,32 @@ small{font-size:.78em;opacity:.85}
 .tl-nav[hidden]{display:none}
 .tl-nav-l{left:6px}
 .tl-nav-r{right:6px}
-/* 时间轴轨道：让空白处也有「时间方向」的语义 */
-.timeline::before{
-  content:'';position:absolute;left:14px;right:14px;top:50%;height:2px;
-  background:linear-gradient(90deg,rgba(255,204,0,.04),rgba(255,204,0,.34),rgba(255,204,0,.04));
-  pointer-events:none;
-}
+/* 时间轴轨道：插入位改为视觉隐形后，这条穿过缝隙的金线会和
+   「选中手牌才浮出的细金线」混淆，索性不再生成；时间方向交给卡牌年份表达。 */
+.timeline::before{content:none}
 .timeline > *{position:relative;z-index:1}
 
-/* 插入位：桌面竖向、手机横向，视觉细条 24px。
-   ::after 只吃掉两侧 gap 扩大落点，不侵入卡牌（侵入会互相抢点击）。
-   细长条另一维很长（桌面 210px / 手机整行宽），24px 不构成点击障碍。 */
+/* 插入位：视觉完全隐形——不画横条间隔、不画纵栏虚线框、不写年份文字。
+   卡牌之间只留一道极窄透明缝隙；::after 吃掉两侧 gap 放大落点，
+   不侵入卡牌本体（否则点卡看详情会被抢走）。
+   只有选中手牌时，才在缝隙里浮出一条 2px 金线，指明「点这里放牌」。 */
 .slot{
-  /* 竖排文字只占一列，24px 足够；左右 padding 归零让这一列居中留空隙 */
-  flex:0 0 24px;height:210px;border-radius:7px;border:2px dashed #46527c;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
-  color:#8792b4;font-size:16px;line-height:1;
-  background:rgba(16,22,38,.72);transition:.16s;cursor:pointer;padding:6px 0;
+  flex:0 0 6px;height:210px;border:0;border-radius:0;
+  background:transparent;padding:0;color:transparent;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
 }
-/* 左右各外扩 6px（gap 8px），命中区 36px，透明且不与卡牌重叠 */
+.slot .slot-plus,.slot .slot-txt{display:none}
 .slot::after{content:'';position:absolute;top:0;bottom:0;left:-8px;right:-8px}
-/* 从上往下写：中文直立、数字随竖排转向，单行不折列 */
-.slot .slot-txt{
-  writing-mode:vertical-rl;text-orientation:mixed;white-space:nowrap;
-  font-size:11.5px;color:#98a4c6;text-align:center;line-height:1.4;
-  letter-spacing:1px;   /* 竖排小字给一点呼吸，避免中文字挨得太紧 */
+/* 选中手牌 → 细金线；hover → 加粗变亮（静态浮现，reduce 下照常保留） */
+.slot::before{
+  content:'';position:absolute;top:8%;bottom:8%;left:50%;
+  width:2px;transform:translateX(-50%);border-radius:2px;
+  background:rgba(255,204,0,.5);opacity:0;pointer-events:none;
+  transition:opacity .14s ease;
 }
-/* 纵中横：竖排里的年份数字横向并排、正向可读（手机横排下自动失效） */
-.slot .tcy{
-  font-style:normal;text-combine-upright:all;
-  -webkit-text-combine:horizontal;
-}
-.slot.armed{
-  border-color:var(--gold);color:var(--gold);background:rgba(255,204,0,.14);
-  box-shadow:0 0 0 3px rgba(255,204,0,.07);animation:pulse 1.2s infinite;
-}
-.slot.armed .slot-txt{color:#ffe38a}
-.slot:hover{border-color:var(--gold-dim);background:rgba(255,204,0,.1)}
-.slot.ghost{border-style:solid;border-color:var(--gold);background:rgba(255,204,0,.2)}
-@keyframes pulse{0%,100%{opacity:.72}50%{opacity:1}}
+.slot.armed::before{opacity:1}
+.slot:hover::before{opacity:1;width:3px;background:var(--gold)}
+.slot.ghost::before{opacity:1;width:3px;background:var(--gold)}
 
 /* cardFace 的内层容器：跟随外层卡片方向，避免手机横排时内容溢出卡外 */
 .face{
@@ -675,22 +662,22 @@ small{font-size:.78em;opacity:.85}
   .timeline > :first-child{margin-left:0}
   .timeline > :last-child{margin-right:0}
   .tl-nav{display:none}
-  .timeline::before{
-    left:50%;right:auto;top:0;bottom:0;width:2px;height:auto;
-    background:linear-gradient(180deg,rgba(255,204,0,.05),rgba(255,204,0,.28),rgba(255,204,0,.05));
-  }
+  .timeline::before{content:none}
+  /* 手机竖屏：横条间隔同样去掉，只留 8px 透明缝隙，卡牌上下紧挨。
+     ::after 上下各外扩 6px，正好吃满 gap 不侵入卡牌，命中区 20px。 */
   .slot{
-    /* 横条 44 → 24px；上下各外扩 5px（gap 6px），命中区 34px */
-    flex:0 0 24px;height:24px;width:100%;min-height:24px;border-radius:7px;
-    flex-direction:row;gap:6px;font-size:16px;padding:0 8px;
+    flex:0 0 8px;height:8px;width:100%;min-height:8px;
+    border:0;border-radius:0;background:transparent;padding:0;color:transparent;
+    flex-direction:row;gap:0;
   }
-  .slot::after{left:0;right:0;top:-7px;bottom:-7px}
-  /* 手机上仍是横条，文字恢复横排；24px 高只放单行，超长用省略号兜底 */
-  .slot .slot-txt{
-    writing-mode:horizontal-tb;text-orientation:mixed;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
-    flex:1;text-align:left;font-size:11px;letter-spacing:normal;
+  .slot .slot-plus,.slot .slot-txt{display:none}
+  .slot::after{left:0;right:0;top:-6px;bottom:-6px}
+  /* 纵向排布里，落点提示改成一条横向细金线，而不是横条框 */
+  .slot::before{
+    top:50%;bottom:auto;left:6%;right:6%;width:auto;height:2px;
+    transform:translateY(-50%);
   }
+  .slot:hover::before,.slot.ghost::before{width:auto;height:3px;background:var(--gold)}
   .tl-card{
     flex:0 0 auto;width:100%;height:80px;min-height:80px;
     flex-direction:row;align-items:center;
