@@ -658,6 +658,19 @@ small{font-size:.78em;opacity:.85}
    规则排在 .flyback.f-* 之后，确保同优先级下能盖掉势力色。 */
 #view-game.hide-faction .hand-card .fstrip,
 .flyback.no-faction .fstrip{background:transparent}
+
+/* 早期批次的 10 张插画把势力色烧进了素材本身：480px 宽原图的左缘有 9px
+   纯色竖条（橙 (238,159,38)=皇权 / 蓝 (54,139,220)=教权），正好等于
+   --state / --church。只把 .fstrip 透明化仍会漏出这条颜色，玩家照样能反推势力。
+   手牌 / 卡影的 .art 都是 object-fit:cover 且按宽度缩放，所以左缘色条恒定占
+   容器宽度的 9/480 = 1.875%。这里把 img 右推并放大 2.6%，左边界落到 -2.6%、
+   右边界仍回到 100%，色条被 overflow:hidden 裁掉，卡面尺寸与布局完全不变。
+   仅作用于困难模式的手牌与放错弹回的卡影；时间线已揭晓卡、卡册、首页图例，
+   以及简单 / 普通模式的手牌都不受影响。 */
+#view-game.hide-faction .hand-card .art img,
+.flyback.no-faction .art img{
+  transform:translateX(-1.3%) scale(1.026);
+}
 .flyback .art{
   height:72px;flex:0 0 72px;margin:6px 6px 0;border-radius:4px;background:#f0efec;
   overflow:hidden;display:flex;align-items:center;justify-content:center;
