@@ -176,7 +176,9 @@
   function factionClass(f) { return 'f-' + f; }
 
   function artHTML(c, big) {
-    if (c.img) return '<img src="' + c.img + '" alt="' + esc(c.zh) + '" loading="lazy">';
+    if (c.img) return '<img src="' + c.img + '"' +
+      (c.artPos ? ' class="art-' + c.artPos + '"' : '') +
+      ' alt="' + esc(c.zh) + '" loading="lazy">';
     return '<div class="crest">' + (c.icon || '❓') + '</div>';
   }
   function esc(s) {

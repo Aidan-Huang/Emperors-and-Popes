@@ -298,6 +298,9 @@ small{font-size:.78em;opacity:.85}
   background:#f0efec;overflow:hidden;display:flex;align-items:center;justify-content:center;
 }
 .tl-card .art img{width:100%;height:100%;object-fit:cover;display:block}
+/* 人物卡（奥古斯都 / 拉文纳）：人脸在原素材上部，横带缩略图默认取中带会把头裁掉。
+   object-position 把显示窗口上移到原图顶部附近，脸完整露出；仅对带 artPos:'top' 的卡生效。 */
+.art img.art-top{object-position:50% 15%}
 .tl-card .crest{
   width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:30px;
   background:radial-gradient(circle at 50% 40%,#fbf8f0,#e6dfcd);

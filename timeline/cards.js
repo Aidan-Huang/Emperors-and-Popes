@@ -74,6 +74,8 @@ const CARDS = [
 
   {
     id: 'augustus', y: -27, dy: '公元前 27', approx: false,
+    /* artPos:'top'：缩略图是横带裁切，人脸在原图上部，把显示窗口上移才能看到脸 */
+    artPos: 'top',
     zh: '奥古斯都开创罗马帝国',
     en: 'Augustus founds the Roman Empire',
     faction: 'state', act: 1, diff: 'easy', icon: '🏛',
@@ -139,6 +141,7 @@ const CARDS = [
   },
   {
     id: 'lombards-ravenna', y: 751, dy: '751', approx: false,
+    artPos: 'top',
     zh: '伦巴第人攻占拉文纳，罗马告急',
     en: 'The Lombards take Ravenna; Rome in danger',
     faction: 'church', act: 1, diff: 'medium', icon: '⚔',
