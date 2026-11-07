@@ -218,6 +218,26 @@ small{font-size:.78em;opacity:.85}
 .slot:hover::before{opacity:1;width:3px;background:var(--gold)}
 .slot.ghost::before{opacity:1;width:3px;background:var(--gold)}
 
+/* 简单模式例外：教学向，保留间隔里的年代区间提示（「约 312 — 约 400 之间」）。
+   只恢复文字和容纳它的空间，不恢复虚线框 / 横条底色 / 时间轴轨道；
+   普通、困难仍是无字无框的透明细缝。 */
+.slot.with-hint{
+  flex:0 0 24px;color:#8792b4;font-size:16px;line-height:1;
+  flex-direction:column;gap:4px;padding:4px 0;
+}
+.slot.with-hint .slot-plus,.slot.with-hint .slot-txt{display:block}
+.slot.with-hint .slot-txt{
+  writing-mode:vertical-rl;text-orientation:mixed;white-space:nowrap;
+  font-size:11.5px;color:#98a4c6;line-height:1.4;letter-spacing:1px;text-align:center;
+}
+.slot.with-hint .tcy{
+  font-style:normal;text-combine-upright:all;-webkit-text-combine:horizontal;
+}
+/* 有文字指路就不需要细金线了，避免两种提示叠在一起 */
+.slot.with-hint::before{display:none}
+.slot.with-hint.armed .slot-txt,.slot.with-hint.armed .slot-plus{color:var(--gold)}
+.slot.with-hint:hover .slot-txt{color:#ffe38a}
+
 /* cardFace 的内层容器：跟随外层卡片方向，避免手机横排时内容溢出卡外 */
 .face{
   display:flex;flex-direction:inherit;align-items:inherit;justify-content:inherit;
@@ -678,6 +698,19 @@ small{font-size:.78em;opacity:.85}
     transform:translateY(-50%);
   }
   .slot:hover::before,.slot.ghost::before{width:auto;height:3px;background:var(--gold)}
+  /* 简单模式：竖屏恢复横排年代提示，同样不加虚线框 */
+  .slot.with-hint{
+    flex:0 0 24px;height:24px;min-height:24px;color:#8792b4;font-size:16px;
+    flex-direction:row;gap:6px;padding:0 8px;
+  }
+  .slot.with-hint .slot-plus,.slot.with-hint .slot-txt{display:block}
+  .slot.with-hint .slot-txt{
+    writing-mode:horizontal-tb;text-orientation:mixed;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
+    flex:1;text-align:left;font-size:11px;letter-spacing:normal;
+    color:#98a4c6;line-height:1.4;
+  }
+  .slot.with-hint::after{top:-6px;bottom:-6px}
   .tl-card{
     flex:0 0 auto;width:100%;height:80px;min-height:80px;
     flex-direction:row;align-items:center;

@@ -420,7 +420,9 @@
   function slotEl(i) {
     const el = document.createElement('div');
     const g = state.session;
-    el.className = 'slot' + (state.selectedId ? ' armed' : '');
+    // 简单模式是教学向，保留插入位里的年代区间提示；普通/困难维持视觉隐形细缝。
+    el.className = 'slot' + (state.selectedId ? ' armed' : '') +
+      (g.difficulty === 'easy' ? ' with-hint' : '');
     el.dataset.slot = i;
     const prev = g.timeline[i - 1];
     const next = g.timeline[i];
