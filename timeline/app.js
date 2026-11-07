@@ -79,10 +79,12 @@
       if (on) localStorage.setItem(ACT5_TEST_KEY, '1');
       else localStorage.removeItem(ACT5_TEST_KEY);
     } catch (e) {}
-    // 两个视图都无条件重绘：它们可能不是当前活动视图，但入口状态必须同步，
+    // 三个视图都无条件重绘：它们可能不是当前活动视图，但入口状态必须同步，
     // 否则从对局页 / 结算页返回时会短暂看到旧的锁定态。
+    // 卡册也一并重绘：测试模式下卡册全部卡可见，关掉要立刻恢复锁定。
     renderHome();
     renderActs();
+    renderGallery();
   }
   function fourCleared() {
     return MAIN_ACTS.every(a => S.progress[a.id] && S.progress[a.id].cleared);
@@ -956,10 +958,14 @@
     else cards = Engine.actCards(+state.galleryTab.slice(1));
 
     const got = cards.filter(c => S.collection[c.id]).length;
-    $('#gallery-count').textContent = got + ' / ' + cards.length + ' 已解锁';
+    /* 测试模式：卡册全部卡按「可见」渲染（详情可看），但不写入 collection，
+       关掉测试口子即恢复原锁定状态。 */
+    const testView = act5Test();
+    $('#gallery-count').textContent = got + ' / ' + cards.length + ' 已解锁' +
+      (testView ? ' · 测试模式：全部可见' : '');
 
     $('#gallery-grid').innerHTML = cards.map(c => {
-      const has = !!S.collection[c.id];
+      const has = testView || !!S.collection[c.id];
       return '<div class="gcard ' + factionClass(c.faction) + (has ? '' : ' locked') + '" data-id="' + c.id + '">' +
         '<div class="fstrip"></div>' +
         '<div class="art">' + (has ? artHTML(c) : '<div class="crest">' + (c.icon || '❓') + '</div>') + '</div>' +
@@ -973,7 +979,7 @@
       el.onclick = () => {
         const c = cards.find(x => x.id === el.dataset.id);
         if (!c) return;
-        if (S.collection[c.id]) openCard(c);
+        if (testView || S.collection[c.id]) openCard(c);
         else toast('在游戏中把它放对一次，即可解锁这张卡');
       };
     });
@@ -981,7 +987,8 @@
 
   /* 大卡详情 */
   function openCard(c, fromReview) {
-    const has = !!S.collection[c.id];
+    /* 测试模式下未收集的卡也按「可见」展示（与卡册一致），但同样不写入 collection */
+    const has = act5Test() || !!S.collection[c.id];
     const f = FACTIONS[c.faction];
     openModal(
       '<h3>' + esc(has ? c.dy : '？') + ' · ' + esc(c.zh) + '</h3>' +
