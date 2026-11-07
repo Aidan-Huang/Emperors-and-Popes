@@ -1128,39 +1128,62 @@
     window.addEventListener('DOMContentLoaded', () => go('editor'));
   }
 
-  /* ---------------- 画面缩放设置（隐藏入口） ----------------
+  /* ---------------- 画面缩放设置（通用） ----------------
      只调整两个 CSS 变量，不改布局流、不删任何界面元素、卡牌比例始终 2:3。
-     数值存本机（清空存档不会删），可反复调整、即时看效果。
-     自动生效范围由 CSS 控制：矮横屏（手机横屏）才缩，电脑大屏保持原样。 */
+     生效范围：除手机竖屏外的所有视口（电脑 / 平板 / 手机横屏 …）。
+     未自定义时按视口自动取值（手机横屏 0.56/0.64，其它 1/1），保持桌面原尺寸；
+     在面板里点「完成」后写入一份全局参数，横屏与电脑都按它显示。
+     拖动只做预览、不落盘；✕ / Esc / 点遮罩 = 取消并还原到打开前。 */
   const ZOOM_KEY = 'tl_ch6_zoom_v1';
-  const ZOOM_DEF = { tl: 0.56, hand: 0.64 };
+  const ZOOM_MIN = 0.5, ZOOM_MAX = 1.5;
+  const ZOOM_AUTO = { tl: 0.56, hand: 0.64 };   // 手机横屏自动适配
+  const ZOOM_NEUTRAL = { tl: 1, hand: 1 };      // 其它视口原尺寸
+  const ZOOM_DEF = ZOOM_AUTO;
   const ZOOM_PRESETS = {
     default: { tl: 0.56, hand: 0.64 },
     small:   { tl: 0.50, hand: 0.58 },
     large:   { tl: 0.68, hand: 0.78 },
-    off:     { tl: 1,    hand: 1 }
+    off:     { tl: 1,    hand: 1 },
+    big:     { tl: 1.25, hand: 1.25 },
+    max:     { tl: 1.50, hand: 1.50 }
   };
 
   function clampZoom(v) {
     const n = parseFloat(v);
     if (!isFinite(n)) return 1;
-    return Math.min(1, Math.max(0.4, Math.round(n * 100) / 100));
+    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(n * 100) / 100));
+  }
+  function autoZoom() {
+    return compactLandscape()
+      ? { tl: ZOOM_AUTO.tl, hand: ZOOM_AUTO.hand }
+      : { tl: ZOOM_NEUTRAL.tl, hand: ZOOM_NEUTRAL.hand };
   }
   function loadZoom() {
     try {
       const v = JSON.parse(localStorage.getItem(ZOOM_KEY) || 'null');
-      if (v && isFinite(parseFloat(v.tl)) && isFinite(parseFloat(v.hand)))
-        return { tl: clampZoom(v.tl), hand: clampZoom(v.hand) };
+      if (v && isFinite(parseFloat(v.tl)) && isFinite(parseFloat(v.hand))) {
+        return { tl: clampZoom(v.tl), hand: clampZoom(v.hand), custom: !!v.custom };
+      }
     } catch (e) {}
-    return { tl: ZOOM_DEF.tl, hand: ZOOM_DEF.hand };
+    const a = autoZoom();
+    return { tl: a.tl, hand: a.hand, custom: false };
   }
   let zoomCfg = loadZoom();
+  let zoomBackup = null;   // 打开面板前的已提交值，取消时还原
 
+  // 手机竖屏由 CSS 强制 zoom:1；这里同步变量，避免旋转后滑条与画面错位。
+  function effectiveZoom() {
+    if (portraitLayout()) return { tl: 1, hand: 1 };
+    return { tl: zoomCfg.tl, hand: zoomCfg.hand };
+  }
   function applyZoom(persist) {
+    const e = effectiveZoom();
     const r = document.documentElement.style;
-    r.setProperty('--tl-zoom', zoomCfg.tl);
-    r.setProperty('--hand-zoom', zoomCfg.hand);
-    if (persist !== false) save(ZOOM_KEY, zoomCfg);
+    r.setProperty('--tl-zoom', e.tl);
+    r.setProperty('--hand-zoom', e.hand);
+    // 只有「完成」/ 测试接口显式提交才写存档，拖动预览绝不落盘。
+    if (persist === true)
+      save(ZOOM_KEY, { tl: zoomCfg.tl, hand: zoomCfg.hand, custom: zoomCfg.custom });
     syncZoomUI();
     updateTlNav();
   }
@@ -1179,59 +1202,84 @@
     });
     const st = $('#zp-state');
     if (!st) return;
-    const force = document.documentElement.classList.contains('zoom-force');
-    const desc = '上排 ×' + Number(zoomCfg.tl).toFixed(2) + ' · 下排 ×' + Number(zoomCfg.hand).toFixed(2);
-    if (compactLandscape()) {
-      st.innerHTML = '<b>当前是手机横屏，缩放已自动生效</b><br>' + desc +
-        '。拖上面两条即可即时看到卡牌变化。';
-    } else if (force) {
-      st.innerHTML = '<i>强制预览已开启</i>：当前屏幕也会缩放（仅本次预览，关闭面板后恢复）<br>' + desc;
+    const desc = '当前 上排 ×' + Number(zoomCfg.tl).toFixed(2) +
+                 ' · 下排 ×' + Number(zoomCfg.hand).toFixed(2);
+    if (portraitLayout()) {
+      st.innerHTML = '<i>手机竖屏不缩放，卡片保持原尺寸</i><br>' +
+        '旋转到横屏，或在电脑 / 平板上打开，即可看到这里的设置效果。';
     } else {
-      st.innerHTML = '当前是电脑大屏 / 竖屏，<b>保持原尺寸，不缩放</b>。<br>' +
-        '想在电脑上看效果，勾选上面的「强制预览」即可临时应用；关闭面板会自动恢复。';
+      st.innerHTML = desc + '<br>拖动即时预览；点「完成」保存到本机，' +
+        '<b>手机横屏与电脑屏幕都会按这个比例显示</b>。';
     }
   }
 
   function openZoomPanel() {
-    syncZoomUI();
+    zoomBackup = { tl: zoomCfg.tl, hand: zoomCfg.hand, custom: zoomCfg.custom };
+    if (!zoomCfg.custom) {
+      const a = autoZoom();
+      zoomCfg.tl = a.tl; zoomCfg.hand = a.hand;
+    }
+    applyZoom(false);                 // 预览，不落盘
     $('#zp-mask').classList.add('show');
   }
-  function closeZoomPanel() {
+  function hideZoomMask() {
     $('#zp-mask').classList.remove('show');
-    // 强制预览只在面板打开期间有效，关掉即恢复自动规则，避免电脑上一直缩着
-    document.documentElement.classList.remove('zoom-force');
-    $('#zp-force').checked = false;
-    syncZoomUI();
+    zoomBackup = null;
   }
+  function doneZoomPanel() {
+    zoomCfg.custom = true;
+    applyZoom(true);                  // 只有「完成」才写入存档
+    hideZoomMask();
+    toast('显示比例已保存，横屏与电脑都会生效');
+  }
+  function cancelZoomPanel() {
+    if (zoomBackup)
+      zoomCfg = { tl: zoomBackup.tl, hand: zoomBackup.hand, custom: zoomBackup.custom };
+    hideZoomMask();
+    applyZoom(false);                 // 还原到打开面板前
+  }
+  function closeZoomPanel() { cancelZoomPanel(); }
 
-  $('#zp-tl').oninput = e => { zoomCfg.tl = clampZoom(e.target.value); applyZoom(); };
-  $('#zp-hand').oninput = e => { zoomCfg.hand = clampZoom(e.target.value); applyZoom(); };
+  // 拖动 / 预设 / 恢复默认都只改 CSS 变量做实时预览，不写 localStorage。
+  const previewZoom = (k, v) => {
+    zoomCfg[k] = clampZoom(v);
+    zoomCfg.custom = true;            // 预览期间不让 resize 覆盖刚拖的值
+    applyZoom(false);
+  };
+  $('#zp-tl').oninput = e => previewZoom('tl', e.target.value);
+  $('#zp-hand').oninput = e => previewZoom('hand', e.target.value);
   $$('.zp-presets button').forEach(b => b.onclick = () => {
     const p = ZOOM_PRESETS[b.dataset.preset];
     if (!p) return;
-    zoomCfg = { tl: p.tl, hand: p.hand };
-    applyZoom();
+    zoomCfg = { tl: p.tl, hand: p.hand, custom: true };
+    applyZoom(false);
   });
   $('#zp-reset').onclick = () => {
-    zoomCfg = { tl: ZOOM_DEF.tl, hand: ZOOM_DEF.hand };
-    applyZoom();
-    toast('已恢复默认缩放');
+    const a = autoZoom();
+    zoomCfg = { tl: a.tl, hand: a.hand, custom: false };
+    applyZoom(false);
+    toast('已恢复自动尺寸，点「完成」保存');
   };
-  $('#zp-force').onchange = e => {
-    document.documentElement.classList.toggle('zoom-force', e.target.checked);
-    syncZoomUI();
-  };
-  $('#zp-close').onclick = closeZoomPanel;
-  $('#zp-done').onclick = closeZoomPanel;
-  $('#zp-mask').onclick = e => { if (e.target === $('#zp-mask')) closeZoomPanel(); };
+  $('#zp-close').onclick = cancelZoomPanel;
+  $('#zp-done').onclick = doneZoomPanel;
+  $('#zp-mask').onclick = e => { if (e.target === $('#zp-mask')) cancelZoomPanel(); };
   $('#zp-entry').onclick = openZoomPanel;
+  // 章节标题后的显式按钮（手机竖屏由 CSS 隐藏），不再只能靠标题五击。
+  const zoomBtn = $('#zoom-btn');
+  if (zoomBtn) zoomBtn.onclick = e => { e.stopPropagation(); openZoomPanel(); };
   window.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && $('#zp-mask').classList.contains('show')) closeZoomPanel();
+    if (e.key === 'Escape' && $('#zp-mask').classList.contains('show')) cancelZoomPanel();
   });
-  // 旋转屏幕 / 改窗口大小后刷新状态文案与翻页按钮
-  window.addEventListener('resize', () => { syncZoomUI(); updateTlNav(); });
+  // 旋转 / 改窗口大小：未自定义时跟随视口自动值，已自定义则保持全局参数。
+  window.addEventListener('resize', () => {
+    if (!zoomCfg.custom) {
+      const a = autoZoom();
+      zoomCfg.tl = a.tl; zoomCfg.hand = a.hand;
+    }
+    applyZoom(false);
+  });
 
-  /* 隐藏入口：连点对局页标题栏 5 次（与姊妹作后台编辑器同一手势） */
+  /* 兼容入口：连点对局页标题栏 5 次（与姊妹作后台编辑器同一手势） */
   let zoomTaps = 0, zoomTapAt = 0;
   const zoomTitle = $('.game-title');
   if (zoomTitle) zoomTitle.onclick = () => {
@@ -1307,8 +1355,14 @@
     zoom: {
       get: () => ({ tl: zoomCfg.tl, hand: zoomCfg.hand }),
       cfg: () => zoomCfg, def: ZOOM_DEF, key: ZOOM_KEY,
+      range: { min: ZOOM_MIN, max: ZOOM_MAX },
+      effective: effectiveZoom, auto: autoZoom,
       open: openZoomPanel, close: closeZoomPanel,
-      set: (tl, hand) => { zoomCfg = { tl: clampZoom(tl), hand: clampZoom(hand) }; applyZoom(); },
+      done: doneZoomPanel, cancel: cancelZoomPanel,
+      set: (tl, hand) => {
+        zoomCfg = { tl: clampZoom(tl), hand: clampZoom(hand), custom: true };
+        applyZoom(true);
+      },
       compact: compactLandscape, portrait: portraitLayout
     },
     /* 第五幕测试接口：控制台 / 自动化用，不改动正式进度 */

@@ -26,8 +26,8 @@
   --card-shadow-hover:0 8px 16px rgba(0,0,0,.32);
   --shadow:0 6px 20px rgba(0,0,0,.35);
   /* 横屏两排卡的缩放倍率（隐藏设置面板可调，存 localStorage；桌面大屏不生效） */
-  --tl-zoom:0.56;      /* 时间线区 */
-  --hand-zoom:0.64;    /* 手牌区 */
+  --tl-zoom:1;         /* 时间线区；JS 启动时按视口 / 本机设置覆盖 */
+  --hand-zoom:1;       /* 手牌区 */
 }
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -163,8 +163,21 @@ small{font-size:.78em;opacity:.85}
   align-items:center;gap:10px;padding:12px 2px 10px;flex:0 0 auto;
 }
 .game-title{min-width:0;padding-left:4px}
-.game-title b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 本章标题 + 显示设置按钮同一行；标题过长省略，按钮不被挤掉 */
+.game-title .title-row{display:flex;align-items:center;gap:8px;min-width:0}
+.game-title b{
+  display:block;min-width:0;flex:0 1 auto;font-size:16px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
 .game-title small{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zoom-btn{
+  flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;
+  padding:3px 8px;font-size:11px;line-height:1.35;white-space:nowrap;
+  font-family:inherit;background:rgba(255,204,0,.08);
+  border:1px solid var(--gold-dim);border-radius:7px;
+  color:var(--gold);cursor:pointer;
+}
+.zoom-btn:hover{background:rgba(255,204,0,.18);border-color:var(--gold)}
 .hud{display:flex;gap:6px;align-items:center;grid-column:3}
 .hud-item{
   background:var(--panel);border:1px solid var(--line);border-radius:9px;
@@ -832,31 +845,65 @@ small{font-size:.78em;opacity:.85}
 }
 
 /* ============================================================
-   手机横屏：两排卡分别缩放
+   两排卡分别缩放（通用）
    - 只作用于两个卡区容器，布局流与所有界面元素原样保留
-   - zoom 是等比缩放，卡牌 2:3 比例不变、不压扁
-   - 倍率由隐藏设置面板调（CSS 变量），默认 0.56 / 0.64
-   - 桌面大屏（高度够）不命中，完全不缩放
+   - zoom 等比缩放，卡牌 2:3 比例不变、不压扁
+   - 倍率由「⚙ 显示设置」面板调（CSS 变量），范围 0.5–1.5
+   - 除手机竖屏外，所有视口（电脑 / 平板 / 手机横屏 …）都生效
+   - 未自定义时由 JS 给桌面 1/1、手机横屏 0.56/0.64，桌面保持原尺寸
    ============================================================ */
-@media (orientation:landscape) and (max-height:540px) and (max-width:1000px){
-  .timeline-wrap{zoom:var(--tl-zoom)}
-  .hand-wrap{zoom:var(--hand-zoom)}
-}
-/* 设置面板「强制预览」：临时在当前屏幕应用，关闭/刷新即恢复自动规则 */
-html.zoom-force .timeline-wrap{zoom:var(--tl-zoom)}
-html.zoom-force .hand-wrap{zoom:var(--hand-zoom)}
+.timeline-wrap{zoom:var(--tl-zoom)}
+.hand-wrap{zoom:var(--hand-zoom)}
 
-/* ---------- 隐藏设置面板：画面缩放 ---------- */
+/* 手机竖屏本来就是横条卡布局，不需要缩放：不缩，也不显示设置按钮 */
+@media (max-width:760px) and (orientation:portrait){
+  .timeline-wrap,.hand-wrap{zoom:1}
+  .zoom-btn{display:none}
+}
+@media (orientation:landscape) and (max-height:540px){
+  .zoom-btn{font-size:10.5px;padding:2px 6px}
+}
+
+/* ---------- 画面显示设置面板（半透明，能看见调整后的卡牌） ---------- */
 .zp-mask{
   position:fixed;inset:0;z-index:88;display:none;
-  align-items:center;justify-content:center;padding:14px;
-  background:rgba(6,9,18,.74);
+  /* 遮罩只压暗一点点，面板靠右浮出，左侧两排卡始终看得见 */
+  align-items:flex-start;justify-content:flex-end;padding:14px;
+  background:rgba(6,9,18,.22);
 }
 .zp-mask.show{display:flex}
 .zp-box{
-  width:min(380px,100%);max-height:86vh;overflow:auto;
-  background:var(--panel);border:1px solid var(--line);border-radius:14px;
-  padding:15px 17px 17px;box-shadow:var(--shadow);
+  width:min(330px,46vw);max-height:92vh;overflow:auto;
+  background:rgba(24,30,52,.80);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border:1px solid rgba(255,204,0,.30);border-radius:14px;
+  padding:13px 15px 15px;box-shadow:0 18px 48px rgba(0,0,0,.45);
+}
+/* 竖屏没有设置按钮，但仍可从编辑器 / 网址打开；这里让面板居中且够宽 */
+@media (max-width:760px) and (orientation:portrait){
+  .zp-mask{align-items:center;justify-content:center;background:rgba(6,9,18,.34)}
+  .zp-box{width:min(360px,100%)}
+}
+/* 矮横屏高度紧张：收窄面板、省掉说明文字，并让「完成」常驻底部可点 */
+@media (orientation:landscape) and (max-height:540px){
+  .zp-box{
+    width:min(292px,36vw);max-height:94vh;padding:9px 11px 10px;
+    background:rgba(24,30,52,.74);
+    -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
+  }
+  .zp-head{margin-bottom:6px}
+  .zp-head b{font-size:13px}
+  .zp-note,.zp-foot{display:none}
+  .zp-row{margin-bottom:8px}
+  .zp-row label{font-size:11px;margin-bottom:3px}
+  .zp-presets{margin:0 0 8px;gap:4px}
+  .zp-presets button{font-size:10px;padding:4px 2px;min-width:52px}
+  .zp-state{font-size:9.5px;padding:5px 7px;margin:7px 0}
+  .zp-actions{
+    position:sticky;bottom:0;z-index:1;padding-top:7px;
+    background:rgba(24,30,52,.90);border-radius:0 0 8px 8px;
+  }
+  .zp-actions button{padding:7px;font-size:11.5px}
 }
 .zp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .zp-head b{font-size:15px;color:var(--gold)}
@@ -879,11 +926,7 @@ html.zoom-force .hand-wrap{zoom:var(--hand-zoom)}
   color:var(--ink);cursor:pointer;
 }
 .zp-presets button.on{background:rgba(255,204,0,.14);border-color:var(--gold-dim);color:var(--gold)}
-.zp-force{
-  display:flex;align-items:center;gap:7px;font-size:11.5px;
-  color:var(--muted);cursor:pointer;line-height:1.4;
-}
-.zp-force input{accent-color:var(--gold);cursor:pointer;flex:0 0 auto}
+/* 通用缩放后不再需要「强制预览」开关：非竖屏视口本来就会生效。 */
 .zp-state{
   font-size:11px;line-height:1.55;color:var(--muted);
   background:var(--bg2);border:1px solid var(--line);border-radius:8px;
