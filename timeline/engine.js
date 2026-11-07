@@ -61,9 +61,20 @@
     this.rnd = opts.rnd || Math.random;
 
     const deckAll = shuffle(this.pool, this.rnd);
-    // 锚点：该局年份最早的一张，开局即在场
-    let anchor = deckAll[0];
-    for (const c of deckAll) if (c.y < anchor.y) anchor = c;
+    /* 锚点 = 开局就摆在时间线上的那张卡。
+       简单模式是教学向：固定用本局年份最早的一张，玩家只需一路往右排，认知负担最低。
+       普通/困难改成从卡池里随机抽一张：每局起点的年代都不同，玩家得在锚点两侧分别判断，
+       不会每局都背住同一个开头。五幕（含终章、复习局）共用这一处逻辑。 */
+    let anchor;
+    if (this.difficulty === 'easy') {
+      anchor = deckAll[0];
+      for (const c of deckAll) if (c.y < anchor.y) anchor = c;
+    } else {
+      const k = deckAll.length
+        ? Math.min(deckAll.length - 1, Math.floor(this.rnd() * deckAll.length))
+        : 0;
+      anchor = deckAll[k];
+    }
     this.anchor = anchor;
     this.deck = deckAll.filter(c => c !== anchor);
     this.timeline = [anchor];
