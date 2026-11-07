@@ -319,6 +319,10 @@
     if (!g) return;
     const cfg = Engine.DIFFICULTY[g.difficulty];
 
+    // 困难模式「隐势力」：文字标签已不生成，这里再标记对局页，
+    // 让 CSS 一并去掉手牌卡外圈的势力色带（否则颜色仍会泄露势力）。
+    $('#view-game').classList.toggle('hide-faction', !cfg.showFaction);
+
     // HUD
     let hearts = '';
     for (let i = 0; i < g.maxMistakes; i++) hearts += (i < g.mistakesLeft ? '●' : '○');
@@ -620,7 +624,8 @@
     const a = from.getBoundingClientRect();
     const b = hand.getBoundingClientRect();
     const ghost = document.createElement('div');
-    ghost.className = 'flyback shake ' + factionClass(c.faction);
+    ghost.className = 'flyback shake ' + factionClass(c.faction) +
+      (state.session && state.session.cfg.showFaction === false ? ' no-faction' : '');
     ghost.innerHTML = cardFace(c, { year: false, showFaction: false });
     const mobile = portraitLayout();
     const w = mobile ? 180 : 96, h = mobile ? 74 : 140;

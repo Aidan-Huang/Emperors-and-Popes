@@ -627,6 +627,14 @@ small{font-size:.78em;opacity:.85}
 .flyback.f-church .fstrip{background:var(--church)}
 .flyback.f-state .fstrip{background:var(--state)}
 .flyback.f-both .fstrip{background:var(--both)}
+
+/* 困难模式「隐势力」：文字标签（faction-tag）已经不生成，但卡外圈还有 3px
+   势力色带（橙=皇权 / 蓝=教权 / 灰=地方 / 金=双方），玩家仍能靠颜色反推势力。
+   这里把手牌、以及放错弹回的卡影一并中性化；时间线上已放下的卡保留色带
+   （属于已揭晓信息，不参与猜牌），卡册与首页图例不受影响。
+   规则排在 .flyback.f-* 之后，确保同优先级下能盖掉势力色。 */
+#view-game.hide-faction .hand-card .fstrip,
+.flyback.no-faction .fstrip{background:transparent}
 .flyback .art{
   height:72px;flex:0 0 72px;margin:6px 6px 0;border-radius:4px;background:#f0efec;
   overflow:hidden;display:flex;align-items:center;justify-content:center;
