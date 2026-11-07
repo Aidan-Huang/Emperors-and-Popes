@@ -6,6 +6,7 @@
   'use strict';
 
   const CARD_SRC = (typeof CARDS !== 'undefined') ? CARDS : (root.CARDS || []);
+  const ACT_SRC = (typeof ACTS !== 'undefined') ? ACTS : (root.ACTS || []);
 
   /* ---------- 工具 ---------- */
 
@@ -154,6 +155,9 @@
   /* ---------- 卡池构造 ---------- */
 
   function actCards(actId) {
+    // 终章（ACTS 里标了 all:true 的一幕）：卡池是全部卡牌，而不是某一幕。
+    const meta = ACT_SRC.find(a => a.id === actId);
+    if (meta && meta.all) return CARD_SRC.slice().sort((a, b) => a.y - b.y);
     return CARD_SRC.filter(c => c.act === actId).sort((a, b) => a.y - b.y);
   }
 

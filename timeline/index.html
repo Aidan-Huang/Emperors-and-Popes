@@ -36,6 +36,12 @@
         <span class="mode-txt"><b>闯关模式</b><small>四幕推进 · 失误预算随难度变化</small></span>
         <span class="mode-arrow">›</span>
       </button>
+      <!-- 终章（第五幕）：通关全部四幕 / 打开测试口子后才显示，由 renderHome() 控制 -->
+      <button class="mode finale" id="home-finale" hidden>
+        <span class="mode-icon">🏛</span>
+        <span class="mode-txt"><b>终章 · 全部卡牌</b><small id="home-finale-hint">四幕已通关 · 全部 41 张卡，一条完整时间线</small></span>
+        <span class="mode-arrow">›</span>
+      </button>
       <button class="mode" data-go="review">
         <span class="mode-icon">🔁</span>
         <span class="mode-txt"><b>复习模式</b><small id="review-hint">错题优先 · 间隔重复</small></span>
@@ -79,6 +85,8 @@
       <span class="topbar-right" id="acts-progress"></span>
     </div>
     <div class="act-list" id="act-list"></div>
+    <!-- 测试口子：连点本页标题「选择一幕」5 次后出现，一键直接开第五幕 -->
+    <button class="act5-test-btn" id="act5-test-btn" type="button" hidden>🧪 测试：直接开启第五幕（全部 41 张）</button>
   </section>
 
   <!-- ============ 视图：对局 ============ -->

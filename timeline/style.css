@@ -133,6 +133,29 @@ small{font-size:.78em;opacity:.85}
 .act-card .lock{position:absolute;right:14px;top:16px;font-size:20px}
 .act-card .cleared{position:absolute;right:14px;top:14px;font-size:13px;color:var(--gold)}
 
+/* ---------- 终章（第五幕）与测试口子 ---------- */
+/* 终章入口：通关四幕 / 打开测试口子后才显示 */
+.mode[hidden]{display:none}
+.mode.finale{background:linear-gradient(100deg,#3b3115,#252238);border-color:var(--gold)}
+.mode.finale .mode-txt b{color:var(--gold)}
+.mode.finale.test-on{border-style:dashed}
+/* 幕列表里的终章卡：金调底，与主线四幕区分 */
+.act-card.finale{background:linear-gradient(135deg,#2c2a1c,#212a44);border-color:var(--gold-dim)}
+.act-card.finale .no{letter-spacing:2.5px}
+.act-card .test-tag{
+  position:absolute;right:14px;top:14px;font-size:12px;color:var(--gold);
+  border:1px dashed var(--gold-dim);border-radius:6px;padding:2px 7px;
+}
+.act-card .finale-lock{margin-top:9px;font-size:12px;color:var(--gold)}
+#view-acts .topbar h2{user-select:none;-webkit-user-select:none;cursor:pointer}
+.act5-test-btn{
+  display:block;width:100%;margin-top:14px;padding:11px;
+  border:1px dashed var(--gold-dim);border-radius:10px;
+  background:rgba(255,204,0,.07);color:var(--gold);font-size:13px;
+}
+.act5-test-btn:hover{background:rgba(255,204,0,.14)}
+.act5-test-btn[hidden]{display:none}
+
 /* ---------- 对局 ---------- */
 #view-game.active{display:flex;flex-direction:column;min-height:100vh;padding-bottom:16px}
 .game-head{

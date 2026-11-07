@@ -9,6 +9,12 @@
   const $$ = s => Array.prototype.slice.call(document.querySelectorAll(s));
   const ALL_CARDS = CARDS.slice();
   const TOTAL = ALL_CARDS.length;
+  /* 终章（第五幕）：ACTS 里唯一带 all:true 的一幕，卡池为全部卡牌。
+     MAIN_ACTS 是参与「四幕进度 / 卡册分幕 / 编辑器归属」的主线四幕。 */
+  const FINALE = ACTS.find(a => a.all) || null;
+  const FINALE_ID = FINALE ? FINALE.id : 0;
+  const MAIN_ACTS = ACTS.filter(a => !a.all);
+  const ACT5_TEST_KEY = 'tl_ch6_act5_test';   // 测试口子开关：独立于游戏进度，不写 S.progress
 
   /* ---------------- 存档 ---------------- */
 
@@ -62,6 +68,26 @@
     hudHitTimer: null,     // HUD 失误预算被扣时的高亮计时
     winPending: false      // 通关后停在对局页等玩家确认，不直接跳结算
   };
+
+  /* ---------------- 第五幕：解锁与测试口子 ---------------- */
+
+  function act5Test() {
+    try { return localStorage.getItem(ACT5_TEST_KEY) === '1'; } catch (e) { return false; }
+  }
+  function setAct5Test(on) {
+    try {
+      if (on) localStorage.setItem(ACT5_TEST_KEY, '1');
+      else localStorage.removeItem(ACT5_TEST_KEY);
+    } catch (e) {}
+    // 两个视图都无条件重绘：它们可能不是当前活动视图，但入口状态必须同步，
+    // 否则从对局页 / 结算页返回时会短暂看到旧的锁定态。
+    renderHome();
+    renderActs();
+  }
+  function fourCleared() {
+    return MAIN_ACTS.every(a => S.progress[a.id] && S.progress[a.id].cleared);
+  }
+  function act5Unlocked() { return act5Test() || fourCleared(); }
 
   /* 简单模式保留弹窗式完整反馈；普通/困难走不打断节奏的轻量反馈 */
   function quietMode() {
@@ -184,7 +210,8 @@
     $('#home-total').textContent = TOTAL;
     $('#home-collect-bar').style.width = (collected / TOTAL * 100) + '%';
 
-    $('#home-rings').innerHTML = ACTS.map(a => {
+    // 进度环只画主线四幕；终章是奖励关，不占「通关 x/4」的格子
+    $('#home-rings').innerHTML = MAIN_ACTS.map(a => {
       const cards = Engine.actCards(a.id);
       const got = cards.filter(c => S.collection[c.id]).length;
       const done = S.progress[a.id] && S.progress[a.id].cleared;
@@ -194,6 +221,18 @@
     const wrongCount = Object.keys(S.errors).length;
     $('#review-hint').textContent = wrongCount ? ('错题 ' + wrongCount + ' 张 · 优先重排') : '还没有错题 · 随时可来热手';
     $('#gallery-hint').textContent = '已解锁 ' + collected + ' / ' + TOTAL + ' 张';
+
+    // 终章入口：通关四幕（或打开测试口子）后，首页直接多一个一键开局按钮
+    const fb = $('#home-finale');
+    if (fb) {
+      fb.hidden = !act5Unlocked();
+      const isTest = act5Test() && !fourCleared();
+      fb.classList.toggle('test-on', isTest);
+      const hint = $('#home-finale-hint');
+      if (hint) hint.textContent = isTest
+        ? '🧪 测试口子 · 全部 41 张卡一局，不用通关四幕'
+        : '四幕已通关 · 全部 41 张卡，一条完整时间线';
+    }
 
     $$('#diff-btns button').forEach(b => b.classList.toggle('on', b.dataset.diff === S.settings.difficulty));
   }
@@ -210,28 +249,35 @@
   /* ---------------- 幕选择 ---------------- */
 
   function actUnlocked(actId) {
+    // 终章不按「前一幕玩过」解锁，而是要求四幕全部通关（或打开了测试口子）
+    if (FINALE_ID && actId === FINALE_ID) return act5Unlocked();
     if (actId <= 1) return true;
     const prev = S.progress[actId - 1];
     return !!(prev && prev.plays > 0);
   }
 
   function renderActs() {
-    const doneCount = ACTS.filter(a => S.progress[a.id] && S.progress[a.id].cleared).length;
-    $('#acts-progress').textContent = '通关 ' + doneCount + '/' + ACTS.length;
+    const doneCount = MAIN_ACTS.filter(a => S.progress[a.id] && S.progress[a.id].cleared).length;
+    const testing = act5Test();
+    $('#acts-progress').textContent = '通关 ' + doneCount + '/' + MAIN_ACTS.length + (testing ? ' · 测试已开' : '');
 
     $('#act-list').innerHTML = ACTS.map(a => {
+      const finale = !!(FINALE_ID && a.id === FINALE_ID);
       const cards = Engine.actCards(a.id);
       const got = cards.filter(c => S.collection[c.id]).length;
       const p = S.progress[a.id] || { plays: 0 };
       const unlocked = actUnlocked(a.id);
       const badge = p.cleared ? '<span class="cleared">✔ 已通关</span>'
-        : (unlocked ? '' : '<span class="lock">🔒</span>');
-      return '<button class="act-card' + (unlocked ? '' : ' locked') + '" data-act="' + a.id + '"' + (unlocked ? '' : ' disabled') + '>' +
+        : (finale && testing && !fourCleared() ? '<span class="test-tag">🧪 测试</span>'
+        : (unlocked ? '' : '<span class="lock">🔒</span>'));
+      return '<button class="act-card' + (finale ? ' finale' : '') + (unlocked ? '' : ' locked') +
+        '" data-act="' + a.id + '"' + (unlocked ? '' : ' disabled') + '>' +
         badge +
-        '<div class="no">ACT ' + a.id + '</div>' +
+        '<div class="no">' + (finale ? 'FINALE · ACT ' + a.id : 'ACT ' + a.id) + '</div>' +
         '<h3>' + a.name + '</h3>' +
-        '<div class="span">' + a.span + ' · ' + cards.length + ' 张卡</div>' +
+        '<div class="span">' + a.span + ' · ' + cards.length + ' 张卡' + (finale ? ' · 全卡池' : '') + '</div>' +
         '<div class="desc">' + a.desc + '</div>' +
+        (finale && !unlocked ? '<div class="finale-lock">通关全部四幕之后开启 · 全部卡牌一次排完</div>' : '') +
         '<div class="meta"><span>' + got + '/' + cards.length + '</span>' +
         '<span class="mini-bar"><i style="width:' + (got / cards.length * 100) + '%"></i></span>' +
         '<span>' + (p.plays ? ('玩过 ' + p.plays + ' 次' + (p.best != null ? ' · 最佳 ' + p.best + '%' : '')) : '未开始') + '</span></div>' +
@@ -241,10 +287,20 @@
     $$('#act-list .act-card').forEach(el => {
       el.onclick = () => {
         const id = +el.dataset.act;
-        if (!actUnlocked(id)) { toast('先完成第 ' + (id - 1) + ' 幕'); return; }
+        if (!actUnlocked(id)) {
+          toast(FINALE_ID && id === FINALE_ID ? '先通关全部四幕，终章才会开启' : '先完成第 ' + (id - 1) + ' 幕');
+          return;
+        }
         startAct(id);
       };
     });
+
+    // 测试口子打开时，幕列表底部给一个「一键直接开局」按钮（默认隐藏）
+    const tb = $('#act5-test-btn');
+    if (tb) {
+      tb.hidden = !testing;
+      tb.onclick = () => startAct(FINALE_ID);
+    }
   }
 
   /* ---------------- 对局 ---------------- */
@@ -252,7 +308,10 @@
   function poolForAct(actId) {
     let pool = Engine.actCards(actId);
     if (S.settings.useCustom && S.custom.length) {
-      pool = pool.concat(S.custom.filter(c => +c.act === actId));
+      // 终章「全部卡牌都用上」：自定义卡不按幕过滤，一并入池
+      pool = pool.concat(FINALE_ID && actId === FINALE_ID
+        ? S.custom
+        : S.custom.filter(c => +c.act === actId));
     }
     return pool;
   }
@@ -261,7 +320,13 @@
     state.mode = 'act';
     state.actId = actId;
     const pool = poolForAct(actId);
-    state.session = new Engine.GameSession(pool, { difficulty: S.settings.difficulty });
+    const opts = { difficulty: S.settings.difficulty };
+    // 终章一局要放完 41 张，原难度预算（5/3/2）几乎必败；按难度各加宽 6 格
+    if (FINALE_ID && actId === FINALE_ID) {
+      const cfg = Engine.DIFFICULTY[S.settings.difficulty] || Engine.DIFFICULTY.normal;
+      opts.maxMistakes = cfg.mistakes + 6;
+    }
+    state.session = new Engine.GameSession(pool, opts);
     state.selectedId = null;
     unlock(state.session.anchor.id);   // 锚点卡开局即在场，算已见过
     afterStart(ACTS.find(a => a.id === actId));
@@ -772,13 +837,16 @@
       ? g.wrongCards.map(c => '<div class="wrong-item"><b>' + esc(c.dy) + '</b><span>' + esc(c.zh) + '</span></div>').join('')
       : '<div class="empty">全对，一张没错 ✓</div>';
 
+    const actMeta = state.mode === 'review' ? null : ACTS.find(a => a.id === actId);
+    const isFinale = !!(actMeta && actMeta.all);
+    const actLabel = isFinale ? '终章' : '第 ' + actId + ' 幕';
     const title = state.mode === 'review' ? '复习完成'
-      : (cleared ? '第 ' + actId + ' 幕 · 通关' : '第 ' + actId + ' 幕 · 失误耗尽');
+      : actLabel + (cleared ? ' · 通关' : ' · 失误耗尽');
     const nextAct = ACTS.find(a => a.id === actId + 1);
 
     $('#result-card').innerHTML =
       '<div class="result-title">' + title + '</div>' +
-      '<div class="result-sub">' + (state.mode === 'review' ? '复习局' : ACTS.find(a => a.id === actId).name) +
+      '<div class="result-sub">' + (state.mode === 'review' ? '复习局' : (actMeta ? actMeta.name : '')) +
         ' · ' + (cleared ? '时间线已完整' : '预算用尽，先看看这段历史') + '</div>' +
       '<div class="stats">' +
         '<div class="stat"><b>' + acc + '%</b><span>正确率</span></div>' +
@@ -788,7 +856,7 @@
       '</div>' +
       '<div class="band-wrap"><div class="band-title">这一幕是谁的时代（时间线上的势力分布）</div>' +
         '<div class="band">' + band + '</div><div class="band-legend">' + legend + '</div>' +
-        '<div class="band-note">' + (state.mode === 'review' ? '复习局的切片：看看哪些年代你最容易放错。' : ACTS.find(a => a.id === actId).after) + '</div>' +
+        '<div class="band-note">' + (state.mode === 'review' ? '复习局的切片：看看哪些年代你最容易放错。' : (actMeta ? actMeta.after : '')) + '</div>' +
       '</div>' +
       '<div class="wrong-list"><h4>需要再看一眼（已进错题本）</h4>' + wrongList + '</div>' +
       '<div class="result-actions">' +
@@ -796,10 +864,14 @@
         '<button id="res-again">再来一局</button>' +
         '<button id="res-gallery">看卡册</button>' +
         (state.mode === 'act'
-          ? '<button class="primary" id="res-next">' + (nextAct ? '下一幕 ›' : '看卡册 ›') + '</button>'
+          ? '<button class="primary" id="res-next">' + (nextAct ? (nextAct.all ? '进入终章 ›' : '下一幕 ›') : '看卡册 ›') + '</button>'
           : '<button class="primary" id="res-home2">回首页</button>') +
       '</div>' +
-      (state.mode === 'act' ? '<div class="result-beta">四幕已全部完成 · 去卡册查看 41 张卡的原文与讲解</div>' : '');
+      (state.mode === 'act'
+        ? '<div class="result-beta">' + (isFinale
+            ? '终章完成 · 41 张卡的原文与讲解都在卡册里'
+            : '通关全部四幕，开启「终章 · 全部 41 张卡」') + '</div>'
+        : '');
 
     go('result');
 
@@ -811,7 +883,14 @@
     if (nx) nx.onclick = () => {
       if (state.mode === 'review') { go('home'); return; }
       const n = ACTS.find(a => a.id === actId + 1);
-      if (n) startAct(n.id); else { toast('四幕已全部完成，去看卡册吧'); go('gallery'); }
+      if (n) {
+        // 终章必须四幕全通关（或测试口子）才能进；否则退回幕列表，别绕过条件
+        if (n.all && !act5Unlocked()) { toast('先通关全部四幕，终章才会开启'); go('acts'); return; }
+        startAct(n.id);
+      } else {
+        toast(isFinale ? '终章完成 · 去卡册看看这 41 张卡' : '四幕已全部完成，去看卡册吧');
+        go('gallery');
+      }
     };
   }
 
@@ -859,7 +938,8 @@
   /* ---------------- 卡册 ---------------- */
 
   function renderGallery() {
-    const tabs = [{ k: 'all', n: '全部' }].concat(ACTS.map(a => ({ k: 'a' + a.id, n: '第' + a.id + '幕' })));
+    // 终章用的是全卡池，和「全部」标签重复，不单列分幕 tab
+    const tabs = [{ k: 'all', n: '全部' }].concat(MAIN_ACTS.map(a => ({ k: 'a' + a.id, n: '第' + a.id + '幕' })));
     if (S.custom.length) tabs.push({ k: 'custom', n: '自定义' });
     $('#gallery-tabs').innerHTML = tabs.map(t =>
       '<button data-tab="' + t.k + '" class="' + (state.galleryTab === t.k ? 'on' : '') + '">' + t.n + '</button>').join('');
@@ -949,7 +1029,7 @@
         '</div>' +
         '<div class="ed-row">' +
           '<select id="ed-faction">' + Object.keys(FACTIONS).map(f => '<option value="' + f + '">' + FACTIONS[f].name + '</option>').join('') + '</select>' +
-          '<select id="ed-act">' + ACTS.map(a => '<option value="' + a.id + '">第 ' + a.id + ' 幕</option>').join('') + '</select>' +
+          '<select id="ed-act">' + MAIN_ACTS.map(a => '<option value="' + a.id + '">第 ' + a.id + ' 幕</option>').join('') + '</select>' +
           '<select id="ed-diff"><option value="easy">易</option><option value="medium" selected>中</option><option value="hard">难</option></select>' +
           '<input id="ed-icon" placeholder="图标 emoji" style="flex:0 0 110px">' +
         '</div>' +
@@ -1165,9 +1245,30 @@
     window.addEventListener('DOMContentLoaded', openZoomPanel);
   }
 
+  /* 隐藏测试口子：连点幕列表标题「选择一幕」5 次，切换「直接开启第五幕」。
+     只写一个独立的 localStorage 开关，绝不伪造四幕通关记录，方便随时关掉。 */
+  let act5Taps = 0, act5TapAt = 0;
+  const actsTitle = $('#view-acts .topbar h2');
+  if (actsTitle) actsTitle.onclick = () => {
+    const now = Date.now();
+    act5Taps = (now - act5TapAt < 700) ? act5Taps + 1 : 1;
+    act5TapAt = now;
+    if (act5Taps >= 5) {
+      act5Taps = 0;
+      const on = !act5Test();
+      setAct5Test(on);
+      toast(on ? '🧪 测试口子已开：第五幕可直接进入（41 张全卡）' : '已关闭第五幕测试口子');
+    } else if (act5Taps >= 3) {
+      toast('再点 ' + (5 - act5Taps) + ' 下切换第五幕测试口子');
+    }
+  };
+
   /* ---------------- 其它按钮 ---------------- */
 
   $$('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+
+  const homeFinale = $('#home-finale');
+  if (homeFinale) homeFinale.onclick = () => { if (act5Unlocked()) startAct(FINALE_ID); };
 
   $('#btn-reset').onclick = () => {
     if (!confirm('清空进度、收集与错题本？（自定义卡会保留，需在编辑器里单独删除）')) return;
@@ -1209,7 +1310,40 @@
       open: openZoomPanel, close: closeZoomPanel,
       set: (tl, hand) => { zoomCfg = { tl: clampZoom(tl), hand: clampZoom(hand) }; applyZoom(); },
       compact: compactLandscape, portrait: portraitLayout
+    },
+    /* 第五幕测试接口：控制台 / 自动化用，不改动正式进度 */
+    act5: {
+      id: FINALE_ID,
+      testKey: ACT5_TEST_KEY,
+      pool: () => Engine.actCards(FINALE_ID),
+      unlocked: act5Unlocked,
+      fourCleared: fourCleared,
+      testing: act5Test,
+      unlock: () => setAct5Test(true),
+      clear: () => setAct5Test(false),
+      open: () => { setAct5Test(true); go('acts'); },
+      play: () => { setAct5Test(true); startAct(FINALE_ID); },
+      markFourCleared: () => {
+        MAIN_ACTS.forEach(a => {
+          const p = S.progress[a.id] || { plays: 0, cleared: false, best: null, bestCombo: 0 };
+          p.cleared = true; S.progress[a.id] = p;
+        });
+        persist();
+        renderHome();
+        renderActs();
+      }
     }
   };
+
+  /* 测试口子（URL）：?act5=1 解锁并跳幕列表；?act5=play 直接开一局；#act5 同 ?act5=1。
+     网址参数会写入本机开关，刷新页面仍然有效；想关掉就再连点幕列表标题 5 次。 */
+  (function () {
+    const m = /[?&]act5=([^&]*)/.exec(location.search);
+    const v = m ? m[1] : (location.hash === '#act5' ? '1' : '');
+    if (!v) return;
+    setAct5Test(true);
+    if (v === 'play') startAct(FINALE_ID);
+    else go('acts');
+  })();
 
 })();
