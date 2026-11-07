@@ -59,7 +59,8 @@
     lastRes: null,         // 最近一次判定结果，供轻量提示的「详情」按需展开
     quickTimer: null,
     pendingFinish: null,
-    hudHitTimer: null      // HUD 失误预算被扣时的高亮计时
+    hudHitTimer: null,     // HUD 失误预算被扣时的高亮计时
+    winPending: false      // 通关后停在对局页等玩家确认，不直接跳结算
   };
 
   /* 简单模式保留弹窗式完整反馈；普通/困难走不打断节奏的轻量反馈 */
@@ -129,6 +130,7 @@
 
   function go(v) {
     stopAudio();
+    if (v !== 'game') hideWinBar();   // 离开对局页就撤掉待确认条
     state.view = v;
     $$('.view').forEach(el => el.classList.remove('active'));
     const el = $('#view-' + v);
@@ -278,6 +280,7 @@
     state.sessionSeq++;
     state.locked = false;
     state.lastRes = null;
+    hideWinBar();                  // 新开一局，撤掉上一局可能残留的待确认条
     clearTimeout(state.quickTimer);
     clearTimeout(state.pendingFinish);
     clearTimeout(state.hudHitTimer);
@@ -303,9 +306,11 @@
     });
     $$('#timeline .slot').forEach(el => el.classList.toggle('armed', armed));
     const sel = g && g.hand.find(c => c.id === state.selectedId);
-    $('#timeline-hint').innerHTML = sel
-      ? '已选中 <b>' + esc(sel.zh) + '</b> · 点一个金色插入位放进去'
-      : '点一张手牌，再点亮起的插入位';
+    $('#timeline-hint').innerHTML = state.winPending
+      ? '时间线已排完 · 可以先翻看整条时间线，再点上面的「完成」'
+      : (sel
+        ? '已选中 <b>' + esc(sel.zh) + '</b> · 点一个金色插入位放进去'
+        : '点一张手牌，再点亮起的插入位');
     updateTlNav();
   }
 
@@ -641,6 +646,35 @@
     highlightPlacement(res);
   }
 
+  /* ---------- 通关后先停在对局页 ----------
+     最后一张牌放完后，玩家往往还想再看看整条时间线；
+     这里只给一条成功提示 + 一个确认按钮，由玩家决定何时进结算。
+     失误耗尽（未通关）仍按原节奏自动结算。 */
+  function showWinBar() {
+    const g = state.session;
+    if (!g || !g.isOver() || g.mistakesLeft <= 0) return;
+    clearTimeout(state.pendingFinish);
+    $('#quick-fb').classList.remove('show');
+    state.winPending = true;
+    state.locked = false;
+    $('#win-bar').classList.add('show');
+    syncSelection();   // 提示改成「可翻看时间线」，并刷新左右翻页按钮
+  }
+
+  function hideWinBar() {
+    state.winPending = false;
+    const bar = $('#win-bar');
+    if (bar) bar.classList.remove('show');
+  }
+
+  function confirmWin() {
+    if (!state.winPending) return;
+    hideWinBar();
+    stopAudio();
+    finish();
+  }
+  $('#win-confirm').onclick = confirmWin;
+
   /* 轻量模式下没有「继续」按钮，结算由这里延迟触发，留出看动画的时间 */
   function scheduleFinish(g) {
     clearTimeout(state.pendingFinish);
@@ -651,7 +685,8 @@
       if (state.session !== g || state.view !== 'game') return;
       if ($('#feedback').classList.contains('show')) return;  // 正在看详情，交给关闭时处理
       stopAudio();
-      finish();
+      if (g.mistakesLeft > 0) showWinBar();   // 通关：先停在对局页等确认
+      else finish();                          // 失误耗尽：按原节奏结算
     }, wait);
   }
 
@@ -661,7 +696,11 @@
     state.locked = false;
     const g = state.session;
     if (!g) return;
-    if (g.isOver()) { finish(); return; }
+    if (g.isOver()) {
+      if (g.mistakesLeft > 0) showWinBar();
+      else finish();
+      return;
+    }
     // 冷知识弹窗只在简单模式的原有节奏里出现，不打扰快节奏模式
     const last = g.history[g.history.length - 1];
     if (withTrivia && !quietMode() && last && last.ok && Math.random() < 0.16) { showTrivia(); }

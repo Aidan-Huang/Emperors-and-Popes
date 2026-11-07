@@ -93,6 +93,16 @@
       </div>
     </div>
 
+    <!-- 通关后先停在对局页：独立条带，不放在 .timeline-wrap 内，
+         否则手机横屏的两排缩放会把确认按钮一起缩小，不好点。就地展开、不遮挡时间线。 -->
+    <div class="win-bar" id="win-bar" aria-live="polite">
+      <div class="win-txt">
+        <b>✓ 这一幕的时间线排完了</b>
+        <span>先翻一翻整条时间线，看看这段历史怎么连起来的，再继续。</span>
+      </div>
+      <button type="button" id="win-confirm">完成，看结果 ›</button>
+    </div>
+
     <div class="timeline-wrap">
       <div class="timeline-hint" id="timeline-hint">点一张手牌，再点亮起的插入位</div>
       <!-- 普通/困难：不打断节奏的轻量判定提示（提示文字下方就地展开，不遮挡画面，可点「详情」看完整讲解） -->
