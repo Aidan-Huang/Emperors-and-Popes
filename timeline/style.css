@@ -834,14 +834,27 @@ small{font-size:.78em;opacity:.85}
   .tl-card:hover,.hand-card:hover,.gcard:hover{transform:translateY(-2px) scale(1.02)}
 }
 
-/* 只在真正没有鼠标悬停能力的触屏设备上关闭浮起，
+/* 只在真正没有鼠标悬停能力的触屏设备上关闭 hover 浮起，
    避免把「窄窗口桌面 / 远程桌面」也误判成手机、把 hover 一起禁掉。
-   触屏上点过之后卡片不该一直浮着，选中只留一圈金边。 */
+   触屏没有 hover，改用「点击选中」承载同一套浮起手感：
+   与桌面 hover 完全相同的 translateY(-3px) scale(1.04) + 加深投影 + 金边。 */
 @media (hover:none),(pointer:coarse){
-  .tl-card:hover,.hand-card:hover,.hand-card.sel,.hand-card.sel:hover,.gcard:hover{
+  .tl-card:hover,.hand-card:hover,.gcard:hover{
     transform:none;box-shadow:var(--card-shadow);
   }
-  .hand-card.sel{outline:2px solid var(--gold)}
+  .hand-card.sel{
+    transform:translateY(-3px) scale(1.04);
+    box-shadow:var(--card-shadow-hover);
+    outline:2px solid var(--gold);
+    z-index:15;
+  }
+}
+
+/* 竖屏横条手牌几乎占满整行，放大幅度收一档（两侧余量够，不会溢出视口），
+   但保留与桌面同方向的「浮起来」手感。 */
+@media (max-width:760px) and (orientation:portrait) and (hover:none),
+       (max-width:760px) and (orientation:portrait) and (pointer:coarse){
+  .hand-card.sel{transform:translateY(-3px) scale(1.03)}
 }
 
 /* ============================================================
