@@ -587,6 +587,21 @@ small{font-size:.78em;opacity:.85}
 .gcard.f-church .fstrip{background:var(--church)}
 .gcard.f-state .fstrip{background:var(--state)}
 .gcard.f-both .fstrip{background:var(--both)}
+/* 卡册缩略图 / 大卡详情：统一在插画左缘补一条势力色竖条。
+   早期批次 10 张卡图把 9px 竖条烧进了素材本身（480px 宽 = 1.875%），
+   后来补的卡图没有，同一面卡册里有的有、有的没有。这里由 CSS 统一画一条
+   1.875% 宽的竖条：宽度与素材自带那条完全重合，颜色取同一组
+   --state / --church / --local / --both，所以带条卡观感不变、缺条卡补齐；
+   缩略图与放大图共用一套规则，自定义卡同样生效。 */
+.gcard .art,.bigcard .art{position:relative}
+.gcard .art::before,.bigcard .art::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:1.875%;
+  z-index:2;pointer-events:none;background:var(--local);
+}
+.gcard.f-church .art::before,.bigcard.f-church .art::before{background:var(--church)}
+.gcard.f-state  .art::before,.bigcard.f-state  .art::before{background:var(--state)}
+.gcard.f-local  .art::before,.bigcard.f-local  .art::before{background:var(--local)}
+.gcard.f-both   .art::before,.bigcard.f-both   .art::before{background:var(--both)}
 .gcard .art{height:112px;margin:8px 8px 0;border-radius:4px;background:#f0efec;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .gcard .art img{width:100%;height:100%;object-fit:cover}
 .gcard .crest{font-size:38px;width:100%;height:100%;display:flex;align-items:center;justify-content:center;

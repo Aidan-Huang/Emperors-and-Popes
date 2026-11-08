@@ -178,10 +178,18 @@
 
   function factionClass(f) { return 'f-' + f; }
 
-  function artHTML(c, big) {
-    if (c.img) return '<img src="' + c.img + '"' +
-      (c.artPos ? ' class="art-' + c.artPos + '"' : '') +
-      ' alt="' + esc(c.zh) + '" loading="lazy">';
+  function artHTML(c, thumb) {
+    if (c.img) {
+      /* 卡册缩略图只有 112px 高，早期批次卡图（footText）把中文标题与年份
+         徽章烧在素材底部，cover 居中裁切正好切出半行字。这里复用 art-top
+         把显示窗口上移到 15%，让底部文字整体藏掉，与奥古斯都 / 拉文纳
+         （artPos:'top'）保持同一观感。thumb 仅在卡册缩略图传入；放大图
+         和游戏内卡面保持原样，不受影响。 */
+      const lift = c.artPos || (thumb && c.footText ? 'top' : '');
+      return '<img src="' + c.img + '"' +
+        (lift ? ' class="art-' + lift + '"' : '') +
+        ' alt="' + esc(c.zh) + '" loading="lazy">';
+    }
     return '<div class="crest">' + (c.icon || '❓') + '</div>';
   }
   function esc(s) {
@@ -1438,7 +1446,7 @@
       const has = testView || !!S.collection[c.id];
       return '<div class="gcard ' + factionClass(c.faction) + (has ? '' : ' locked') + '" data-id="' + c.id + '">' +
         '<div class="fstrip"></div>' +
-        '<div class="art">' + (has ? artHTML(c) : '<div class="crest">' + (c.icon || '❓') + '</div>') + '</div>' +
+        '<div class="art">' + (has ? artHTML(c, true) : '<div class="crest">' + (c.icon || '❓') + '</div>') + '</div>' +
         '<div class="nm">' + (has ? esc(c.zh) : '未解锁') + '</div>' +
         '<div class="yr">' + (has ? esc(c.dy) : '?') + '</div>' +
         (has ? '' : '<div class="lockmark">🔒</div>') +
@@ -1462,7 +1470,7 @@
     const f = FACTIONS[c.faction];
     openModal(
       '<h3>' + esc(has ? c.dy : '？') + ' · ' + esc(c.zh) + '</h3>' +
-      '<div class="bigcard">' +
+      '<div class="bigcard ' + factionClass(c.faction) + '">' +
         '<div class="art">' + (has ? artHTML(c) : '<div class="crest">' + (c.icon || '❓') + '</div>') + '</div>' +
         '<div class="info">' +
           '<div class="yr">' + (has ? esc(c.dy) : '未解锁') + '</div>' +

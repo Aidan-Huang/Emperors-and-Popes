@@ -14,6 +14,7 @@
      diff    easy | medium | hard
      icon    无图卡的主视觉符号（白卡占位）
      img     卡图（cards/ 下为已定稿卡图，../images/ 为章内图）
+     footText 早期批次卡图把标题/年份烧在素材底部；卡册缩略图需上移窗口把它整体藏掉
      explain 判定后的一句讲解
      quote   书中原句（英 + 中译）
      src     书中原文段落（英 + 中译），反馈条里可展开
@@ -96,6 +97,7 @@ const CARDS = [
     en: 'The Arch of Constantine, Rome',
     faction: 'state', act: 1, diff: 'easy', icon: '🏛',
     img: 'cards/arch-of-constantine.jpg',
+    footText: true,
     explain: '罗马的凯旋门纪念的是内战胜利——帝国早已习惯用武力解决继承问题。',
     quote: {
       en: 'Arch of Constantine, Rome: commemorating his victory over a rival emperor in 312 AD.',
@@ -113,6 +115,7 @@ const CARDS = [
     en: 'The empire is permanently divided',
     faction: 'state', act: 1, diff: 'easy', icon: '🗺',
     img: 'cards/empire-split.jpg',
+    footText: true,
     explain: '西部活了五百年就散了，东部又活了一千年——直到 1453 年。',
     quote: {
       en: 'Around 400 AD the empire was permanently divided into east and west and the eastern empire survived another thousand years until 1453.',
@@ -129,6 +132,7 @@ const CARDS = [
     en: 'Clovis, first Christian king of the Franks',
     faction: 'state', act: 1, diff: 'medium', icon: '⛪',
     img: 'cards/clovis.jpg',
+    footText: true,
     explain: '蛮族新王用一场洗礼换来教会的支持，又向东罗马皇帝讨来"执政官"的头衔——名分这东西，中世纪最值钱。',
     quote: {
       en: 'Clovis, the first Christian king of the Franks, received the title ‘Consul’ from the emperor in the east.',
@@ -163,6 +167,7 @@ const CARDS = [
     en: 'Pepin’s Donation: the Papal States',
     faction: 'church', act: 1, diff: 'medium', icon: '🗝',
     img: 'cards/pepin.jpg',
+    footText: true,
     explain: '国王要神圣背书，教皇要一块自己的地——这笔交易，一直管到十九世纪。',
     quote: {
       en: 'King Pepin went south into Italy and subdued the Lombards. He made sure that the pope was left with a large belt of territory around Rome.',
@@ -196,6 +201,7 @@ const CARDS = [
     en: 'The pope crowns Charlemagne',
     faction: 'church', act: 1, diff: 'easy', icon: '👑',
     img: 'cards/charlemagne-crowned.jpg',
+    footText: true,
     explain: '弥撒之后毫无预兆的一顶冠——教皇造出了自己的保护人，也造出了此后千年的对手。',
     quote: {
       en: 'After the mass, and seemingly with no prior warning, the pope placed a crown on Charlemagne’s head and declared him to be Roman emperor.',
@@ -283,6 +289,7 @@ const CARDS = [
     en: 'The empire falls into three parts',
     faction: 'state', act: 2, diff: 'easy', icon: '🗺',
     img: 'cards/verdun.jpg',
+    footText: true,
     explain: '西边成了法兰西，东边成了德意志——欧洲最要紧的一条国界，是一次家产分割画出来的。',
     quote: {
       en: 'The western part eventually became modern-day France; the eastern part became the basis of Germany.',
@@ -420,6 +427,7 @@ const CARDS = [
     en: 'The Humiliation of Canossa',
     faction: 'church', act: 3, diff: 'easy', icon: '❄',
     img: 'cards/canossa.jpg',
+    footText: true,
     explain: '教皇赢了面子，皇帝保住了里子——一位基督徒教皇，很难拒绝一个跪着来求恕的人。',
     quote: {
       en: 'It was very hard for a Christian pope to refuse to grant forgiveness.',
@@ -689,6 +697,7 @@ const CARDS = [
     en: 'Napoleon crowns himself',
     faction: 'state', act: 4, diff: 'easy', icon: '👑',
     img: 'cards/napoleon-self-crown.jpg',
+    footText: true,
     explain: '教皇在场，只行祝祷；冠是查理曼那顶的复制品——但这一次，是自己戴上去的。',
     quote: {
       en: 'But Napoleon himself put the crown on his head. It was a replica of the crown the pope had placed on Charlemagne.',
