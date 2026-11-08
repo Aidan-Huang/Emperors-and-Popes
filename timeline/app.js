@@ -306,6 +306,23 @@
       tb.hidden = !testing;
       tb.onclick = () => startAct(FINALE_ID);
     }
+
+    /* 测试模式后台：39 张人物卡设计预览入口。
+       默认 DOM 里根本不存在这个节点，只有打开测试口子才动态插入、关掉立即移除。
+       不进卡池、不进对局、不碰收集/进度、不写存档 —— 游戏前台与逻辑零改动。 */
+    const pl = $('#people-test-link');
+    if (testing) {
+      if (!pl) {
+        const a = document.createElement('a');
+        a.id = 'people-test-link';
+        a.className = 'people-test-link';
+        a.href = 'people-preview.html';
+        a.textContent = '🧪 测试：查看 39 张人物卡（设计预览，不进游戏）';
+        (tb ? tb.parentNode : $('#view-acts')).appendChild(a);
+      }
+    } else if (pl) {
+      pl.remove();
+    }
   }
 
   /* ---------------- 对局 ---------------- */
@@ -455,6 +472,54 @@
     }
 
     syncSelection();
+    renderEraBand();
+  }
+
+  /* ---------------- 两级纪元带（纯展示层） ----------------
+     只在 renderGame() 末尾跑一次：读本局卡池与时间线，算出各段 N / 已放 / 阈值，
+     给达标段加 .on，其余保持完全隐形。不注册任何点击、不写存档、不进反馈队列。
+     cards.js / engine.js / 41 张事件卡一行都不动；人物卡只留空容器，将来接展示层。 */
+  let eraStatsSnapshot = null;
+
+  function eraSmallLabel(s) {
+    let inv = '';
+    if (s.invasions && s.invasions.length) {
+      /* 每组前统一一枚战争图标；「*2」就是同一枚种族徽章连放两次。 */
+      inv = '<span class="era-war" title="入侵">⚔</span>' +
+        s.invasions.map(x => '<span class="era-inv" title="' + esc(x.t) + '">' + esc(x.k) + '</span>').join('');
+    }
+    return '<span class="era-line1"><span class="era-c">' + esc(s.c) + '</span>' + inv + '</span>' +
+      '<span class="era-nm">' + esc(s.name) + '</span>';
+  }
+
+  function renderEraBand() {
+    const band = $('#era-band');
+    const ER = window.ERAS;
+    if (!band || !ER) return;
+    const g = state.session;
+    if (!g) {
+      band.dataset.sig = '';
+      $$('#era-band .era-seg').forEach(el => el.classList.remove('on'));
+      eraStatsSnapshot = null;
+      return;
+    }
+    const st = ER.stats(g);
+    eraStatsSnapshot = st;        // 只存内存，供 __TL.era 与验收脚本读取，绝不落盘
+
+    /* 本局卡池变了才重建 DOM；同局内放牌只切 .on，不重建、不影响时间线卡图片。 */
+    const sig = state.sessionSeq + '#' + (g.pool || []).map(c => c.id).join('|');
+    if (band.dataset.sig !== sig) {
+      band.dataset.sig = sig;
+      $('#era-big').innerHTML = ER.BIG.map(b =>
+        '<div class="era-seg era-big-seg" data-era="' + b.id + '" style="--era-w:' + b.smalls.length + '">' +
+          '<span class="era-nm">' + esc(b.no + ' ' + b.name) + '</span>' +
+          '<span class="era-yr">' + esc(b.label) + '</span>' +
+        '</div>').join('');
+      $('#era-small').innerHTML = ER.SMALL.map(s =>
+        '<div class="era-seg era-small-seg" data-era="' + s.id + '">' + eraSmallLabel(s) + '</div>').join('');
+    }
+    $$('#era-big .era-seg').forEach(el => el.classList.toggle('on', !!st.on.big[el.dataset.era]));
+    $$('#era-small .era-seg').forEach(el => el.classList.toggle('on', !!st.on.small[el.dataset.era]));
   }
 
   /* 桌面端卡片超过一屏时，给时间线加左右翻页按钮和滚动提示。
@@ -1380,6 +1445,19 @@
       },
       compact: compactLandscape, portrait: portraitLayout
     },
+    /* 纪元带只读调试接口：段定义 / 阈值规则 / 本局实时统计 / 已亮段。
+       纯读，不写 localStorage，不提供任何改变游戏状态的入口。 */
+    era: {
+      rules: window.ERAS,
+      state: () => eraStatsSnapshot,
+      dom: () => ({
+        big: $$('#era-big .era-seg.on').map(el => el.dataset.era),
+        small: $$('#era-small .era-seg.on').map(el => el.dataset.era),
+        lifeEmpty: ($('#era-life-band') || { childElementCount: 0 }).childElementCount === 0,
+        height: ($('#era-band') || { getBoundingClientRect: () => ({ height: 0 }) })
+          .getBoundingClientRect().height
+      })
+    },
     /* 第五幕测试接口：控制台 / 自动化用，不改动正式进度 */
     act5: {
       id: FINALE_ID,
@@ -1413,6 +1491,14 @@
     setAct5Test(true);
     if (v === 'play') startAct(FINALE_ID);
     else go('acts');
+  })();
+
+  /* 测试模式后台直达：?people=1 / #people 打开 39 张人物卡设计预览页。
+     只是一个纯 URL 跳转，不携带也不修改任何游戏状态；正常玩家不会碰到。 */
+  (function () {
+    if (/[?&]people=1/.test(location.search) || location.hash === '#people') {
+      location.href = 'people-preview.html';
+    }
   })();
 
 })();

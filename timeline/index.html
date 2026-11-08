@@ -121,6 +121,14 @@
       <div class="timeline-hint" id="timeline-hint">点一张手牌，再点亮起的插入位</div>
       <!-- 普通/困难：不打断节奏的轻量判定提示（提示文字下方就地展开，不遮挡画面，可点「详情」看完整讲解） -->
       <div class="quick-fb" id="quick-fb" aria-live="polite"></div>
+      <!-- 两级纪元带：常驻的空标题带，某段「已放对」达到阈值后该段才淡入，玩家零操作。
+           上层大周期 / 中层世纪小段由 eras.js + app.js 渲染；
+           第三层 #era-life-band 是未来人物生命带的空容器，本轮预留、不用。 -->
+      <div class="era-band" id="era-band" aria-hidden="true">
+        <div class="era-row era-row-big" id="era-big"></div>
+        <div class="era-row era-row-small" id="era-small"></div>
+        <div class="era-life" id="era-life-band"></div>
+      </div>
       <div class="tl-axis"><span>← 更早</span><b id="tl-count">时间线 · 1 张</b><span>更晚 →</span></div>
       <button class="tl-nav tl-nav-l" id="tl-nav-l" type="button" aria-label="看更早的卡片" hidden>‹</button>
       <button class="tl-nav tl-nav-r" id="tl-nav-r" type="button" aria-label="看更晚的卡片" hidden>›</button>
@@ -235,6 +243,7 @@
 
 <script src="cards.js"></script>
 <script src="engine.js"></script>
+<script src="eras.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

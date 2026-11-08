@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>人物卡牌 · 设计预览</title>
+<!-- 直接复用游戏真实样式：卡牌的白底 / 2:3 / 势力色带 / 插画窗 / 卡名 / 年份 / 标签 / hover 全部来自这里 -->
+<link rel="stylesheet" href="./style.css">
+<style>
+/* ============================================================
+   本页只写「页面排版」与人物卡专属的 3 处特别元素。
+   卡牌基础样式一律不重写 —— 全部继承 timeline/style.css。
+   ============================================================ */
+.stage{max-width:1180px;margin:0 auto;padding:30px 26px 70px}
+.hd{border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:6px}
+.hd h1{font-size:30px;margin:0 0 8px;color:var(--ink);letter-spacing:.5px}
+.hd p{margin:0;color:var(--muted);font-size:14px;line-height:1.75}
+.hd .pill{display:inline-block;margin-top:12px;padding:5px 12px;border:1px solid var(--gold-dim);
+  border-radius:20px;color:var(--gold);font-size:12px;background:rgba(255,204,0,.06)}
+.sec{margin-top:38px}
+.sec h2{font-size:19px;color:var(--gold);margin:0 0 6px;font-weight:700}
+.sec .sub{font-size:13px;color:var(--muted);margin:0 0 18px;line-height:1.7}
+.cardrow{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.group{background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:14px;padding:16px 18px 18px}
+.group h3{margin:0 0 14px;font-size:13.5px;color:var(--ink);font-weight:600;letter-spacing:.3px}
+.group h3 em{font-style:normal;color:var(--gold);font-weight:700}
+.cap{font-size:11.5px;color:var(--muted);margin-top:12px;line-height:1.6}
+
+/* ---- 特别元素（仅 3 处，全部落在既有 DOM 位置上） ---- */
+/* ① 卡名：人名 + 一行头衔小字，仍在 .nm 里，仍 flex:1 垂直居中 */
+.person-card .nm{flex-direction:column;gap:3px;padding-top:4px;padding-bottom:2px}
+.person-card .nm b{font-size:13px;font-weight:700;color:#333;line-height:1.25}
+.person-card .nm .role{font-size:10.5px;font-weight:400;color:#94908a;line-height:1.2}
+/* ② 插画窗左上角：寿命徽章（与现有右上角势力标签成对） */
+.person-card .life-badge{position:absolute;top:12px;left:10px;z-index:2;
+  font-size:9.5px;font-weight:700;letter-spacing:.2px;
+  background:rgba(255,255,255,.95);border:1px solid var(--gold-dim);color:#8a6d10;
+  border-radius:4px;padding:1px 5px;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+/* ③ 底部：生卒区间取代单一年份，仍是底部一行小灰字，中间加一段金线表达「区间」 */
+.person-card .lifespan{display:flex;align-items:center;justify-content:center;gap:7px;
+  padding:0 8px 10px;font-size:11.5px;font-weight:600;color:#8a8578;flex:0 0 auto}
+.person-card .lifespan .line{position:relative;flex:0 0 30px;height:2px;
+  background:var(--gold-dim);border-radius:2px}
+.person-card .lifespan .line::before,.person-card .lifespan .line::after{
+  content:'';position:absolute;top:-2px;width:6px;height:6px;border-radius:50%;background:var(--gold-dim)}
+.person-card .lifespan .line::before{left:-1px}
+.person-card .lifespan .line::after{right:-1px}
+/* 轴外人物（希特勒）：灰度弱化，作为状态而非新样式体系 */
+.person-card.axis-out{filter:grayscale(.45) opacity(.78)}
+
+/* ---- 页面排版 ---- */
+.hero-area{display:flex;gap:56px;align-items:center;flex-wrap:wrap}
+.hero-wrap{width:250px;height:350px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.hero{transform:scale(1.6);flex:none;overflow:visible}
+.mark{position:absolute;z-index:9;width:19px;height:19px;border-radius:50%;
+  background:var(--gold);color:#1a1a1a;font-size:12px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.m1{top:6px;left:-9px}.m2{top:52%;left:-9px}.m3{bottom:-8px;left:-9px}
+.notes{flex:1;min-width:340px;display:flex;flex-direction:column;gap:12px}
+.note{display:flex;gap:12px;background:rgba(255,255,255,.04);border:1px solid var(--line);
+  border-left:3px solid var(--gold-dim);border-radius:8px;padding:12px 14px}
+.note .n{flex:0 0 22px;height:22px;border-radius:50%;background:var(--gold);color:#1a1a1a;
+  font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.note b{color:var(--ink);font-size:13.5px}
+.note p{margin:4px 0 0;font-size:12.5px;color:var(--muted);line-height:1.65}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,140px);gap:16px;justify-content:start}
+.glabel{grid-column:1/-1;font-size:12px;color:var(--muted);padding:6px 0 0;border-bottom:1px dashed var(--line);margin-bottom:2px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top;line-height:1.65}
+th{background:rgba(255,204,0,.08);color:var(--gold);font-weight:600}
+td{color:var(--muted)}td b{color:var(--ink);font-weight:600}
+code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px;color:#e8d9a0;font-size:12px}
+.bigrow{display:flex;gap:20px;flex-wrap:wrap}
+.bigbox{flex:1;min-width:420px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 16px 16px}
+.bigbox h3{margin:12px 0 0;font-size:14px;color:var(--gold)}
+.bigcard .art img{object-position:50% 15%}
+.quote-h{font-size:12px;color:var(--gold-dim);margin:12px 0 5px}
+.quote-zh{font-size:13.5px;line-height:1.7;color:var(--ink)}
+.foot{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);line-height:1.8}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="hd">
+    <h1>人物卡牌 · 设计预览</h1>
+    <p>39 位第六章人物，卡图取自 Wikimedia Commons 公版历史画作 / 雕像 / 手稿，统一处理为 480×700 资产。<br>
+       本页 <code>&lt;link&gt;</code> 直接引用游戏真实的 <code>timeline/style.css</code>，卡牌基础样式一条都没重写。</p>
+    <span class="pill">统一优先 · 只在 3 处放「人物专属」元素</span>
+  </div>
+
+  <!-- A 风格对照 -->
+  <div class="sec">
+    <h2>A · 风格对照：同一主题，两种卡型</h2>
+    <p class="sub">左右各三张，一一对应（奥古斯都 / 查理曼加冕 / 拿破仑加冕）。白底、2:3、3px 势力色带、104px 插画窗、居中卡名、右上势力标签、hover 微浮起 —— 全部一致。</p>
+    <div class="cardrow">
+      <div class="group">
+        <h3>现有 <em>时间线事件卡</em>（41 张）</h3>
+        <div class="cardrow" id="row-event"></div>
+        <div class="cap">底部是<b>单一年份</b>；卡名是<b>事件</b>；插画是历史事件场景。</div>
+      </div>
+      <div class="group">
+        <h3>新增 <em>人物卡</em>（39 张）</h3>
+        <div class="cardrow" id="row-person"></div>
+        <div class="cap">底部是<b>生卒区间</b>；卡名是<b>人名＋头衔</b>；插画是人物肖像。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B 特别元素 -->
+  <div class="sec">
+    <h2>B · 三处「特别元素」</h2>
+    <p class="sub">除这三处外，人物卡与时间线卡共用同一套 DOM 结构（<code>.face / .fstrip / .art / .nm / .faction-tag</code>）与同一套 CSS。</p>
+    <div class="group">
+      <div class="hero-area">
+        <div class="hero-wrap"><div id="hero"></div></div>
+        <div class="notes">
+          <div class="note"><div class="n">1</div><div><b>寿命徽章</b><p>插画窗左上角，与现有右上角的「势力标签」左右成对。显示周岁或约年，例如「75 岁」。这是唯一新增的独立 DOM 节点。</p></div></div>
+          <div class="note"><div class="n">2</div><div><b>人名 ＋ 头衔</b><p>仍在原来的 <code>.nm</code> 里，仍是 <code>flex:1</code> 垂直居中，只是人名加粗、下面多一行 10.5px 灰色头衔（如「罗马皇帝 · Imperator」）。卡面垂直分布不变。</p></div></div>
+          <div class="note"><div class="n">3</div><div><b>生卒区间</b><p>占据原来 <code>.yr</code> 的底部位置，同为一行小灰字；中间一段 30px 金线配两端圆点，把「一个点」变成「一段生命」。这也是后续生命带方案的视觉伏笔。</p></div></div>
+          <div class="note" style="border-left-color:var(--muted)"><div class="n" style="background:var(--muted)">+</div><div><b>刻意不加的东西</b><p>不加新的势力颜色（文士并入现有「地方」色）、不加新字体、不加新边框材质、不改圆角与阴影、不改 hover / 选中动效、不改卡片 140×210 尺寸。</p></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C 全览 -->
+  <div class="sec">
+    <h2>C · 39 张人物卡全览</h2>
+    <p class="sub">按生年排序。A 类＝原文点名（21 位），B 类＝原文未点名、按史实推定（18 位）；轴外人物（希特勒 1889–1945）灰度弱化并单列。</p>
+    <div class="group"><div class="grid" id="grid"></div></div>
+  </div>
+
+  <!-- D 详情对照 -->
+  <div class="sec">
+    <h2>D · 大卡详情：结构同样沿用</h2>
+    <p class="sub"><code>.bigcard</code> 左图右信息（年代 / 中文 / 英文 / 讲解），下方「书中原句」中文块 ＋ 金色竖线英文原文块 —— 与时间线卡完全一致，只把顶部年份换成生卒区间、中文名换成人名。</p>
+    <div class="bigrow">
+      <div class="bigbox"><h3>现有 · 时间线事件卡详情</h3><div id="big-event"></div></div>
+      <div class="bigbox"><h3>新增 · 人物卡详情</h3><div id="big-person"></div></div>
+    </div>
+  </div>
+
+  <!-- E 清单 -->
+  <div class="sec">
+    <h2>E · 统一清单 / 特别元素清单</h2>
+    <table>
+      <tr><th style="width:22%">维度</th><th style="width:39%">✅ 完全沿用（统一）</th><th style="width:39%">🎴 人物专属（特别）</th></tr>
+      <tr><td><b>尺寸与外形</b></td><td>140×210（2:3）、8px 圆角、纯白卡面、<code>--card-shadow</code></td><td>—</td></tr>
+      <tr><td><b>势力色带</b></td><td>顶部 3px <code>.fstrip</code>，church / state / local / both 四色不变</td><td>文士并入 local 色，不新增第 5 种颜色</td></tr>
+      <tr><td><b>插画窗</b></td><td>104px 高、8px 边距、4px 圆角、<code>#f0efec</code> 底、<code>object-fit:cover</code></td><td>复用现有 <code>.art-top</code>（<code>object-position:50% 15%</code>），保证人脸不被横带裁掉</td></tr>
+      <tr><td><b>卡名</b></td><td><code>.nm</code> 居中、12.5px、<code>flex:1</code></td><td>人名加粗 + 一行 10.5px 头衔小字</td></tr>
+      <tr><td><b>底部一行</b></td><td>底部居中、小灰字、同位置同字重</td><td><code>.yr</code> → <code>.lifespan</code>：生卒年 + 金线两端点</td></tr>
+      <tr><td><b>角标</b></td><td>右上 <code>.faction-tag</code> 白底彩色细字</td><td>左上新增 <code>.life-badge</code> 寿命（与右上成对）</td></tr>
+      <tr><td><b>交互</b></td><td>hover <code>translateY(-3px) scale(1.04)</code>、选中 3px 纯金边、发牌 / 落位动效</td><td>—</td></tr>
+      <tr><td><b>详情页</b></td><td><code>.bigcard</code> + 中文块 + 金线英文块</td><td>顶部年份改生卒区间；中文块标题改「人物出处」并写史实推定说明</td></tr>
+      <tr><td><b>状态</b></td><td>锁定 / 选中 / 新增 沿用</td><td>轴外人物灰度弱化（<code>.axis-out</code>）</td></tr>
+    </table>
+  </div>
+
+  <div class="foot">
+    资产：<code>timeline/cards/people/*.jpg</code>（39 张，480×700）· 数据：<code>timeline/people-cards.js</code>（独立模块，不进 CARDS / 不参与引擎排序）· 来源与授权：<code>timeline/cards/people/ATTRIBUTION.md</code><br>
+    本轮未修改任何现有游戏文件（cards.js / app.js / engine.js / style.css / index.html 均保持原样）。
+  </div>
+</div>
+
+<script src="./cards.js"></script>
+<script src="./people-cards.js"></script>
+<script>
+(function(){
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+  function shortY(t){
+    if(!t) return '?';
+    var m=String(t).match(/^(约\s*)?(前\s*\d+|\d+)/);
+    return m?(m[1]||'')+m[2]:String(t);
+  }
+  /* 事件卡：与 app.js 的 cardFace() 同构 */
+  function faceEvent(c){
+    return '<div class="face f-'+c.faction+'">'+
+      '<div class="fstrip"></div>'+
+      '<div class="art"><img src="'+c.img+'"'+(c.artPos?' class="art-'+c.artPos+'"':'')+' alt=""></div>'+
+      '<div class="nm">'+esc(c.zh)+'</div>'+
+      '<div class="yr">'+esc(c.dy)+'</div>'+
+      '<span class="faction-tag '+c.faction+'">'+FACTIONS[c.faction].name+'</span>'+
+    '</div>';
+  }
+  /* 人物卡：同一套 DOM，只换 3 处内容 */
+  function facePerson(p, marks){
+    return '<div class="face f-'+p.faction+'">'+
+      '<div class="fstrip"></div>'+
+      '<div class="art"><img src="'+p.img+'" class="art-'+p.artPos+'" alt="">'+
+        '<span class="life-badge">'+esc(p.life)+'</span></div>'+
+      '<div class="nm"><b>'+esc(p.zh)+'</b><span class="role">'+esc(p.role)+'</span></div>'+
+      '<div class="lifespan"><span>'+esc(shortY(p.bornTxt))+'</span><i class="line"></i><span>'+esc(shortY(p.diedTxt))+'</span></div>'+
+      '<span class="faction-tag '+p.faction+'">'+FACTIONS[p.faction].name+'</span>'+
+      (marks?'<span class="mark m1">1</span><span class="mark m2">2</span><span class="mark m3">3</span>':'')+
+    '</div>';
+  }
+  function card(html,cls){
+    return '<div class="tl-card '+cls+'">'+html+'</div>';
+  }
+  function big(c,isPerson){
+    var f=FACTIONS[c.faction];
+    var head=isPerson
+      ? '<div class="yr">'+esc(shortY(c.bornTxt))+' — '+esc(shortY(c.diedTxt))+' · '+esc(c.life)+'</div>'
+      : '<div class="yr">'+esc(c.dy)+'</div>';
+    var en=isPerson?esc(c.en)+' · '+esc(c.roleEn):esc(c.en);
+    var line=isPerson
+      ? '<div style="margin-top:8px;font-size:12px;color:'+f.color+'">'+f.icon+' '+f.name+' · '+(c.cls==='A'?'原文点名':'史实推定')+' · 原文第 '+c.para+' 段</div>'
+      : '<div style="margin-top:8px;font-size:12px;color:'+f.color+'">'+f.icon+' '+f.name+' · 第 '+c.act+' 幕</div>';
+    var ex=esc(c.explain||'');
+    var qz=isPerson
+      ? ('第 '+c.para+' 段提及此人'+(c.cls==='B'?'（原文用泛称指代，按史实推定）':'')+'；下方为原文英文节选。')
+      : (c.quote?esc(c.quote.zh):'');
+    var qh=isPerson?'人物出处':'书中原句';
+    var se=isPerson?esc(c.src.en):(c.src?esc(c.src.en):'');
+    return '<div class="bigcard">'+
+        '<div class="art"><img src="'+c.img+'"'+(c.artPos?' class="art-'+c.artPos+'"':'')+' alt=""></div>'+
+        '<div class="info">'+head+
+          '<div class="zh">'+esc(c.zh)+'</div>'+
+          '<div class="en">'+en+'</div>'+
+          '<div class="ex">'+ex+'</div>'+line+
+        '</div>'+
+      '</div>'+
+      '<div class="quote-h">'+qh+'</div>'+
+      '<div class="quote-zh">'+qz+'</div>'+
+      '<div class="quotebox en-only"><span class="en">'+se+'</span></div>';
+  }
+
+  /* A：一一对应的三张 */
+  var pairs=[['augustus','augustus'],['charlemagne-800','charlemagne'],['napoleon-self-crown','napoleon']];
+  var re='',rp='';
+  pairs.forEach(function(pr){
+    var c=CARDS.filter(function(x){return x.id===pr[0];})[0];
+    var p=PEOPLE.filter(function(x){return x.id===pr[1];})[0];
+    if(c) re+=card(faceEvent(c),'');
+    if(p) rp+=card(facePerson(p),'person-card'+(p.axis==='out'?' axis-out':''));
+  });
+  document.getElementById('row-event').innerHTML=re;
+  document.getElementById('row-person').innerHTML=rp;
+
+  /* B：放大标注卡 */
+  var aug=PEOPLE.filter(function(x){return x.id==='augustus';})[0];
+  document.getElementById('hero').innerHTML=card(facePerson(aug,true),'person-card hero');
+
+  /* C：全览（按生年排序，B 类与轴外分组标注） */
+  var sorted=PEOPLE.slice().sort(function(a,b){return (a.born==null?-9999:a.born)-(b.born==null?-9999:b.born);});
+  var g='<div class="glabel">A 类 · 原文点名（21 位）＋ B 类 · 史实推定（18 位），按生年排序；卡面左上「寿命」、底部「生卒区间」</div>';
+  sorted.forEach(function(p){
+    g+=card(facePerson(p),'person-card'+(p.axis==='out'?' axis-out':''));
+  });
+  document.getElementById('grid').innerHTML=g;
+
+  /* D：详情对照 */
+  var ce=CARDS.filter(function(x){return x.id==='augustus';})[0];
+  document.getElementById('big-event').innerHTML=big(ce,false);
+  document.getElementById('big-person').innerHTML=big(aug,true);
+})();
+</script>
+</body>
+</html>

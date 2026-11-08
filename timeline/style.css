@@ -964,3 +964,92 @@ small{font-size:.78em;opacity:.85}
   background:var(--panel2);border:1px solid var(--line);border-radius:9px;
   color:var(--ink);cursor:pointer;
 }
+
+/* ============================================================
+   两级纪元带（纯展示层，放在 .timeline-wrap 内 → 自动继承 --tl-zoom）
+   - 容器高度恒定：放牌前后卡牌位置一个像素都不动，既有布局零影响
+   - 段未达标：完全隐形（无框 / 无线 / 无字），但仍占宽度，段位几何不跳
+   - 段达标加 .on：纯 CSS 淡入，零点击 / 零 toast / 零弹窗 / 零音效
+   - 全程 pointer-events:none，绝不抢时间线卡与插入位的点击
+   ============================================================ */
+.era-band{
+  flex:0 0 auto;display:flex;flex-direction:column;gap:2px;
+  height:49px;margin:0 0 3px;overflow:hidden;
+  pointer-events:none;user-select:none;-webkit-user-select:none;
+}
+.era-row{display:flex;align-items:stretch;min-width:0;gap:2px;min-height:0}
+.era-row-big{height:19px}
+.era-row-small{height:28px}
+.era-seg{
+  flex:1 1 0;min-width:0;overflow:hidden;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:row;gap:5px;white-space:nowrap;line-height:1.15;
+  border-top:1px solid transparent;border-radius:3px 3px 0 0;
+  background:transparent;border-left:0;border-right:0;border-bottom:0;
+  opacity:0;visibility:hidden;transition:opacity .55s ease;
+}
+.era-seg.on{
+  opacity:1;visibility:visible;border-top-color:var(--gold-dim);
+  background:linear-gradient(180deg,rgba(255,204,0,.10),rgba(255,204,0,0));
+}
+/* 上层：Ⅰ 罗马的余晖 · 前 27 – 500
+   大段宽度 = 所含小段数（2/3/2/3），用自定义属性传入，不写内联 flex，
+   这样竖屏媒体查询仍能把段收成 chips。 */
+.era-row-big .era-seg{flex:var(--era-w,1) 1 0}
+.era-row-big .era-nm{font-size:11.5px;font-weight:700;color:var(--gold);letter-spacing:.3px}
+.era-row-big .era-yr{font-size:9.5px;color:var(--muted);font-weight:400}
+/* 中层：第一行 C4–5 ⚔日日，第二行段名 */
+.era-row-small .era-seg{flex-direction:column;gap:2px}
+.era-line1{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0}
+.era-c{font-size:10px;font-weight:700;color:var(--gold-dim);letter-spacing:.2px}
+.era-nm{font-size:11px;font-weight:600;color:var(--ink)}
+/* 入侵提示：每组前统一一枚战争图标，后面跟种族单字徽章（*2 就是放两次） */
+.era-war{font-size:11px;line-height:1;color:#e9a06b}
+.era-inv{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:13px;height:13px;padding:0 1px;line-height:1;
+  border:1px solid rgba(255,204,0,.48);border-radius:3px;
+  background:rgba(255,204,0,.09);color:#ffe08a;
+  font-size:10px;font-weight:700;
+}
+/* 第三层：未来人物生命带的空容器，本轮预留、不渲染任何内容 */
+.era-life{display:none}
+
+/* 手机竖屏：时间线本身是纵向的，横向分段带不对应，改成单行横滑 chips。
+   未达标段宽度收成 0（真不占位），达标段才展开；两层各固定 21px，绝不挤压卡牌。 */
+@media (max-width:760px) and (orientation:portrait){
+  .era-band{height:44px;gap:2px;margin-bottom:2px}
+  .era-row{height:21px;gap:4px;flex-wrap:nowrap;overflow-x:auto;
+           overflow-y:hidden;scrollbar-width:none}
+  .era-row::-webkit-scrollbar{display:none}
+  .era-row .era-seg{
+    flex:0 0 auto;width:0;min-width:0;height:19px;padding:0;
+    flex-direction:row;gap:5px;border-width:0;border-radius:10px;
+    background:rgba(255,204,0,.07);
+    overflow:hidden;opacity:0;visibility:hidden;transition:opacity .55s ease;
+  }
+  .era-row .era-seg.on{
+    width:auto;padding:0 8px;border:1px solid var(--gold-dim);
+    opacity:1;visibility:visible;
+  }
+  .era-row-small .era-seg,.era-row-small .era-seg.on{flex-direction:row;gap:4px}
+  .era-nm{font-size:10px;font-weight:500}
+  .era-row-big .era-nm{font-size:10.5px;font-weight:700}
+  .era-row-big .era-yr{display:none}
+  .era-line1{gap:2px}
+  .era-c{font-size:9px}
+  .era-inv{min-width:11px;height:11px;font-size:9px}
+}
+@media (prefers-reduced-motion:reduce){
+  .era-seg{transition:none}
+}
+
+/* 测试模式后台入口：仅在打开第五幕测试口子时由 JS 动态插入，
+   正常玩家视图不存在这个节点，游戏逻辑也不读取它。 */
+.people-test-link{
+  display:block;width:100%;margin:10px 0 0;padding:10px 12px;
+  background:rgba(255,204,0,.06);border:1px dashed var(--gold-dim);
+  border-radius:10px;color:var(--gold);font-size:12.5px;text-align:center;
+  text-decoration:none;
+}
+.people-test-link:hover{background:rgba(255,204,0,.13)}
