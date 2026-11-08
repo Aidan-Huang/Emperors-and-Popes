@@ -425,6 +425,84 @@
     return state.hint.tone === 'ok' || state.hint.tone === 'bad';
   }
 
+  /* ---------------- 触屏：点卡牌浮起的还原 ----------------
+     手机没有 hover，选中态 .hand-card.sel 会一直让卡片浮着。旧实现只靠 onclick：
+       ① 点空白 / 时间线 / 顶栏没有任何清理入口，浮起一直挂着；
+       ② iOS Safari 手指带一点微动时，第二次 tap 常常不派发 click（v4 纪元带同款坑），
+          「再点一次取消」在真机上时灵时不灵。
+     这里把触屏的选中链路整体搬到 pointerdown + pointerup，不依赖 click：
+       · pointerdown 记起点，pointerup 用位移 ≤10px 区分「点」与「横向滑动浏览」；
+       · 落在手牌上 → 切换 / 再点一次还原；落在其它非保留区 → 还原；
+       · 插入位 .slot 必须保留 selectedId（放牌还要用），一点都不能提前清；
+       · 触屏链路处理后设短时标记，吞掉浏览器补发的合成 click，避免又 toggle 回去；
+       · pointerType === 'mouse' 完全不介入，桌面 hover 与点击原样。
+     只动输入层，不改 Engine / CARDS / 判定 / 渲染结构。 */
+  let touchClickSuppressed = () => false;   // bindTouchSelection() 启动后接管
+
+  function toggleHandSelect(id) {
+    const g = state.session;
+    if (!g || state.locked) return;
+    state.selectedId = (state.selectedId === id) ? null : id;
+    g.select(state.selectedId);
+    syncSelection();   // 只切选中态，不重建时间线图片
+  }
+  function clearHandSelect() {
+    const g = state.session;
+    if (!g || !state.selectedId) return;
+    state.selectedId = null;
+    g.select(null);
+    syncSelection();
+  }
+
+  function bindTouchSelection() {
+    let press = null;
+    let handledAt = 0;
+    const touch = e => !!e.pointerType && e.pointerType !== 'mouse';
+    const inGame = () => state.view === 'game' && !!state.session;
+    const near = (t, sel) => (t && t.closest) ? t.closest(sel) : null;
+    const coarse = () => {
+      try { return matchMedia('(hover:none),(pointer:coarse)').matches; }
+      catch (e) { return false; }
+    };
+
+    document.addEventListener('pointerdown', e => {
+      if (press && press.id !== e.pointerId) return;   // 多指：只认第一根
+      press = null;
+      if (!touch(e) || !inGame() || state.locked) return;
+      const t = e.target;
+      const card = near(t, '.hand-card');
+      press = {
+        id: e.pointerId, x: e.clientX, y: e.clientY, card: card,
+        // 插入位要留着 selectedId 放牌；手牌自己处理；其余一律算「点在了别处」
+        keep: !!(card || near(t, '.slot'))
+      };
+    }, true);
+
+    document.addEventListener('pointerup', e => {
+      if (!press || press.id !== e.pointerId) return;
+      const p = press; press = null;
+      if (!touch(e) || !inGame() || state.locked) return;
+      // 滑动浏览时间线 / 手牌不算点，选中态原样保留
+      if (Math.abs(e.clientX - p.x) > 10 || Math.abs(e.clientY - p.y) > 10) return;
+      if (p.card) {
+        handledAt = Date.now();
+        toggleHandSelect(p.card.dataset.id);
+      } else if (!p.keep) {
+        clearHandSelect();
+      }
+    }, true);
+
+    document.addEventListener('pointercancel', () => { press = null; }, true);
+    // 切走 / 锁屏：仅在真正的触屏设备上顺手收干净，桌面行为一点不变
+    window.addEventListener('blur', () => {
+      press = null;
+      if (coarse()) clearHandSelect();
+    });
+
+    // 合成 click 通常在 touchEnd 后几十毫秒内到达；500ms 足够又不误吞下一次真实点击
+    touchClickSuppressed = () => Date.now() - handledAt < 500;
+  }
+
   /* 只同步「选中态」：手牌高亮、插入位点亮、提示文字。
      点手牌时走这里，不再调用 renderGame()——后者会重建时间线里所有 <img>，
      手机上每张时间线卡的图片都会闪一下（桌面缓存快、且无 zoom 栅格化，不易察觉）。
@@ -510,10 +588,10 @@
           showFaction: cfg.showFaction
         });
         el.onclick = () => {
-          if (state.locked) return;
-          state.selectedId = (state.selectedId === c.id) ? null : c.id;
-          g.select(state.selectedId);
-          syncSelection();   // 只切选中态，不重建时间线图片
+          // 触屏已由 pointerup 处理过，这里只吞掉浏览器补发的合成 click。
+          // 桌面 / JS 直接 .click() 的验收路径没有 pointer 事件，仍走 toggleHandSelect。
+          if (touchClickSuppressed()) return;
+          toggleHandSelect(c.id);
         };
         hand.appendChild(el);
       });
@@ -1827,6 +1905,7 @@
   applyZoom(false);   // 启动时套用本机缩放参数（不重复写入存档）
   go('home');
   eraBindInteractions();   // 纪元带悬停 / 点选委托（只绑一次）
+  bindTouchSelection();    // 触屏点手牌浮起后的还原（再点一次 / 点空白）
   // 旋转 / 改窗口：横竖屏切换会改变 eraEnabled()，跟着重算显隐。
   // 飞签用的是旧视口坐标，尺寸一变就作废 —— 收敛掉，按统计直接点亮，不残留错位标签。
   let eraLastOn = eraEnabled();
