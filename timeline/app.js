@@ -63,7 +63,9 @@
     locked: false,         // 判定反馈展示期间锁输入（仅简单模式 / 主动展开详情时）
     sessionSeq: 0,         // 每开一局 +1，用于手牌增量重绘时识别旧闭包
     lastRes: null,         // 最近一次判定结果，供轻量提示的「详情」按需展开
-    quickTimer: null,
+    /* 提示行唯一数据源：整局只有 #timeline-hint 这一行，固定高度。
+       tone: idle | selected | ok | bad | win；ok/bad 一直留到玩家点下一张手牌。 */
+    hint: { html: '点一张手牌，再点亮起的插入位', tone: 'idle' },
     pendingFinish: null,
     hudHitTimer: null,     // HUD 失误预算被扣时的高亮计时
     winPending: false      // 通关后停在对局页等玩家确认，不直接跳结算
@@ -388,17 +390,39 @@
     state.lastRes = null;
     eraReset();                    // 新开一局：撤掉上一局可能残留的飞签 / 定时器 / 浮起
     hideWinBar();                  // 新开一局，撤掉上一局可能残留的待确认条
-    clearTimeout(state.quickTimer);
     clearTimeout(state.pendingFinish);
     clearTimeout(state.hudHitTimer);
     $('#feedback').classList.remove('show');
-    $('#quick-fb').classList.remove('show');
+    resetHint();   // 新开一局：提示行回到初始文案，不残留上一局的判定结果
     $('#hud-mistakes').classList.remove('hit');
     $$('.flyback').forEach(el => el.remove());
     $('#game-act-name').textContent = act.name;
     $('#game-act-span').textContent = act.span || '';
     go('game');
     renderGame();
+  }
+
+  /* ---------------- 提示行：全对局唯一的信息源 ----------------
+     一行文字、固定高度。放对 / 放错直接替换这行文字并一直保留，
+     不新增一行、也不定时收起，画面不会因此上下抖动。
+     只有玩家再次点选一张手牌，才会把它换成新的选中提示。 */
+  function renderHint() {
+    const el = $('#timeline-hint');
+    if (!el) return;
+    el.className = 'timeline-hint hint-' + state.hint.tone;
+    el.innerHTML = state.hint.html;
+  }
+  function setHint(html, tone) {
+    if (state.hint.html === html && state.hint.tone === tone) return;
+    state.hint = { html: html, tone: tone };
+    renderHint();
+  }
+  function resetHint() {
+    state.hint = { html: '点一张手牌，再点亮起的插入位', tone: 'idle' };
+    renderHint();
+  }
+  function hintIsResult() {
+    return state.hint.tone === 'ok' || state.hint.tone === 'bad';
   }
 
   /* 只同步「选中态」：手牌高亮、插入位点亮、提示文字。
@@ -413,11 +437,16 @@
     });
     $$('#timeline .slot').forEach(el => el.classList.toggle('armed', armed));
     const sel = g && g.hand.find(c => c.id === state.selectedId);
-    $('#timeline-hint').innerHTML = state.winPending
-      ? '时间线已排完 · 可以先翻看整条时间线，再点上面的「完成」'
-      : (sel
-        ? '已选中 <b>' + esc(sel.zh) + '</b> · 点一个金色插入位放进去'
-        : '点一张手牌，再点亮起的插入位');
+    /* 只在三种情况下改写提示行：通关、玩家点选手牌、回到空闲态。
+       判定结果态（ok/bad）由 quietFeedback 持有，这里不覆盖，
+       一直保留到玩家点下一张手牌，也不因 renderGame 重绘而丢掉「详情」入口。 */
+    if (state.winPending) {
+      setHint('时间线已排完 · 可以先翻看整条时间线，再点上面的「完成」', 'win');
+    } else if (sel) {
+      setHint('已选中 <b>' + esc(sel.zh) + '</b> · 点一个金色插入位放进去', 'selected');
+    } else if (!hintIsResult() && state.hint.tone !== 'idle') {
+      resetHint();
+    }
     updateTlNav();
   }
 
@@ -1114,38 +1143,32 @@
   /* ---------------- 轻量反馈（普通 / 困难） ---------------- */
 
   const CHEERS = ['✓ 放对了', '✓ 位置刚好', '✓ 稳稳落位', '✓ 接上了'];
-  const QF_OK_MS = 2400;    // 放对：沿用原节奏（已确认没问题），不做改动
-  const QF_BAD_MS = 4200;   // 放错：留足看清文案与弹回动画的时间
   const FLYBACK_MS = 1600;  // 与 style.css 里 bounceBack 动画时长保持一致
 
   function quietFeedback(res) {
     const c = res.card;
-    const el = $('#quick-fb');
     // 玩家不关提示就能继续放牌：新判定一来就清掉上一张还在播的弹回卡影，
     // 避免「已经放对了，画面上还留着一张红色卡在摇」的错位感。
     $$('.flyback').forEach(n => n.remove());
-    el.className = 'quick-fb show ' + (res.ok ? 'ok' : 'bad');
 
     if (res.ok) {
       const cheer = CHEERS[Math.floor(Math.random() * CHEERS.length)];
-      el.innerHTML = '<b>' + cheer + '</b>' +
-        '<span>' + esc(c.dy) + ' · ' + esc(c.zh) + '</span>' +
-        '<button type="button" id="qf-detail">详情</button>';
+      setHint('<b>' + cheer + '</b> · ' + esc(c.dy) + ' · ' + esc(c.zh) +
+        ' <button type="button" class="hint-detail" id="hint-detail">详情</button>', 'ok');
     } else {
-      // 放错：不再塞事件名，把整条空间留给「发生了什么 + 接下来做什么」，
+      // 放错：不再塞事件名，把整行留给「发生了什么 + 接下来做什么」，
       // 手机窄屏也能读全，不像之前那样把说明文字隐藏掉。
-      el.innerHTML = '<b>✕ 放错了</b>' +
-        '<span class="qf-note">已弹回手牌 · 换个缝隙再试</span>' +
-        '<button type="button" id="qf-detail">详情</button>';
-      // 连续放错时 class 从 bad→bad 不会自动重播动画，强制重启一次
+      setHint('<b>✕ 放错了</b> · <span class="qf-note">已弹回手牌 · 换个缝隙再试</span>' +
+        ' <button type="button" class="hint-detail" id="hint-detail">详情</button>', 'bad');
+      // 连续放错时 tone 从 bad→bad 不会自动重播动画，强制重启一次
+      const el = $('#timeline-hint');
       el.classList.remove('bad-pulse');
       void el.offsetWidth;
       el.classList.add('bad-pulse');
     }
-    $('#qf-detail').onclick = openQuietDetail;
-    clearTimeout(state.quickTimer);
-    state.quickTimer = setTimeout(() => el.classList.remove('show'),
-      res.ok ? QF_OK_MS : QF_BAD_MS);
+    const d = $('#hint-detail');
+    if (d) d.onclick = openQuietDetail;
+    // 不设定时器：这行判定信息一直保留，直到玩家点下一张手牌才更新。
 
     if (res.ok) {
       // 落位卡复用原有的 land 动效
@@ -1202,8 +1225,6 @@
     const res = state.lastRes;
     if (!res) return;
     clearTimeout(state.pendingFinish);
-    clearTimeout(state.quickTimer);
-    $('#quick-fb').classList.remove('show');
     $$('.flyback').forEach(el => el.remove());
     fillFeedback(res);
     $('#feedback').classList.add('show');
@@ -1219,7 +1240,6 @@
     const g = state.session;
     if (!g || !g.isOver() || g.mistakesLeft <= 0) return;
     clearTimeout(state.pendingFinish);
-    $('#quick-fb').classList.remove('show');
     state.winPending = true;
     state.locked = false;
     $('#win-bar').classList.add('show');

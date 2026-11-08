@@ -257,8 +257,27 @@ small{font-size:.78em;opacity:.85}
   background:linear-gradient(180deg,#1c2440,#161d33);
   border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-top:2px;
 }
-.timeline-hint{font-size:12.5px;color:var(--muted);margin-bottom:8px;text-align:center;flex:0 0 auto}
+/* 提示行：全对局唯一的信息源。固定单行高度，无论 idle / 选中 / 放对 / 放错 / 通关
+   都占同样高度，不再因为新增或收起一条反馈行让整个画面上下抖动。 */
+.timeline-hint{
+  font-size:12.5px;color:var(--muted);margin-bottom:8px;text-align:center;flex:0 0 auto;
+  height:20px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  border-radius:6px;
+}
 .timeline-hint b{color:var(--gold);font-weight:600}
+.timeline-hint.hint-ok{background:#1b2340;color:var(--ok)}
+.timeline-hint.hint-ok b{color:var(--ok)}
+.timeline-hint.hint-bad{background:#3a1b22;color:#ff8b85;box-shadow:inset 3px 0 0 var(--bad)}
+.timeline-hint.hint-bad b{color:#ff8b85}
+.timeline-hint.bad-pulse{animation:qfBad .6s ease-out 2}
+.timeline-hint .qf-note{display:inline-block;color:#ffb3ae}
+/* 「详情」做成 inline 文字按钮，不撑高这一行 */
+.timeline-hint .hint-detail{
+  display:inline-block;line-height:1;vertical-align:baseline;
+  margin-left:6px;padding:0;border:0;background:none;
+  font:inherit;font-size:11.5px;color:var(--gold);text-decoration:underline;cursor:pointer;
+}
+.timeline-hint .hint-detail:hover{color:#ffe38a}
 .tl-axis{
   flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;
   font-size:11px;color:#6f7ca2;padding:0 4px 6px;letter-spacing:.5px;
@@ -678,42 +697,14 @@ small{font-size:.78em;opacity:.85}
 }
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
-/* ---------- 轻量判定反馈（普通 / 困难） ----------
-   就地展开在「时间线提示」下方的一行小条：不浮层、不遮挡卡牌与提示文字、不锁输入；
-   放对 2.4s、放错 4.2s 后自动收起；「详情」按需展开底部完整讲解条。 */
-.quick-fb{
-  flex:0 0 auto;display:flex;align-items:center;gap:8px;
-  height:0;overflow:hidden;opacity:0;pointer-events:none;
-  padding:0 10px;border:1px solid transparent;border-radius:9px;
-  background:transparent;font-size:12.5px;color:var(--ink);
-  transition:height .2s ease,opacity .18s ease,background .18s ease;
-}
-.quick-fb.show{
-  height:30px;opacity:1;pointer-events:auto;margin-bottom:6px;
-  background:#1b2340;border-color:var(--line);
-}
-.quick-fb b{flex:0 0 auto;white-space:nowrap}
-.quick-fb.ok b{color:var(--ok)}
-/* 放错：整条改成暗红底 + 左侧红条，和放对的深蓝一眼可分；再脉冲两下吸引视线 */
-.quick-fb.bad{
-  /* 不放 background 过渡：判定瞬间就整条变红，别等 180ms 渐变才看出来 */
-  transition:height .2s ease,opacity .18s ease;
-  background:#3a1b22;border-color:rgba(226,80,75,.85);
-  box-shadow:inset 3px 0 0 var(--bad);
-}
-.quick-fb.bad b{color:#ff8b85;font-size:13.5px}
-.quick-fb.bad-pulse{animation:qfBad .6s ease-out 2}
+/* ---------- 判定反馈（普通 / 困难） ----------
+   文案直接写进上面的 #timeline-hint，不再单独占一行、也不再自动收起：
+   放对转深蓝、放错转暗红并脉冲两下，全程只有那一行，画面高度恒定。
+   「详情」按需展开底部完整讲解条。 */
 @keyframes qfBad{
   0%,100%{box-shadow:inset 3px 0 0 var(--bad),0 0 0 0 rgba(226,80,75,0)}
   50%    {box-shadow:inset 3px 0 0 var(--bad),0 0 0 4px rgba(226,80,75,.3)}
 }
-.quick-fb span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.quick-fb .qf-note{flex:1;min-width:0;color:#ffb3ae}
-.quick-fb button{
-  flex:0 0 auto;background:none;border:1px solid var(--line);border-radius:7px;
-  padding:2px 8px;font-size:11.5px;color:var(--gold);white-space:nowrap;
-}
-.quick-fb button:hover{border-color:var(--gold-dim)}
 
 /* 通关待确认：在提示条下方就地展开，不遮挡时间线，玩家可先翻看整条。
    无持续动画（reduce 下也一致），只保留按钮 hover 的静态浮现。 */
@@ -803,8 +794,7 @@ small{font-size:.78em;opacity:.85}
 }
 @media (prefers-reduced-motion:reduce){
   /* 只取消动画本身，hover 静态浮现状态原样保留 */
-  .quick-fb{transition-duration:.01s}
-  .quick-fb.bad-pulse{animation:none}
+  .timeline-hint.bad-pulse{animation:none}
   .flyback{display:none}
 }
 
@@ -894,12 +884,10 @@ small{font-size:.78em;opacity:.85}
   .hand-card .hint{left:auto;right:58px;bottom:3px;font-size:9px}
   .hand-card .faction-tag{top:4px;right:4px;font-size:9px}
   .fb-inner{max-height:66vh;border-radius:14px 14px 0 0;padding:12px 13px 16px}
-  .quick-fb{font-size:11.5px;gap:6px;padding:0 8px}
-  .quick-fb.show{height:28px}
   /* 放错的说明文字在手机上也完整显示，这是本次要传达的关键信息 */
-  .quick-fb .qf-note{font-size:11px}
-  .quick-fb.bad b{font-size:12.5px}
-  .quick-fb button{padding:2px 6px;font-size:11px}
+  .timeline-hint .qf-note{font-size:11px}
+  .timeline-hint.hint-bad b{font-size:12.5px}
+  .timeline-hint .hint-detail{font-size:11px}
   /* 弹回的卡影跟随手机手牌的横条形状，不出现一张突兀的竖卡 */
   .flyback{width:180px;height:74px;flex-direction:row;align-items:center}
   .flyback .fstrip{width:3px;height:100%;flex:0 0 3px}
