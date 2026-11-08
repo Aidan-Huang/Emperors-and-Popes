@@ -88,7 +88,12 @@
     return !!c && c.kind !== 'person' && typeof c.y === 'number' && isFinite(c.y);
   }
 
-  /* 本局统计：N 按卡池，count 按时间线上已放对的卡；两层各自独立累加。
+  /* 本局统计：N 按卡池，count 按时间线上已放对的卡。
+     小段按自身阈值判定；大段不再按「本层已放数 ≥ 本层阈值」独立判定，
+     而是跟随「段内任意小段首次达标」：玩家第一次点亮该大段下任何小段时，
+     大段紧接着一起点亮；之后段内再有别的小段达标，大段状态保持不变。
+     这样就不会出现「小段亮了但大段没亮、后面某张牌又单独把大段点亮」。
+     N / count / th.big 仍按本层如实统计（供展示与验收读取），只是 on.big 改由小段派生。
      返回纯对象，不碰 DOM、不写存档，供渲染层与验收脚本共用。 */
   function stats(session) {
     var N = { big: {}, small: {} }, count = { big: {}, small: {} },
@@ -108,13 +113,14 @@
       if (s) { count.small[s.id]++; count.big[s.big]++; }
     });
 
-    ERAS_BIG.forEach(function (b) {
-      th.big[b.id] = threshold(N.big[b.id]);
-      on.big[b.id] = th.big[b.id] != null && count.big[b.id] >= th.big[b.id];
-    });
+    /* 顺序要紧：先算小段，大段才能由小段派生。 */
     ERAS_SMALL.forEach(function (s) {
       th.small[s.id] = threshold(N.small[s.id]);
       on.small[s.id] = th.small[s.id] != null && count.small[s.id] >= th.small[s.id];
+    });
+    ERAS_BIG.forEach(function (b) {
+      th.big[b.id] = threshold(N.big[b.id]);
+      on.big[b.id] = b.smalls.some(function (sid) { return on.small[sid]; });
     });
     return { N: N, count: count, th: th, on: on };
   }

@@ -123,7 +123,10 @@
       <div class="quick-fb" id="quick-fb" aria-live="polite"></div>
       <!-- 两级纪元带：手机竖屏 / 简单模式整条不显示（空间小、减信息量）。
            普通 + 困难 + 非竖屏时，某段首次达标会从新增卡牌上方淡入、位移到所属区间后才正式点亮；
-           点击已点亮的段可让该段卡牌浮起。上层大周期 / 中层世纪小段由 eras.js + app.js 渲染；
+           大段跟随段内首个达标小段一起触发，之后不再变化。
+           鼠标悬停 / 触屏点选已点亮的段，可让该段时间线卡牌按原生 hover 效果浮起。
+           动画不因系统「减少动态效果」而降级，保证 Windows / Mac 观感一致。
+           上层大周期 / 中层世纪小段由 eras.js + app.js 渲染；
            第三层 #era-life-band 是未来人物生命带的空容器，本轮预留、不用。 -->
       <div class="era-band" id="era-band">
         <div class="era-row era-row-big" id="era-big"></div>

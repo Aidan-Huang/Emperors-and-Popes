@@ -393,7 +393,9 @@ small{font-size:.78em;opacity:.85}
 .tl-card,.hand-card{
   transition:transform .2s ease,box-shadow .2s ease;
 }
-.tl-card:hover,.hand-card:hover{
+/* .era-hover 与原生 hover 同选择器组：纪元带悬停 / 点选触发的浮起，
+   用的就是完全相同的位移、投影与过渡，不加任何金边或光晕。 */
+.tl-card:hover,.hand-card:hover,.tl-card.era-hover{
   transform:translateY(-3px) scale(1.04);
   box-shadow:var(--card-shadow-hover);
   z-index:20;
@@ -408,11 +410,14 @@ small{font-size:.78em;opacity:.85}
   to{opacity:1;transform:none}
 }
 @keyframes land{from{transform:translateY(-8px) scale(.94);opacity:0}to{transform:none;opacity:1}}
-/* 系统开了「减少动态效果」（远程桌面 / 辅助功能常见）时：
+/* 系统开了「减少动态效果」（Windows 辅助功能 / 远程桌面常见）时：
    只取消发牌、落地、脉冲这些持续动画，hover 的「浮起来」是静态状态反馈，
-   必须原样保留，否则整个浮现效果会消失。过渡压到极短即可。 */
+   必须原样保留，否则整个浮现效果会消失。
+   只压手牌；时间线卡完全不覆盖，保持 shorthand 里的原生 .2s —— 纪元带触发的
+   浮起与收回必须和鼠标直接移到卡牌上完全同速，连 transitionDuration 的值都一致，
+   否则 Windows 与 Mac 看到的不是同一个效果。 */
 @media (prefers-reduced-motion:reduce){
-  .tl-card,.hand-card{transition-duration:.08s}
+  .hand-card{transition-duration:.08s}
   .hand-card,.tl-card.new,.slot.armed{animation:none}
   #hud-mistakes.hit{animation:none}
 }
@@ -991,12 +996,11 @@ small{font-size:.78em;opacity:.85}
 .era-seg.on{
   opacity:1;visibility:visible;border-top-color:var(--gold-dim);
   background:linear-gradient(180deg,rgba(255,204,0,.10),rgba(255,204,0,0));
-  /* 容器仍 pointer-events:none，只有已点亮的段放开：点击让这段卡牌浮起，
+  /* 容器仍 pointer-events:none，只有已点亮的段放开：悬停 / 点选让这段卡牌浮起，
      不抢时间线卡与插入位的点击（范围仅限带内这一行）。 */
   pointer-events:auto;cursor:pointer;
 }
 .era-seg.on:hover{background:linear-gradient(180deg,rgba(255,204,0,.20),rgba(255,204,0,.02))}
-.era-seg.era-hit{box-shadow:0 0 0 1px var(--gold) inset;border-radius:4px}
 /* 大段：等小段到位之后再「慢慢浮出」 */
 @keyframes eraEmerge{
   from{opacity:0;transform:translateY(-9px)}
@@ -1037,17 +1041,6 @@ small{font-size:.78em;opacity:.85}
 .era-fly .era-c{font-size:10.5px}
 .era-fly .era-war,.era-fly .era-inv{font-size:11px}
 
-/* 卡牌浮起：用独立 translate 属性，与 .new 的 land 动画、hover 的 transform
-   各自独立、可叠加，互不覆盖；同时给一圈金边点明「是这几张」。 */
-.tl-card.era-lift{
-  translate:0 -9px;z-index:14;
-  box-shadow:0 0 0 2px var(--gold),0 14px 30px rgba(255,204,0,.28);
-  transition:translate .3s cubic-bezier(.2,1.2,.3,1),box-shadow .3s ease;
-}
-.tl-card.era-lift.soft{
-  translate:0 -6px;
-  box-shadow:0 0 0 2px var(--gold-dim),0 10px 22px rgba(255,204,0,.18);
-}
 /* 上层：Ⅰ 罗马的余晖 · 前 27 – 500
    大段宽度 = 所含小段数（2/3/2/3），用自定义属性传入，不写内联 flex，
    这样竖屏媒体查询仍能把段收成 chips。 */
@@ -1076,12 +1069,11 @@ small{font-size:.78em;opacity:.85}
 @media (max-width:760px) and (orientation:portrait){
   .era-band{display:none}
 }
-@media (prefers-reduced-motion:reduce){
-  .era-seg{transition:none}
-  .era-fly{transition:none}
-  .era-big-seg.emerge{animation:none}
-  .tl-card.era-lift{transition:none}
-}
+/* ★ 这里刻意不写 @media (prefers-reduced-motion:reduce) 的纪元带降级。
+   Windows 常在「辅助功能 → 视觉效果」关掉系统动画，Chrome 随即报告 reduce；
+   一旦把 .era-seg / .era-fly / .era-big-seg.emerge 的 transition 与 animation
+   关掉，玩家就完全看不到「标签浮现 → 位移归位 → 大段浮出」，与 Mac 不一致。
+   纪元带是核心信息反馈，全平台统一播完整动画。 */
 
 /* 测试模式后台入口：仅在打开第五幕测试口子时由 JS 动态插入，
    正常玩家视图不存在这个节点，游戏逻辑也不读取它。 */

@@ -477,30 +477,42 @@
 
     syncSelection();
     renderEraBand();
+    eraApplyLift();   // 时间线卡可能被重建，把悬停 / 点选 / 链上浮起按 id 续回去
   }
 
-  /* ---------------- 两级纪元带（展示层 + 因果动画 + 点击浮起） ----------------
+  /* ---------------- 两级纪元带（展示层 + 因果动画 + 悬停/点选浮起） ----------------
      统计仍是 eras.js 的纯函数：cards.js / engine.js / 41 张事件卡一行都不动。
      · 显隐：手机竖屏、简单模式整条不显示（era-off），零占位零交互。
      · 放对牌让某段「首次达标」时，不立刻点亮，改播一条因果链：
          ① 小段标签在新增卡牌正上方慢慢淡入
-         ② 同时该段在时间线上的所有卡牌轻微浮起（示意「是这几张触发的」）
+         ② 同时该段在时间线上的所有卡牌轻轻浮起（示意「是这几张触发的」）
          ③ 标签位移到它所属的区间槽位
          ④ 到位后小段才正式淡入
          ⑤ 若同时开启了大段，等小段到位后大段再慢慢浮出
        全部是展示层动画：不锁输入、不弹窗、不写存档、不进反馈队列。
-     · 点击已点亮的小 / 大段：对应时间线卡牌浮起，不改任何游戏状态。 */
+       ★ 这条链不因系统「减少动态效果」而跳过：Windows 常在辅助功能里关掉
+         动画，若按 prefers-reduced-motion 降级，玩家就完全看不到浮现与位移。
+     · 大段由 eras.js 绑定「段内首个达标小段」派生，永不单独触发。
+     · 悬停 / 点选已点亮的段：对应时间线卡牌用与原生 hover 完全相同的一套
+       transform + 过渡浮起（不加金边、不加光晕）：
+         鼠标移入 → 浮起；不移开不收回；移开 → 按原过渡收回。
+         触屏点击 → 保持浮起，直到下一次点在别处才按原过渡收回。 */
   let eraStatsSnapshot = null;
   const eraHold = { small: [], big: [] };  // 正在播动画、暂不点亮的段
   const eraTimers = [];                    // 动画链定时器，切场景统一清
   let eraFly = null;                       // 当前「飞向区间」的临时标签
   let eraPending = null;                   // 最近一次链信息（只读调试 / 验收）
+  /* 浮起的三个来源存「卡牌 id」而不是 DOM：renderGame 可能重建时间线卡节点，
+     按 id 重新查 DOM 才能把状态续上。并集决定谁带 .era-hover。 */
+  let eraHoverIds = [];   // 鼠标悬停在段上（pointerType: mouse）
+  let eraTapIds = [];     // 触屏点选段（保持到下一次点别处）
+  let eraChainIds = [];   // 因果链 ② 的短时提示
+  let eraLastSeg = null;  // 最近一次命中的段信息（只读调试）
   const ERA_T = {
     fade: 460,      // 标签在卡牌上方淡入
     stay: 560,      // 停留，让玩家看清触发它的几张牌
     move: 600,      // 位移到所属区间
     softLift: 1000, // 触发时卡牌轻浮
-    tapLift: 1200,  // 点击段时卡牌浮起
     bigDelay: 200,  // 小段到位后再等多久大段浮出
     bigStep: 260    // 多个大段依次浮出的间隔
   };
@@ -520,15 +532,27 @@
   }
   function eraClearTimers() { while (eraTimers.length) clearTimeout(eraTimers.pop()); }
   function eraRemoveFly() { if (eraFly) { eraFly.remove(); eraFly = null; } }
-  function eraClearLift() {
-    $$('#timeline .tl-card.era-lift').forEach(el => el.classList.remove('era-lift', 'soft'));
+  /* 把三个来源的并集写成 .era-hover。这个类与 .tl-card:hover 共用同一条 CSS 规则，
+     所以浮起和收回用的 transform、投影、过渡时长与鼠标直接移到卡牌上完全一样。 */
+  function eraApplyLift() {
+    const want = {};
+    eraHoverIds.concat(eraTapIds, eraChainIds).forEach(id => { want[id] = 1; });
+    $$('#timeline .tl-card').forEach(el => {
+      el.classList.toggle('era-hover', !!want[el.dataset.id]);
+    });
   }
-  /* 收敛：把仍在 hold 的段按统计直接点亮。用于快速放下一张 / reduced-motion /
-     切视图，保证任何时刻画面自洽、不丢段、不叠加飞签。 */
+  function eraClearLift() {
+    eraHoverIds = []; eraTapIds = []; eraChainIds = [];
+    eraApplyLift();
+  }
+  /* 收敛：把仍在 hold 的段按统计直接点亮。用于快速放下一张 / 切视图，
+     保证任何时刻画面自洽、不丢段、不叠加飞签。只收敛因果链 ② 的短时浮起，
+     玩家此刻的悬停 / 点选状态保留，避免放牌时闪一下。 */
   function eraSettle() {
     eraClearTimers();
     eraRemoveFly();
-    eraClearLift();           // 定时器被清了，浮起 class 也必须一并撤，否则卡会一直浮着
+    eraChainIds = [];         // 定时器被清了，链上的短时浮起必须一并撤
+    eraApplyLift();
     const g = state.session, ER = window.ERAS;
     const st = (g && ER) ? ER.stats(g) : eraStatsSnapshot;
     eraHold.small.slice().forEach(id => {
@@ -580,16 +604,12 @@
     const b = window.ERAS.BIG_BY_ID[id];
     return b ? eraCardsForRange(b.from, b.to) : [];
   }
-  /* 卡牌浮起用独立 translate 属性：不与 .new 的 land 动画、hover 的 transform 打架。 */
-  function eraLiftCards(els, soft) {
-    els.forEach(el => {
-      el.classList.remove('era-lift', 'soft');
-      void el.offsetWidth;                 // 连点时重启动画
-      el.classList.add('era-lift');
-      if (soft) el.classList.add('soft');
-    });
-    eraTimer(() => els.forEach(el => el.classList.remove('era-lift', 'soft')),
-      soft ? ERA_T.softLift : ERA_T.tapLift);
+  /* 因果链 ②：让这一段在时间线上的卡牌轻轻浮起一小会儿。
+     视觉复用 .era-hover（与原生 hover 同一套 transform + 过渡），不加金边、不加光晕。 */
+  function eraChainLift(ids) {
+    eraChainIds = ids.slice();
+    eraApplyLift();
+    eraTimer(() => { eraChainIds = []; eraApplyLift(); }, ERA_T.softLift);
   }
 
   /* 放牌前调：算出这次会「首次达标」的段，收敛上一条链，把它们挂进 hold。
@@ -631,13 +651,27 @@
   /* 通用「飞签」：一段标签从新增卡牌正上方淡入 → 位移到所属区间槽位 →
      到位后撤签并回调（由回调正式点亮该段）。
      大段 / 小段共用同一套时序，保证「输入 → 效果」每一拍都看得见。 */
+  /* 新增卡牌此刻可能在播 land 动画、或带着 .era-hover 浮起，
+     getBoundingClientRect() 会被 transform 带偏且每帧都变。临时关掉动画与
+     变换量一次「布局矩形」，量完立刻还原（同一个 JS 任务内，不会绘制中间态）。 */
+  function eraStableRect(el) {
+    const s = el.style;
+    const save = { animation: s.animation, transform: s.transform,
+                   translate: s.translate, scale: s.scale };
+    s.animation = 'none'; s.transform = 'none'; s.translate = 'none'; s.scale = 'none';
+    const r = el.getBoundingClientRect();
+    s.animation = save.animation; s.transform = save.transform;
+    s.translate = save.translate; s.scale = save.scale;
+    return r;
+  }
+
   function eraLaunchFly(cardEl, seg, html, onArrive) {
     const fly = document.createElement('div');
     fly.className = 'era-fly';
     fly.innerHTML = html;
     document.body.appendChild(fly);
     eraFly = fly;
-    const cr = cardEl.getBoundingClientRect();
+    const cr = eraStableRect(cardEl);
     fly.style.left = (cr.left + cr.width / 2 - fly.offsetWidth / 2) + 'px';
     // 贴紧卡牌上沿（留 8px 放指向箭头），避免与带内已亮的小段、坐标轴文字挤在一起
     fly.style.top = (cr.top - fly.offsetHeight - 8) + 'px';
@@ -672,17 +706,17 @@
     eraPending = pending;
     const ER = window.ERAS;
 
-    // ② 触发段的所有时间线卡牌轻微浮起，让玩家知道「是这几张触发了这个时间段」。
-    //    大段单独达标时，浮起的就是这个大段下的全部卡牌。
-    if (pending.small.length) {
-      pending.small.forEach(id => eraLiftCards(eraCardsForSmall(id), true));
-    } else {
-      pending.big.forEach(id => eraLiftCards(eraCardsForBig(id), true));
-    }
+    // ② 触发段的所有时间线卡牌轻轻浮起，让玩家知道「是这几张触发了这个时间段」。
+    //    大段永远跟随段内首个达标小段，所以主路径按小段取卡；大段分支只作兜底。
+    const ids = (pending.small.length ? pending.small : pending.big)
+      .reduce((a, id) => a.concat(
+        (pending.small.length ? eraCardsForSmall(id) : eraCardsForBig(id)).map(el => el.dataset.id)), []);
+    eraChainLift(ids);
 
-    // 系统要求减少动效：不播动画，直接把段按统计点亮
-    if (reducedMotion()) { eraSettle(); return; }
-
+    // ★ 不检查 prefers-reduced-motion：Windows 常在「辅助功能 → 视觉效果」里关掉
+    //   系统动画，Chrome 随即报告 reduce；若在这里降级，浮现 / 位移会整个消失，
+    //   Mac 与 Windows 看到的就是两个游戏。纪元带是「这次输入产生了什么」的
+    //   核心信息反馈，全平台一律播完整动画。
     const cardEl = $$('#timeline .tl-card').find(el => el.dataset.id === card.id);
     if (!cardEl) { eraSettle(); return; }
 
@@ -701,8 +735,8 @@
       return;
     }
 
-    // 情形 B：只有大段首次达标（小段此前已亮）。同样给一条完整因果链，
-    // 否则玩家看不出「是这次输入开启了这个大时间段」。
+    // 情形 B 兜底：大段现在只由「段内首个达标小段」派生，正常情况下不会
+    // 单独达标；保留这条分支，万一将来段定义调整也不会让流程卡住。
     if (bigSeg) {
       eraLaunchFly(cardEl, bigSeg, eraBigLabel(ER.BIG_BY_ID[bigId]), eraReleaseBig);
       return;
@@ -712,24 +746,70 @@
     eraSettle();
   }
 
-  /* 需求 4：点击已点亮的小 / 大段 → 对应时间线卡牌浮起。
-     容器仍 pointer-events:none，只有 .era-seg.on 放开，不抢卡牌与插入位的点击。 */
-  function eraBindClicks() {
+  /* 悬停 / 点选已点亮的段 → 对应时间线卡牌浮起。
+     用 PointerEvent.pointerType 区分输入，不依赖 hover 媒体查询（无头浏览器、
+     二合一设备常误判）：
+       · 鼠标 'mouse'：pointerover 浮起、pointerout 收回；不移开就一直浮着，
+         点段不额外锁定，移开按原生 hover 的同一段过渡收回。
+       · 触屏 'touch' / 'pen' / 合成 click 的 ''：点段后保持浮起，直到下一次
+         点在段外才收回，与「点手牌选中、再点别处取消」的手感一致。
+     容器仍 pointer-events:none，只有 .era-seg.on 可交互，不抢卡牌与插入位点击。 */
+  function eraBindInteractions() {
     const band = $('#era-band');
-    if (!band || band.dataset.clickBound) return;
-    band.dataset.clickBound = '1';
+    if (!band || band.dataset.eraBound) return;
+    band.dataset.eraBound = '1';
+
+    const segOf = n => (n && n.closest) ? n.closest('.era-seg.on') : null;
+    const idsOf = seg => {
+      const id = seg.dataset.era;
+      return (seg.classList.contains('era-big-seg') ? eraCardsForBig(id) : eraCardsForSmall(id))
+        .map(el => el.dataset.id);
+    };
+    const tagSeg = seg => seg ? (seg.dataset.era + '/' +
+      (seg.classList.contains('era-big-seg') ? 'big' : 'small')) : null;
+    const setHover = seg => {
+      if (!eraEnabled()) return;
+      eraLastSeg = tagSeg(seg);
+      eraHoverIds = seg ? idsOf(seg) : [];
+      eraApplyLift();
+    };
+
+    /* 取「玩家眼里鼠标正压着的那个段」。优先用事件目标：两层带纵向相邻，
+       段刚点亮、opacity 过渡没走完时 elementFromPoint 的命中测试会短暂偏到
+       上一层大段，所以坐标命中只作兜底（例如鼠标落在段内空隙 / 行间）。 */
+    const segAt = e => {
+      const direct = segOf(e.target);
+      if (direct) return direct;
+      return segOf(document.elementFromPoint(e.clientX, e.clientY));
+    };
+    band.addEventListener('pointerover', e => {
+      if (e.pointerType !== 'mouse') return;
+      const seg = segAt(e);
+      setHover(seg);            // 落点不在已点亮段（含移到行间空隙）就收回
+    });
+    band.addEventListener('pointerleave', e => {
+      if (e.pointerType !== 'mouse') return;
+      setHover(null);
+    });
     band.addEventListener('click', e => {
       if (!eraEnabled()) return;
-      const seg = e.target.closest && e.target.closest('.era-seg.on');
+      const seg = segOf(e.target);
       if (!seg) return;
       e.stopPropagation();
-      const id = seg.dataset.era;
-      const isBig = seg.classList.contains('era-big-seg');
-      const els = isBig ? eraCardsForBig(id) : eraCardsForSmall(id);
-      eraLiftCards(els, false);
-      seg.classList.add('era-hit');
-      eraTimer(() => seg.classList.remove('era-hit'), 700);
+      // 鼠标点击交给悬停管理（移开即收回）；触屏 / 合成点击才进入「保持」状态
+      if (e.pointerType === 'mouse') return;
+      eraLastSeg = tagSeg(seg);
+      eraTapIds = idsOf(seg);
+      eraApplyLift();
     });
+    // 点在段外（手牌、插入位、别的界面）即收回触屏浮起；
+    // 用捕获阶段，保证在手牌自己的选中逻辑之前先清干净。
+    document.addEventListener('pointerdown', e => {
+      if (!eraTapIds.length && !eraHoverIds.length) return;
+      if (segOf(e.target)) return;
+      eraTapIds = []; eraHoverIds = [];
+      eraApplyLift();
+    }, true);
   }
 
   function renderEraBand() {
@@ -1705,7 +1785,7 @@
 
   applyZoom(false);   // 启动时套用本机缩放参数（不重复写入存档）
   go('home');
-  eraBindClicks();    // 纪元带点击委托（只绑一次）
+  eraBindInteractions();   // 纪元带悬停 / 点选委托（只绑一次）
   // 旋转 / 改窗口：横竖屏切换会改变 eraEnabled()，跟着重算显隐。
   // 飞签用的是旧视口坐标，尺寸一变就作废 —— 收敛掉，按统计直接点亮，不残留错位标签。
   let eraLastOn = eraEnabled();
@@ -1751,11 +1831,16 @@
           } : null,
           hold: { small: eraHold.small.slice(), big: eraHold.big.slice() },
           pending: eraPending ? { small: eraPending.small.slice(), big: eraPending.big.slice() } : null,
-          lifted: $$('#timeline .tl-card.era-lift').map(el => el.dataset.id),
+          lifted: $$('#timeline .tl-card.era-hover').map(el => el.dataset.id),
           timers: eraTimers.length,
           emerge: $$('#era-big .era-seg.emerge').map(el => el.dataset.era)
         };
       },
+      /* 浮起三个来源，供验收区分「悬停保持」与「触屏点选保持」 */
+      hover: () => ({
+        hover: eraHoverIds.slice(), tap: eraTapIds.slice(), chain: eraChainIds.slice(),
+        last: eraLastSeg
+      }),
       cardsForSmall: id => eraCardsForSmall(id).map(el => el.dataset.id),
       cardsForBig: id => eraCardsForBig(id).map(el => el.dataset.id),
       dom: () => ({
