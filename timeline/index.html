@@ -121,10 +121,11 @@
       <div class="timeline-hint" id="timeline-hint">点一张手牌，再点亮起的插入位</div>
       <!-- 普通/困难：不打断节奏的轻量判定提示（提示文字下方就地展开，不遮挡画面，可点「详情」看完整讲解） -->
       <div class="quick-fb" id="quick-fb" aria-live="polite"></div>
-      <!-- 两级纪元带：常驻的空标题带，某段「已放对」达到阈值后该段才淡入，玩家零操作。
-           上层大周期 / 中层世纪小段由 eras.js + app.js 渲染；
+      <!-- 两级纪元带：手机竖屏 / 简单模式整条不显示（空间小、减信息量）。
+           普通 + 困难 + 非竖屏时，某段首次达标会从新增卡牌上方淡入、位移到所属区间后才正式点亮；
+           点击已点亮的段可让该段卡牌浮起。上层大周期 / 中层世纪小段由 eras.js + app.js 渲染；
            第三层 #era-life-band 是未来人物生命带的空容器，本轮预留、不用。 -->
-      <div class="era-band" id="era-band" aria-hidden="true">
+      <div class="era-band" id="era-band">
         <div class="era-row era-row-big" id="era-big"></div>
         <div class="era-row era-row-small" id="era-small"></div>
         <div class="era-life" id="era-life-band"></div>

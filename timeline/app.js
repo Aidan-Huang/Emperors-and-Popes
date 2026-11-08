@@ -158,7 +158,10 @@
 
   function go(v) {
     stopAudio();
-    if (v !== 'game') hideWinBar();   // 离开对局页就撤掉待确认条
+    if (v !== 'game') {
+      hideWinBar();   // 离开对局页就撤掉待确认条
+      eraReset();     // 飞签挂在 body 上，离开对局必须撤掉，否则会飘到别的页面
+    }
     state.view = v;
     $$('.view').forEach(el => el.classList.remove('active'));
     const el = $('#view-' + v);
@@ -367,6 +370,7 @@
     state.sessionSeq++;
     state.locked = false;
     state.lastRes = null;
+    eraReset();                    // 新开一局：撤掉上一局可能残留的飞签 / 定时器 / 浮起
     hideWinBar();                  // 新开一局，撤掉上一局可能残留的待确认条
     clearTimeout(state.quickTimer);
     clearTimeout(state.pendingFinish);
@@ -475,11 +479,77 @@
     renderEraBand();
   }
 
-  /* ---------------- 两级纪元带（纯展示层） ----------------
-     只在 renderGame() 末尾跑一次：读本局卡池与时间线，算出各段 N / 已放 / 阈值，
-     给达标段加 .on，其余保持完全隐形。不注册任何点击、不写存档、不进反馈队列。
-     cards.js / engine.js / 41 张事件卡一行都不动；人物卡只留空容器，将来接展示层。 */
+  /* ---------------- 两级纪元带（展示层 + 因果动画 + 点击浮起） ----------------
+     统计仍是 eras.js 的纯函数：cards.js / engine.js / 41 张事件卡一行都不动。
+     · 显隐：手机竖屏、简单模式整条不显示（era-off），零占位零交互。
+     · 放对牌让某段「首次达标」时，不立刻点亮，改播一条因果链：
+         ① 小段标签在新增卡牌正上方慢慢淡入
+         ② 同时该段在时间线上的所有卡牌轻微浮起（示意「是这几张触发的」）
+         ③ 标签位移到它所属的区间槽位
+         ④ 到位后小段才正式淡入
+         ⑤ 若同时开启了大段，等小段到位后大段再慢慢浮出
+       全部是展示层动画：不锁输入、不弹窗、不写存档、不进反馈队列。
+     · 点击已点亮的小 / 大段：对应时间线卡牌浮起，不改任何游戏状态。 */
   let eraStatsSnapshot = null;
+  const eraHold = { small: [], big: [] };  // 正在播动画、暂不点亮的段
+  const eraTimers = [];                    // 动画链定时器，切场景统一清
+  let eraFly = null;                       // 当前「飞向区间」的临时标签
+  let eraPending = null;                   // 最近一次链信息（只读调试 / 验收）
+  const ERA_T = {
+    fade: 460,      // 标签在卡牌上方淡入
+    stay: 560,      // 停留，让玩家看清触发它的几张牌
+    move: 600,      // 位移到所属区间
+    softLift: 1000, // 触发时卡牌轻浮
+    tapLift: 1200,  // 点击段时卡牌浮起
+    bigDelay: 200,  // 小段到位后再等多久大段浮出
+    bigStep: 260    // 多个大段依次浮出的间隔
+  };
+
+  /* 竖屏空间太小、横竖对不上；简单模式要减信息量 —— 两种都整条不显示。 */
+  function eraEnabled() {
+    const g = state.session;
+    return !!g && g.difficulty !== 'easy' && !portraitLayout();
+  }
+  function eraTimer(fn, ms) {
+    const t = setTimeout(() => {
+      const i = eraTimers.indexOf(t); if (i >= 0) eraTimers.splice(i, 1);
+      fn();
+    }, ms);
+    eraTimers.push(t);
+    return t;
+  }
+  function eraClearTimers() { while (eraTimers.length) clearTimeout(eraTimers.pop()); }
+  function eraRemoveFly() { if (eraFly) { eraFly.remove(); eraFly = null; } }
+  function eraClearLift() {
+    $$('#timeline .tl-card.era-lift').forEach(el => el.classList.remove('era-lift', 'soft'));
+  }
+  /* 收敛：把仍在 hold 的段按统计直接点亮。用于快速放下一张 / reduced-motion /
+     切视图，保证任何时刻画面自洽、不丢段、不叠加飞签。 */
+  function eraSettle() {
+    eraClearTimers();
+    eraRemoveFly();
+    eraClearLift();           // 定时器被清了，浮起 class 也必须一并撤，否则卡会一直浮着
+    const g = state.session, ER = window.ERAS;
+    const st = (g && ER) ? ER.stats(g) : eraStatsSnapshot;
+    eraHold.small.slice().forEach(id => {
+      const el = $('#era-small .era-seg[data-era="' + id + '"]');
+      if (el && st && st.on.small[id]) el.classList.add('on');
+    });
+    eraHold.big.slice().forEach(id => {
+      const el = $('#era-big .era-seg[data-era="' + id + '"]');
+      if (el && st && st.on.big[id]) el.classList.add('on');
+    });
+    eraHold.small.length = 0; eraHold.big.length = 0;
+    eraPending = null;
+  }
+  /* 完全重置（隐藏 / 重开局 / 离开对局）：不留任何动画残留。 */
+  function eraReset() {
+    eraClearTimers();
+    eraRemoveFly();
+    eraClearLift();
+    eraHold.small.length = 0; eraHold.big.length = 0;
+    eraPending = null;
+  }
 
   function eraSmallLabel(s) {
     let inv = '';
@@ -492,14 +562,196 @@
       '<span class="era-nm">' + esc(s.name) + '</span>';
   }
 
+  /* 时间线上「已放对、且落在该年份区间」的卡牌 DOM（手牌不参与：年代未知，浮起会泄题）。 */
+  function eraCardsForRange(from, to) {
+    const g = state.session;
+    if (!g) return [];
+    const ids = {};
+    g.timeline.forEach(c => {
+      if (window.ERAS.isEvent(c) && c.y >= from && c.y < to) ids[c.id] = 1;
+    });
+    return $$('#timeline .tl-card').filter(el => ids[el.dataset.id]);
+  }
+  function eraCardsForSmall(id) {
+    const s = window.ERAS.SMALL_BY_ID[id];
+    return s ? eraCardsForRange(s.from, s.to) : [];
+  }
+  function eraCardsForBig(id) {
+    const b = window.ERAS.BIG_BY_ID[id];
+    return b ? eraCardsForRange(b.from, b.to) : [];
+  }
+  /* 卡牌浮起用独立 translate 属性：不与 .new 的 land 动画、hover 的 transform 打架。 */
+  function eraLiftCards(els, soft) {
+    els.forEach(el => {
+      el.classList.remove('era-lift', 'soft');
+      void el.offsetWidth;                 // 连点时重启动画
+      el.classList.add('era-lift');
+      if (soft) el.classList.add('soft');
+    });
+    eraTimer(() => els.forEach(el => el.classList.remove('era-lift', 'soft')),
+      soft ? ERA_T.softLift : ERA_T.tapLift);
+  }
+
+  /* 放牌前调：算出这次会「首次达标」的段，收敛上一条链，把它们挂进 hold。
+     一张牌只属于一个小段 / 一个大段，所以一次最多 1 小 + 1 大。 */
+  function eraBegin(prevOn) {
+    eraSettle();
+    const g = state.session, ER = window.ERAS;
+    if (!g || !ER || !prevOn) return null;
+    const st = ER.stats(g);
+    const small = ER.SMALL.filter(s => st.on.small[s.id] && !prevOn.small[s.id]).map(s => s.id);
+    const big = ER.BIG.filter(b => st.on.big[b.id] && !prevOn.big[b.id]).map(b => b.id);
+    if (!small.length && !big.length) return null;
+    small.forEach(id => eraHold.small.push(id));
+    big.forEach(id => eraHold.big.push(id));
+    return { small: small, big: big };
+  }
+
+  function eraReleaseSmall() {
+    eraHold.small.slice().forEach(id => {
+      const el = $('#era-small .era-seg[data-era="' + id + '"]');
+      if (el) el.classList.add('on');
+      const i = eraHold.small.indexOf(id); if (i >= 0) eraHold.small.splice(i, 1);
+    });
+  }
+  function eraReleaseBig() {
+    eraHold.big.slice().forEach((id, n) => {
+      eraTimer(() => {
+        const el = $('#era-big .era-seg[data-era="' + id + '"]');
+        if (el) {
+          el.classList.add('on', 'emerge');
+          // 浮出动画播完就撤掉标记，只留 .on，避免动画类永久残留
+          eraTimer(() => el.classList.remove('emerge'), 850);
+        }
+        const i = eraHold.big.indexOf(id); if (i >= 0) eraHold.big.splice(i, 1);
+      }, n * ERA_T.bigStep);
+    });
+  }
+
+  /* 通用「飞签」：一段标签从新增卡牌正上方淡入 → 位移到所属区间槽位 →
+     到位后撤签并回调（由回调正式点亮该段）。
+     大段 / 小段共用同一套时序，保证「输入 → 效果」每一拍都看得见。 */
+  function eraLaunchFly(cardEl, seg, html, onArrive) {
+    const fly = document.createElement('div');
+    fly.className = 'era-fly';
+    fly.innerHTML = html;
+    document.body.appendChild(fly);
+    eraFly = fly;
+    const cr = cardEl.getBoundingClientRect();
+    fly.style.left = (cr.left + cr.width / 2 - fly.offsetWidth / 2) + 'px';
+    // 贴紧卡牌上沿（留 8px 放指向箭头），避免与带内已亮的小段、坐标轴文字挤在一起
+    fly.style.top = (cr.top - fly.offsetHeight - 8) + 'px';
+    void fly.offsetWidth;               // 先固定起点，再触发 transition
+    fly.classList.add('show');          // ① 慢慢淡入
+    // .show 会改 transform/padding 渲染，重新量一次并把底边精确钉在卡牌上方 8px，
+    // 避免飞签比卡牌还低、盖住卡面（land 动画期间卡牌本身也在位移）。
+    fly.style.top = (cr.top - fly.offsetHeight - 8) + 'px';
+
+    // ③ 位移到「它所属的那个区间」
+    eraTimer(() => {
+      const sr = seg.getBoundingClientRect();
+      fly.style.left = sr.left + 'px';
+      fly.style.top = sr.top + 'px';
+      fly.style.width = sr.width + 'px';
+      fly.style.height = sr.height + 'px';
+      fly.classList.add('to');
+    }, ERA_T.fade + ERA_T.stay);
+
+    // ④ 到位：撤签、正式点亮
+    eraTimer(() => { eraRemoveFly(); onArrive(); }, ERA_T.fade + ERA_T.stay + ERA_T.move);
+  }
+  function eraBigLabel(b) {
+    return '<span class="era-line1"><span class="era-nm">' + esc(b.no + ' ' + b.name) + '</span></span>' +
+      '<span class="era-yr">' + esc(b.label) + '</span>';
+  }
+
+  /* renderGame() 之后调：从新卡牌 DOM 起飞，播完整因果链。
+     一次放牌最多 1 小段 + 1 大段首次达标；两者都在时严格「小段先、大段后」。 */
+  function eraReveal(card, pending) {
+    if (!pending) return;
+    eraPending = pending;
+    const ER = window.ERAS;
+
+    // ② 触发段的所有时间线卡牌轻微浮起，让玩家知道「是这几张触发了这个时间段」。
+    //    大段单独达标时，浮起的就是这个大段下的全部卡牌。
+    if (pending.small.length) {
+      pending.small.forEach(id => eraLiftCards(eraCardsForSmall(id), true));
+    } else {
+      pending.big.forEach(id => eraLiftCards(eraCardsForBig(id), true));
+    }
+
+    // 系统要求减少动效：不播动画，直接把段按统计点亮
+    if (reducedMotion()) { eraSettle(); return; }
+
+    const cardEl = $$('#timeline .tl-card').find(el => el.dataset.id === card.id);
+    if (!cardEl) { eraSettle(); return; }
+
+    const smallId = pending.small[0];
+    const smallSeg = smallId ? $('#era-small .era-seg[data-era="' + smallId + '"]') : null;
+    const bigId = pending.big[0];
+    const bigSeg = bigId ? $('#era-big .era-seg[data-era="' + bigId + '"]') : null;
+
+    // 情形 A：小段首次达标（可能同时开启大段）。
+    // 小段飞签到位 → 正式点亮 → 大段再慢慢浮出（严格等小段到位之后）。
+    if (smallSeg) {
+      eraLaunchFly(cardEl, smallSeg, eraSmallLabel(ER.SMALL_BY_ID[smallId]), () => {
+        eraReleaseSmall();
+        if (pending.big.length) eraTimer(eraReleaseBig, ERA_T.bigDelay);   // ⑤
+      });
+      return;
+    }
+
+    // 情形 B：只有大段首次达标（小段此前已亮）。同样给一条完整因果链，
+    // 否则玩家看不出「是这次输入开启了这个大时间段」。
+    if (bigSeg) {
+      eraLaunchFly(cardEl, bigSeg, eraBigLabel(ER.BIG_BY_ID[bigId]), eraReleaseBig);
+      return;
+    }
+
+    // 兜底：目标段 DOM 不在（异常布局），直接按统计点亮，不卡住流程
+    eraSettle();
+  }
+
+  /* 需求 4：点击已点亮的小 / 大段 → 对应时间线卡牌浮起。
+     容器仍 pointer-events:none，只有 .era-seg.on 放开，不抢卡牌与插入位的点击。 */
+  function eraBindClicks() {
+    const band = $('#era-band');
+    if (!band || band.dataset.clickBound) return;
+    band.dataset.clickBound = '1';
+    band.addEventListener('click', e => {
+      if (!eraEnabled()) return;
+      const seg = e.target.closest && e.target.closest('.era-seg.on');
+      if (!seg) return;
+      e.stopPropagation();
+      const id = seg.dataset.era;
+      const isBig = seg.classList.contains('era-big-seg');
+      const els = isBig ? eraCardsForBig(id) : eraCardsForSmall(id);
+      eraLiftCards(els, false);
+      seg.classList.add('era-hit');
+      eraTimer(() => seg.classList.remove('era-hit'), 700);
+    });
+  }
+
   function renderEraBand() {
     const band = $('#era-band');
     const ER = window.ERAS;
     if (!band || !ER) return;
     const g = state.session;
-    if (!g) {
+    const enabled = eraEnabled();
+    band.classList.toggle('era-off', !enabled);
+
+    if (!enabled) {
+      // 竖屏 / 简单模式：整条不显示，不播动画，统计仍算但 DOM 一律不点亮
+      eraReset();
       band.dataset.sig = '';
-      $$('#era-band .era-seg').forEach(el => el.classList.remove('on'));
+      $$('#era-band .era-seg').forEach(el => el.classList.remove('on', 'emerge'));
+      eraStatsSnapshot = g ? ER.stats(g) : null;
+      return;
+    }
+    if (!g) {
+      eraReset();
+      band.dataset.sig = '';
+      $$('#era-band .era-seg').forEach(el => el.classList.remove('on', 'emerge'));
       eraStatsSnapshot = null;
       return;
     }
@@ -517,9 +769,25 @@
         '</div>').join('');
       $('#era-small').innerHTML = ER.SMALL.map(s =>
         '<div class="era-seg era-small-seg" data-era="' + s.id + '">' + eraSmallLabel(s) + '</div>').join('');
+      // 重建会丢掉动画中的 .on：把此前已稳定点亮的段补回来
+      const lit = st.on;
+      $$('#era-big .era-seg').forEach(el => {
+        if (eraHold.big.indexOf(el.dataset.era) < 0) el.classList.toggle('on', !!lit.big[el.dataset.era]);
+      });
+      $$('#era-small .era-seg').forEach(el => {
+        if (eraHold.small.indexOf(el.dataset.era) < 0) el.classList.toggle('on', !!lit.small[el.dataset.era]);
+      });
+      return;
     }
-    $$('#era-big .era-seg').forEach(el => el.classList.toggle('on', !!st.on.big[el.dataset.era]));
-    $$('#era-small .era-seg').forEach(el => el.classList.toggle('on', !!st.on.small[el.dataset.era]));
+    // hold 中的段正在播动画，本轮不要提前点亮
+    $$('#era-big .era-seg').forEach(el => {
+      if (eraHold.big.indexOf(el.dataset.era) >= 0) return;
+      el.classList.toggle('on', !!st.on.big[el.dataset.era]);
+    });
+    $$('#era-small .era-seg').forEach(el => {
+      if (eraHold.small.indexOf(el.dataset.era) >= 0) return;
+      el.classList.toggle('on', !!st.on.small[el.dataset.era]);
+    });
   }
 
   /* 桌面端卡片超过一屏时，给时间线加左右翻页按钮和滚动提示。
@@ -591,6 +859,10 @@
     const g = state.session;
     if (!g || state.locked) return;
     if (!state.selectedId) { toast('先点一张手牌'); return; }
+    // 放牌前先记一份「已达标的段」，用来判断这次放对是否让某段首次达标。
+    // 简单模式 / 竖屏不显示纪元带，eraEnabled() 为假，直接不取、也不播动画。
+    const eraPrev = (eraEnabled() && window.ERAS)
+      ? window.ERAS.stats(g).on : null;
     const res = g.place(idx);
     if (!res) return;
     state.selectedId = null;
@@ -599,7 +871,10 @@
     if (quietMode()) {
       // 普通 / 困难：不弹窗、不锁输入，玩家可立刻选下一张
       recordOutcome(res);
+      // 只有「放对」才可能让统计变化（放错不改时间线），据此挂起待播的段
+      const eraJob = (res.ok && eraPrev) ? eraBegin(eraPrev) : null;
       renderGame();
+      if (eraJob) eraReveal(res.card, eraJob);
       quietFeedback(res);
       scheduleFinish(g);
     } else {
@@ -1430,6 +1705,15 @@
 
   applyZoom(false);   // 启动时套用本机缩放参数（不重复写入存档）
   go('home');
+  eraBindClicks();    // 纪元带点击委托（只绑一次）
+  // 旋转 / 改窗口：横竖屏切换会改变 eraEnabled()，跟着重算显隐。
+  // 飞签用的是旧视口坐标，尺寸一变就作废 —— 收敛掉，按统计直接点亮，不残留错位标签。
+  let eraLastOn = eraEnabled();
+  window.addEventListener('resize', () => {
+    const on = eraEnabled();
+    if (on !== eraLastOn) { eraLastOn = on; eraSettle(); }
+    if (state.view === 'game') renderEraBand();
+  });
   window.__TL = {
     state: state, S: S, go: go, ALL_CARDS: ALL_CARDS, Engine: Engine,
     zoom: {
@@ -1445,14 +1729,40 @@
       },
       compact: compactLandscape, portrait: portraitLayout
     },
-    /* 纪元带只读调试接口：段定义 / 阈值规则 / 本局实时统计 / 已亮段。
-       纯读，不写 localStorage，不提供任何改变游戏状态的入口。 */
+    /* 纪元带调试接口：段定义 / 阈值规则 / 本局实时统计 / 已亮段 / 动画态。
+       除了 settle()（供验收立即收敛动画）外全是纯读，不写 localStorage，
+       不提供任何改变游戏状态的入口。 */
     era: {
       rules: window.ERAS,
       state: () => eraStatsSnapshot,
+      enabled: () => eraEnabled(),
+      reduced: () => reducedMotion(),
+      timings: ERA_T,
+      settle: () => eraSettle(),
+      /* 当前动画链状态：飞签几何 / hold 段 / 已浮起卡牌 / 定时器数 */
+      anim: () => {
+        const fly = eraFly;
+        const r = fly ? fly.getBoundingClientRect() : null;
+        return {
+          fly: fly ? {
+            show: fly.classList.contains('show'), to: fly.classList.contains('to'),
+            text: fly.textContent, left: Math.round(r.left), top: Math.round(r.top),
+            w: Math.round(r.width), h: Math.round(r.height)
+          } : null,
+          hold: { small: eraHold.small.slice(), big: eraHold.big.slice() },
+          pending: eraPending ? { small: eraPending.small.slice(), big: eraPending.big.slice() } : null,
+          lifted: $$('#timeline .tl-card.era-lift').map(el => el.dataset.id),
+          timers: eraTimers.length,
+          emerge: $$('#era-big .era-seg.emerge').map(el => el.dataset.era)
+        };
+      },
+      cardsForSmall: id => eraCardsForSmall(id).map(el => el.dataset.id),
+      cardsForBig: id => eraCardsForBig(id).map(el => el.dataset.id),
       dom: () => ({
         big: $$('#era-big .era-seg.on').map(el => el.dataset.era),
         small: $$('#era-small .era-seg.on').map(el => el.dataset.era),
+        off: $('#era-band').classList.contains('era-off'),
+        visible: getComputedStyle($('#era-band')).display !== 'none',
         lifeEmpty: ($('#era-life-band') || { childElementCount: 0 }).childElementCount === 0,
         height: ($('#era-band') || { getBoundingClientRect: () => ({ height: 0 }) })
           .getBoundingClientRect().height

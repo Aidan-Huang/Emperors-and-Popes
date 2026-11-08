@@ -991,6 +991,62 @@ small{font-size:.78em;opacity:.85}
 .era-seg.on{
   opacity:1;visibility:visible;border-top-color:var(--gold-dim);
   background:linear-gradient(180deg,rgba(255,204,0,.10),rgba(255,204,0,0));
+  /* 容器仍 pointer-events:none，只有已点亮的段放开：点击让这段卡牌浮起，
+     不抢时间线卡与插入位的点击（范围仅限带内这一行）。 */
+  pointer-events:auto;cursor:pointer;
+}
+.era-seg.on:hover{background:linear-gradient(180deg,rgba(255,204,0,.20),rgba(255,204,0,.02))}
+.era-seg.era-hit{box-shadow:0 0 0 1px var(--gold) inset;border-radius:4px}
+/* 大段：等小段到位之后再「慢慢浮出」 */
+@keyframes eraEmerge{
+  from{opacity:0;transform:translateY(-9px)}
+  to{opacity:1;transform:none}
+}
+.era-big-seg.emerge{animation:eraEmerge .8s cubic-bezier(.2,.9,.3,1) both}
+/* 整条不显示：手机竖屏 / 简单模式 */
+.era-band.era-off{display:none}
+
+/* 因果链的「飞签」：从新增卡牌正上方淡入，再位移到所属区间。
+   挂在 body 上用 fixed 视口坐标，避开 --tl-zoom 缩放与 #era-band 的 overflow:hidden。 */
+.era-fly{
+  position:fixed;z-index:65;pointer-events:none;overflow:visible;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  padding:3px 11px;min-width:88px;white-space:nowrap;line-height:1.15;
+  border:1px solid var(--gold);border-radius:9px;
+  background:linear-gradient(180deg,rgba(255,204,0,.20),rgba(26,32,54,.96));
+  box-shadow:0 10px 30px rgba(0,0,0,.5),0 0 0 3px rgba(255,204,0,.12);
+  opacity:0;transform:translateY(9px) scale(1.04);
+  transition:opacity .46s ease,transform .46s ease,
+             left .6s cubic-bezier(.4,0,.2,1),top .6s cubic-bezier(.4,0,.2,1),
+             width .6s cubic-bezier(.4,0,.2,1),height .6s cubic-bezier(.4,0,.2,1);
+}
+/* 指向下方卡牌的小箭头：点明「这一段是由这张卡触发的」 */
+.era-fly::after{
+  content:'';position:absolute;left:50%;bottom:-6px;
+  width:9px;height:9px;margin-left:-5px;
+  background:rgba(26,32,54,.96);
+  border-right:1px solid var(--gold);border-bottom:1px solid var(--gold);
+  transform:rotate(45deg);transition:opacity .3s ease;
+}
+.era-fly.show{opacity:1;transform:none}
+.era-fly.to{
+  opacity:.18;transform:scale(.88);overflow:hidden;   /* 收进槽位时不溢出文字 */
+}
+.era-fly.to::after{opacity:0}   /* 位移时收起指向箭头 */
+.era-fly .era-nm{font-size:12px;color:var(--gold)}
+.era-fly .era-c{font-size:10.5px}
+.era-fly .era-war,.era-fly .era-inv{font-size:11px}
+
+/* 卡牌浮起：用独立 translate 属性，与 .new 的 land 动画、hover 的 transform
+   各自独立、可叠加，互不覆盖；同时给一圈金边点明「是这几张」。 */
+.tl-card.era-lift{
+  translate:0 -9px;z-index:14;
+  box-shadow:0 0 0 2px var(--gold),0 14px 30px rgba(255,204,0,.28);
+  transition:translate .3s cubic-bezier(.2,1.2,.3,1),box-shadow .3s ease;
+}
+.tl-card.era-lift.soft{
+  translate:0 -6px;
+  box-shadow:0 0 0 2px var(--gold-dim),0 10px 22px rgba(255,204,0,.18);
 }
 /* 上层：Ⅰ 罗马的余晖 · 前 27 – 500
    大段宽度 = 所含小段数（2/3/2/3），用自定义属性传入，不写内联 flex，
@@ -1015,33 +1071,16 @@ small{font-size:.78em;opacity:.85}
 /* 第三层：未来人物生命带的空容器，本轮预留、不渲染任何内容 */
 .era-life{display:none}
 
-/* 手机竖屏：时间线本身是纵向的，横向分段带不对应，改成单行横滑 chips。
-   未达标段宽度收成 0（真不占位），达标段才展开；两层各固定 21px，绝不挤压卡牌。 */
+/* 手机竖屏：空间太小，横向分期与纵向时间线对不上，整条纪元带不显示。
+   JS 同时给 #era-band 加 .era-off，双保险（旋转/改窗口时也会重算）。 */
 @media (max-width:760px) and (orientation:portrait){
-  .era-band{height:44px;gap:2px;margin-bottom:2px}
-  .era-row{height:21px;gap:4px;flex-wrap:nowrap;overflow-x:auto;
-           overflow-y:hidden;scrollbar-width:none}
-  .era-row::-webkit-scrollbar{display:none}
-  .era-row .era-seg{
-    flex:0 0 auto;width:0;min-width:0;height:19px;padding:0;
-    flex-direction:row;gap:5px;border-width:0;border-radius:10px;
-    background:rgba(255,204,0,.07);
-    overflow:hidden;opacity:0;visibility:hidden;transition:opacity .55s ease;
-  }
-  .era-row .era-seg.on{
-    width:auto;padding:0 8px;border:1px solid var(--gold-dim);
-    opacity:1;visibility:visible;
-  }
-  .era-row-small .era-seg,.era-row-small .era-seg.on{flex-direction:row;gap:4px}
-  .era-nm{font-size:10px;font-weight:500}
-  .era-row-big .era-nm{font-size:10.5px;font-weight:700}
-  .era-row-big .era-yr{display:none}
-  .era-line1{gap:2px}
-  .era-c{font-size:9px}
-  .era-inv{min-width:11px;height:11px;font-size:9px}
+  .era-band{display:none}
 }
 @media (prefers-reduced-motion:reduce){
   .era-seg{transition:none}
+  .era-fly{transition:none}
+  .era-big-seg.emerge{animation:none}
+  .tl-card.era-lift{transition:none}
 }
 
 /* 测试模式后台入口：仅在打开第五幕测试口子时由 JS 动态插入，
