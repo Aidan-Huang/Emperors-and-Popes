@@ -14,7 +14,7 @@
   const FINALE = ACTS.find(a => a.all) || null;
   const FINALE_ID = FINALE ? FINALE.id : 0;
   const MAIN_ACTS = ACTS.filter(a => !a.all);
-  const ACT5_TEST_KEY = 'tl_ch6_act5_test';   // 测试口子开关：独立于游戏进度，不写 S.progress
+  const ACT5_TEST_KEY = 'tl_ch6_act5_test';   // 测试口子开关：五幕全部直接可玩；独立于游戏进度，开关本身不写 S.progress
 
   /* ---------------- 存档 ---------------- */
 
@@ -69,7 +69,7 @@
     winPending: false      // 通关后停在对局页等玩家确认，不直接跳结算
   };
 
-  /* ---------------- 第五幕：解锁与测试口子 ---------------- */
+  /* ---------------- 测试口子：解锁与开关 ---------------- */
 
   function act5Test() {
     try { return localStorage.getItem(ACT5_TEST_KEY) === '1'; } catch (e) { return false; }
@@ -263,12 +263,19 @@
 
   /* ---------------- 幕选择 ---------------- */
 
-  function actUnlocked(actId) {
-    // 终章不按「前一幕玩过」解锁，而是要求四幕全部通关（或打开了测试口子）
-    if (FINALE_ID && actId === FINALE_ID) return act5Unlocked();
+  /* 正常解锁规则（与测试口子无关）：第 1 幕常开，主线 2/3/4 幕要前一幕玩过，
+     终章要四幕全通关。单独留一份，供幕列表标注「哪些是测试临时放开的」。 */
+  function actNormallyUnlocked(actId) {
+    if (FINALE_ID && actId === FINALE_ID) return fourCleared();
     if (actId <= 1) return true;
     const prev = S.progress[actId - 1];
     return !!(prev && prev.plays > 0);
+  }
+  function actUnlocked(actId) {
+    /* 测试口子：五幕全部直接可玩，不用逐幕通关等待。只放开入口，
+       不写 S.progress、不伪造通关记录；关掉口子立刻恢复原本的锁定态。 */
+    if (act5Test()) return true;
+    return actNormallyUnlocked(actId);
   }
 
   function renderActs() {
@@ -286,7 +293,8 @@
       const p = S.progress[a.id] || { plays: 0 };
       const unlocked = actUnlocked(a.id);
       const badge = p.cleared ? '<span class="cleared">✔ 已通关</span>'
-        : (finale && testing && !fourCleared() ? '<span class="test-tag">🧪 测试</span>' : '');
+        /* 测试口子临时放开的幕（含终章）标一下，关掉口子这些标记会随重绘消失 */
+        : (testing && !actNormallyUnlocked(a.id) ? '<span class="test-tag">🧪 测试</span>' : '');
       return '<button class="act-card' + (finale ? ' finale' : '') + (unlocked ? '' : ' locked') +
         '" data-act="' + a.id + '"' + (unlocked ? '' : ' disabled') + '>' +
         badge +
@@ -1741,7 +1749,7 @@
     else if (zoomTaps >= 3) toast('再点 ' + (5 - zoomTaps) + ' 下高亮显示比例滑条');
   };
 
-  /* 隐藏测试口子：连点幕列表标题「选择一幕」5 次，切换「直接开启第五幕」。
+  /* 隐藏测试口子：连点幕列表标题「选择一幕」5 次，切换「五幕全开」的测试模式。
      只写一个独立的 localStorage 开关，绝不伪造四幕通关记录，方便随时关掉。 */
   let act5Taps = 0, act5TapAt = 0;
   const actsTitle = $('#view-acts .topbar h2');
@@ -1753,9 +1761,9 @@
       act5Taps = 0;
       const on = !act5Test();
       setAct5Test(on);
-      toast(on ? '🧪 测试口子已开：第五幕可直接进入（41 张全卡）' : '已关闭第五幕测试口子');
+      toast(on ? '🧪 测试口子已开：全部五幕可直接进入' : '已关闭测试口子');
     } else if (act5Taps >= 3) {
-      toast('再点 ' + (5 - act5Taps) + ' 下切换第五幕测试口子');
+      toast('再点 ' + (5 - act5Taps) + ' 下切换测试口子');
     }
   };
 
@@ -1867,7 +1875,7 @@
           .getBoundingClientRect().height
       })
     },
-    /* 第五幕测试接口：控制台 / 自动化用，不改动正式进度 */
+    /* 测试口子接口：控制台 / 自动化用，开关本身不改动正式进度 */
     act5: {
       id: FINALE_ID,
       testKey: ACT5_TEST_KEY,
