@@ -749,10 +749,16 @@
   /* 悬停 / 点选已点亮的段 → 对应时间线卡牌浮起。
      用 PointerEvent.pointerType 区分输入，不依赖 hover 媒体查询（无头浏览器、
      二合一设备常误判）：
-       · 鼠标 'mouse'：pointerover 浮起、pointerout 收回；不移开就一直浮着，
+       · 鼠标 'mouse'：pointerover 浮起、pointerleave 收回；不移开就一直浮着，
          点段不额外锁定，移开按原生 hover 的同一段过渡收回。
-       · 触屏 'touch' / 'pen' / 合成 click 的 ''：点段后保持浮起，直到下一次
-         点在段外才收回，与「点手牌选中、再点别处取消」的手感一致。
+       · 触屏 'touch' / 'pen'：按下浮起，随即按位移判「是不是一次点击」：
+         抬起时位移 ≤ 10px 或按住超过 700ms 才算点段，保持浮起；
+         位移更大视为滑动浏览，抬起就收回。
+         不用 click 事件判定 —— iPhone / iPad 的 Safari 会把带一点微动的手指
+         点击判成 pan / 手势而不派发 click，浮起就整段消失；也不指望 pointercancel
+         （带内 touch-action:none 之后它基本不会再来）。
+       · 任何一次按下落在段外（手牌、空白、别的界面）：立刻收回全部浮起，
+         所以不会出现「来回切几次后总有一组卡牌留在浮起状态」。
      容器仍 pointer-events:none，只有 .era-seg.on 可交互，不抢卡牌与插入位点击。 */
   function eraBindInteractions() {
     const band = $('#era-band');
@@ -767,49 +773,90 @@
     };
     const tagSeg = seg => seg ? (seg.dataset.era + '/' +
       (seg.classList.contains('era-big-seg') ? 'big' : 'small')) : null;
-    const setHover = seg => {
-      if (!eraEnabled()) return;
+    // 浮起只看段，不看具体亮的是哪张卡：每次覆盖写，绝不追加，切换段不会留旧组。
+    const liftSeg = seg => {
       eraLastSeg = tagSeg(seg);
-      eraHoverIds = seg ? idsOf(seg) : [];
+      eraTapIds = seg ? idsOf(seg) : [];
       eraApplyLift();
     };
 
-    /* 取「玩家眼里鼠标正压着的那个段」。优先用事件目标：两层带纵向相邻，
-       段刚点亮、opacity 过渡没走完时 elementFromPoint 的命中测试会短暂偏到
-       上一层大段，所以坐标命中只作兜底（例如鼠标落在段内空隙 / 行间）。 */
+    let press = null;   // 触屏按下的起点，用于抬起时判断「点击 or 滑动」
+
+    /* 手指粗、段又窄：落点可能压在两段交界的 2px 缝隙、段的上下边缘，
+       或干脆偏到大段行上。这时按「离按下点最近的那个已点亮段」兜底，
+       总比「点了没反应」好 —— 玩家想表达的是位置，不是那条 2px 的缝。
+       距离上限 18px，超出就当作点在空白里（正常收回，不乱认段）。 */
+    const segNear = (x, y) => {
+      let best = null, bestD = 18 * 18;
+      $$('#era-band .era-seg.on').forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        const cx = Math.min(Math.max(x, r.left), r.right);
+        const cy = Math.min(Math.max(y, r.top), r.bottom);
+        const d = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+        if (d < bestD) { bestD = d; best = el; }
+      });
+      return best;
+    };
+
+    /* 触屏按下即浮起：这是唯一 100% 会发生的指针事件，不依赖 click。
+       同一次按压里 pointerdown 可能朝目标连续来两次（捕获 + 冒泡），用 pointerId 去重。 */
+    band.addEventListener('pointerdown', e => {
+      if (!eraEnabled()) return;
+      if (e.pointerType === 'mouse') return;
+      if (press && press.id === e.pointerId) return;
+      const seg = segOf(e.target) || segNear(e.clientX, e.clientY);
+      // 记下按下点，抬起时按位移决定「算不算点段」
+      press = { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now(), seg: seg };
+      if (seg) liftSeg(seg);
+    });
+
+    const release = e => {
+      if (!press || press.id !== e.pointerId) return;
+      const p = press; press = null;
+      if (!p.seg) return;
+      // 手指滑走（浏览横向时间线 / 拖滚动）就不算点段，把浮起还回去
+      const moved = Math.abs(e.clientX - p.x) > 10 || Math.abs(e.clientY - p.y) > 10;
+      const held = Date.now() - p.t > 700;      // 长按也当一次有意点选
+      if (moved && !held) liftSeg(null);
+    };
+    band.addEventListener('pointerup', release);
+    band.addEventListener('pointercancel', release);
+
+    /* 鼠标：悬停浮起 / 离开收回。优先用事件目标：两层带纵向相邻，段刚点亮、
+       opacity 过渡没走完时 elementFromPoint 的命中测试会短暂偏到上一层大段，
+       所以坐标命中只作兜底（例如鼠标落在段内空隙 / 行间）。 */
     const segAt = e => {
       const direct = segOf(e.target);
       if (direct) return direct;
       return segOf(document.elementFromPoint(e.clientX, e.clientY));
     };
     band.addEventListener('pointerover', e => {
-      if (e.pointerType !== 'mouse') return;
+      if (e.pointerType !== 'mouse' || !eraEnabled()) return;
       const seg = segAt(e);
-      setHover(seg);            // 落点不在已点亮段（含移到行间空隙）就收回
+      eraLastSeg = tagSeg(seg);
+      eraHoverIds = seg ? idsOf(seg) : [];
+      eraApplyLift();            // 落点不在已点亮段（含移到行间空隙）就收回
     });
     band.addEventListener('pointerleave', e => {
       if (e.pointerType !== 'mouse') return;
-      setHover(null);
-    });
-    band.addEventListener('click', e => {
-      if (!eraEnabled()) return;
-      const seg = segOf(e.target);
-      if (!seg) return;
-      e.stopPropagation();
-      // 鼠标点击交给悬停管理（移开即收回）；触屏 / 合成点击才进入「保持」状态
-      if (e.pointerType === 'mouse') return;
-      eraLastSeg = tagSeg(seg);
-      eraTapIds = idsOf(seg);
+      eraHoverIds = [];
       eraApplyLift();
     });
-    // 点在段外（手牌、插入位、别的界面）即收回触屏浮起；
-    // 用捕获阶段，保证在手牌自己的选中逻辑之前先清干净。
+
+    /* 全局兜底：任何一次按下落在段外（手牌 / 空白 / 顶栏 / 插入位）都先收回。
+       放在捕获阶段，保证在手牌自身的选中逻辑之前清干净；点在段内则交给上面的
+       pointerdown 重新赋值，不在这里清。 */
     document.addEventListener('pointerdown', e => {
-      if (!eraTapIds.length && !eraHoverIds.length) return;
       if (segOf(e.target)) return;
+      if (!eraTapIds.length && !eraHoverIds.length) return;
       eraTapIds = []; eraHoverIds = [];
       eraApplyLift();
     }, true);
+    // 切走 / 锁屏 / 来电等极端情况：连带收干净，不留悬空浮起
+    window.addEventListener('blur', () => {
+      if (eraTapIds.length || eraHoverIds.length) { eraTapIds = []; eraHoverIds = []; eraApplyLift(); }
+    });
   }
 
   function renderEraBand() {
@@ -1563,30 +1610,25 @@
     window.addEventListener('DOMContentLoaded', () => go('editor'));
   }
 
-  /* ---------------- 画面缩放设置（通用） ----------------
+  /* ---------------- 画面缩放（就地滑条，通用） ----------------
      只调整两个 CSS 变量，不改布局流、不删任何界面元素、卡牌比例始终 2:3。
      生效范围：除手机竖屏外的所有视口（电脑 / 平板 / 手机横屏 …）。
-     未自定义时按视口自动取值（手机横屏 0.56/0.64，其它 1/1），保持桌面原尺寸；
-     在面板里点「完成」后写入一份全局参数，横屏与电脑都按它显示。
-     拖动只做预览、不落盘；✕ / Esc / 点遮罩 = 取消并还原到打开前。 */
+     滑条就在章节标题后：拖动即时生效、松手即存，没有「打开面板 → 拖动 → 点完成」。
+     未自定义时按视口自动取值（手机横屏 0.8/0.6，其它 1/1），换屏幕不改玩家已拖的值。
+     ·
+     纪元带不跟着缩：它是横跨整条时间线的刻度尺，跟着缩会让字糊掉、行高被压到 16px 不可点。
+     .timeline-wrap 用 zoom 缩放时间线卡，纪元带用等值反向缩放抵消回来，
+     保持「字号 11px、行高 28px」的原始可读尺寸（详见 style.css 的 .era-band 区块）。 */
   const ZOOM_KEY = 'tl_ch6_zoom_v1';
-  const ZOOM_MIN = 0.5, ZOOM_MAX = 1.5;
-  const ZOOM_AUTO = { tl: 0.56, hand: 0.64 };   // 手机横屏自动适配
+  const ZOOM_MIN = 0.5, ZOOM_MAX = 1.5, ZOOM_STEP = 0.02;
+  const ZOOM_AUTO = { tl: 0.8, hand: 0.6 };     // 手机横屏自动适配
   const ZOOM_NEUTRAL = { tl: 1, hand: 1 };      // 其它视口原尺寸
-  const ZOOM_DEF = ZOOM_AUTO;
-  const ZOOM_PRESETS = {
-    default: { tl: 0.56, hand: 0.64 },
-    small:   { tl: 0.50, hand: 0.58 },
-    large:   { tl: 0.68, hand: 0.78 },
-    off:     { tl: 1,    hand: 1 },
-    big:     { tl: 1.25, hand: 1.25 },
-    max:     { tl: 1.50, hand: 1.50 }
-  };
 
   function clampZoom(v) {
     const n = parseFloat(v);
     if (!isFinite(n)) return 1;
-    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(n * 100) / 100));
+    const q = Math.round(n / ZOOM_STEP) * ZOOM_STEP;   // 对齐滑条步长，避免显示 ×0.83 实际 0.834
+    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(q * 100) / 100));
   }
   function autoZoom() {
     return compactLandscape()
@@ -1597,6 +1639,7 @@
     try {
       const v = JSON.parse(localStorage.getItem(ZOOM_KEY) || 'null');
       if (v && isFinite(parseFloat(v.tl)) && isFinite(parseFloat(v.hand))) {
+        // 读到自定义值：保留（即使在竖屏下读，也别覆盖玩家在大屏上调好的比例）
         return { tl: clampZoom(v.tl), hand: clampZoom(v.hand), custom: !!v.custom };
       }
     } catch (e) {}
@@ -1604,9 +1647,8 @@
     return { tl: a.tl, hand: a.hand, custom: false };
   }
   let zoomCfg = loadZoom();
-  let zoomBackup = null;   // 打开面板前的已提交值，取消时还原
 
-  // 手机竖屏由 CSS 强制 zoom:1；这里同步变量，避免旋转后滑条与画面错位。
+  // 手机竖屏：时间线是纵向卡、手牌是横条，本来就按视口铺满，不缩放（与 CSS 一致）。
   function effectiveZoom() {
     if (portraitLayout()) return { tl: 1, hand: 1 };
     return { tl: zoomCfg.tl, hand: zoomCfg.hand };
@@ -1616,7 +1658,8 @@
     const r = document.documentElement.style;
     r.setProperty('--tl-zoom', e.tl);
     r.setProperty('--hand-zoom', e.hand);
-    // 只有「完成」/ 测试接口显式提交才写存档，拖动预览绝不落盘。
+    // 纪元带反向抵消（见 style.css）：只抵消时间线的缩放，手牌缩放与它无关。
+    r.setProperty('--era-unzoom', e.tl > 0 ? +(1 / e.tl).toFixed(4) : 1);
     if (persist === true)
       save(ZOOM_KEY, { tl: zoomCfg.tl, hand: zoomCfg.hand, custom: zoomCfg.custom });
     syncZoomUI();
@@ -1624,88 +1667,46 @@
   }
 
   function syncZoomUI() {
-    const tl = $('#zp-tl'), hand = $('#zp-hand');
-    if (!tl || !hand) return;
-    tl.value = zoomCfg.tl;
-    hand.value = zoomCfg.hand;
-    $('#zp-tl-v').textContent = '×' + Number(zoomCfg.tl).toFixed(2);
-    $('#zp-hand-v').textContent = '×' + Number(zoomCfg.hand).toFixed(2);
-    $$('.zp-presets button').forEach(b => {
-      const p = ZOOM_PRESETS[b.dataset.preset];
-      b.classList.toggle('on', !!p &&
-        Math.abs(p.tl - zoomCfg.tl) < 0.001 && Math.abs(p.hand - zoomCfg.hand) < 0.001);
-    });
-    const st = $('#zp-state');
-    if (!st) return;
-    const desc = '当前 上排 ×' + Number(zoomCfg.tl).toFixed(2) +
-                 ' · 下排 ×' + Number(zoomCfg.hand).toFixed(2);
-    if (portraitLayout()) {
-      st.innerHTML = '<i>手机竖屏不缩放，卡片保持原尺寸</i><br>' +
-        '旋转到横屏，或在电脑 / 平板上打开，即可看到这里的设置效果。';
-    } else {
-      st.innerHTML = desc + '<br>拖动即时预览；点「完成」保存到本机，' +
-        '<b>手机横屏与电脑屏幕都会按这个比例显示</b>。';
-    }
+    const it = $('#zi-tl'), ih = $('#zi-hand');
+    if (!it || !ih) return;
+    // 竖屏下滑条隐藏，但数值仍按玩家设置显示，旋转回来不会跳
+    it.value = zoomCfg.tl;
+    ih.value = zoomCfg.hand;
+    $('#zi-tl-v').textContent = '×' + Number(zoomCfg.tl).toFixed(2);
+    $('#zi-hand-v').textContent = '×' + Number(zoomCfg.hand).toFixed(2);
   }
 
-  function openZoomPanel() {
-    zoomBackup = { tl: zoomCfg.tl, hand: zoomCfg.hand, custom: zoomCfg.custom };
-    if (!zoomCfg.custom) {
-      const a = autoZoom();
-      zoomCfg.tl = a.tl; zoomCfg.hand = a.hand;
-    }
-    applyZoom(false);                 // 预览，不落盘
-    $('#zp-mask').classList.add('show');
-  }
-  function hideZoomMask() {
-    $('#zp-mask').classList.remove('show');
-    zoomBackup = null;
-  }
-  function doneZoomPanel() {
-    zoomCfg.custom = true;
-    applyZoom(true);                  // 只有「完成」才写入存档
-    hideZoomMask();
-    toast('显示比例已保存，横屏与电脑都会生效');
-  }
-  function cancelZoomPanel() {
-    if (zoomBackup)
-      zoomCfg = { tl: zoomBackup.tl, hand: zoomBackup.hand, custom: zoomBackup.custom };
-    hideZoomMask();
-    applyZoom(false);                 // 还原到打开面板前
-  }
-  function closeZoomPanel() { cancelZoomPanel(); }
-
-  // 拖动 / 预设 / 恢复默认都只改 CSS 变量做实时预览，不写 localStorage。
-  const previewZoom = (k, v) => {
+  /* 拖动：即时改画面，不写存档（避免一路拖动写几十次 localStorage） */
+  const dragZoom = (k, v) => {
     zoomCfg[k] = clampZoom(v);
-    zoomCfg.custom = true;            // 预览期间不让 resize 覆盖刚拖的值
+    zoomCfg.custom = true;
     applyZoom(false);
   };
-  $('#zp-tl').oninput = e => previewZoom('tl', e.target.value);
-  $('#zp-hand').oninput = e => previewZoom('hand', e.target.value);
-  $$('.zp-presets button').forEach(b => b.onclick = () => {
-    const p = ZOOM_PRESETS[b.dataset.preset];
-    if (!p) return;
-    zoomCfg = { tl: p.tl, hand: p.hand, custom: true };
-    applyZoom(false);
+  /* 松手 / 键盘调整后提交一次，写存档 */
+  const commitZoom = () => applyZoom(true);
+
+  ['tl', 'hand'].forEach(k => {
+    const el = k === 'tl' ? $('#zi-tl') : $('#zi-hand');
+    if (!el) return;
+    el.addEventListener('input', e => dragZoom(k, e.target.value));
+    el.addEventListener('change', commitZoom);
+    // 双击某一根滑条 = 只把这一排恢复本屏幕默认
+    el.addEventListener('dblclick', () => {
+      const a = autoZoom();
+      zoomCfg[k] = a[k];
+      zoomCfg.custom = true;
+      applyZoom(true);
+    });
   });
-  $('#zp-reset').onclick = () => {
+  const ziReset = $('#zi-reset');
+  if (ziReset) ziReset.onclick = () => {
     const a = autoZoom();
     zoomCfg = { tl: a.tl, hand: a.hand, custom: false };
-    applyZoom(false);
-    toast('已恢复自动尺寸，点「完成」保存');
+    applyZoom(true);
+    toast('已恢复本屏幕默认比例：时间线 ×' + a.tl.toFixed(2) + ' · 手牌 ×' + a.hand.toFixed(2));
   };
-  $('#zp-close').onclick = cancelZoomPanel;
-  $('#zp-done').onclick = doneZoomPanel;
-  $('#zp-mask').onclick = e => { if (e.target === $('#zp-mask')) cancelZoomPanel(); };
-  $('#zp-entry').onclick = openZoomPanel;
-  // 章节标题后的显式按钮（手机竖屏由 CSS 隐藏），不再只能靠标题五击。
-  const zoomBtn = $('#zoom-btn');
-  if (zoomBtn) zoomBtn.onclick = e => { e.stopPropagation(); openZoomPanel(); };
-  window.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && $('#zp-mask').classList.contains('show')) cancelZoomPanel();
-  });
-  // 旋转 / 改窗口大小：未自定义时跟随视口自动值，已自定义则保持全局参数。
+
+  // 旋转 / 改窗口大小：只有从未自定义过才跟随视口；自定义过就保持玩家拖的值。
   window.addEventListener('resize', () => {
     if (!zoomCfg.custom) {
       const a = autoZoom();
@@ -1714,19 +1715,23 @@
     applyZoom(false);
   });
 
-  /* 兼容入口：连点对局页标题栏 5 次（与姊妹作后台编辑器同一手势） */
+  /* 兼容入口：连点对局页标题栏 5 次 → 高亮两排滑条，方便发现。
+     老玩家记住的是「五击打开缩放设置」，这里保留手势，只是不再需要弹窗。 */
   let zoomTaps = 0, zoomTapAt = 0;
-  const zoomTitle = $('.game-title');
+  const zoomTitle = $('.game-title b');
+  const flashZoom = () => {
+    const box = $('#zoom-inline');
+    if (!box) return;
+    box.classList.add('zi-flash');
+    setTimeout(() => box.classList.remove('zi-flash'), 1400);
+  };
   if (zoomTitle) zoomTitle.onclick = () => {
     const now = Date.now();
     zoomTaps = (now - zoomTapAt < 700) ? zoomTaps + 1 : 1;
     zoomTapAt = now;
-    if (zoomTaps >= 5) { zoomTaps = 0; openZoomPanel(); }
-    else if (zoomTaps >= 3) toast('再点 ' + (5 - zoomTaps) + ' 下打开画面缩放设置');
+    if (zoomTaps >= 5) { zoomTaps = 0; flashZoom(); }
+    else if (zoomTaps >= 3) toast('再点 ' + (5 - zoomTaps) + ' 下高亮显示比例滑条');
   };
-  if (/[?&]zoom=1/.test(location.search) || location.hash === '#zoom') {
-    window.addEventListener('DOMContentLoaded', openZoomPanel);
-  }
 
   /* 隐藏测试口子：连点幕列表标题「选择一幕」5 次，切换「直接开启第五幕」。
      只写一个独立的 localStorage 开关，绝不伪造四幕通关记录，方便随时关掉。 */
@@ -1798,11 +1803,12 @@
     state: state, S: S, go: go, ALL_CARDS: ALL_CARDS, Engine: Engine,
     zoom: {
       get: () => ({ tl: zoomCfg.tl, hand: zoomCfg.hand }),
-      cfg: () => zoomCfg, def: ZOOM_DEF, key: ZOOM_KEY,
-      range: { min: ZOOM_MIN, max: ZOOM_MAX },
+      cfg: () => zoomCfg, def: ZOOM_AUTO, key: ZOOM_KEY,
+      range: { min: ZOOM_MIN, max: ZOOM_MAX, step: ZOOM_STEP },
       effective: effectiveZoom, auto: autoZoom,
-      open: openZoomPanel, close: closeZoomPanel,
-      done: doneZoomPanel, cancel: cancelZoomPanel,
+      // 旧面板接口保留为空实现，避免旧验收脚本 / 旧书签报错
+      open: flashZoom, close: () => {}, done: () => {}, cancel: () => {},
+      flash: flashZoom,
       set: (tl, hand) => {
         zoomCfg = { tl: clampZoom(tl), hand: clampZoom(hand), custom: true };
         applyZoom(true);

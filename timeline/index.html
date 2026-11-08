@@ -96,7 +96,23 @@
       <div class="game-title">
         <div class="title-row">
           <b id="game-act-name">第一幕</b>
-          <button class="zoom-btn" id="zoom-btn" type="button" aria-label="画面显示设置">⚙ 显示设置</button>
+          <!-- 缩放滑条：就地拖动、即时生效、松手即存。省掉「开面板 → 拖 → 点完成」两道环节。 -->
+          <div class="zoom-inline" id="zoom-inline" role="group" aria-label="卡片显示比例">
+            <label class="zi-item" title="时间线卡牌显示比例（双击恢复默认）">
+              <span class="zi-tag">时间线</span>
+              <input type="range" id="zi-tl" min="0.5" max="1.5" step="0.02" value="1"
+                     aria-label="时间线卡牌显示比例">
+              <output class="zi-val" id="zi-tl-v">×1.00</output>
+            </label>
+            <label class="zi-item" title="手牌显示比例（双击恢复默认）">
+              <span class="zi-tag">手牌</span>
+              <input type="range" id="zi-hand" min="0.5" max="1.5" step="0.02" value="1"
+                     aria-label="手牌显示比例">
+              <output class="zi-val" id="zi-hand-v">×1.00</output>
+            </label>
+            <button class="zi-reset" id="zi-reset" type="button" title="两排都恢复本屏幕的默认比例"
+                    aria-label="恢复默认比例">↺</button>
+          </div>
         </div>
         <small id="game-act-span"></small>
       </div>
@@ -178,7 +194,8 @@
       <h2>卡牌编辑器 <small class="tag">隐藏</small></h2>
       <span class="topbar-right" id="editor-count"></span>
     </div>
-    <button class="zp-entry" id="zp-entry" type="button">⚙ 画面显示设置</button>
+    <!-- 缩放已改成对局页标题后的就地滑条，这里只留一个「跳到对局页看滑条」的说明位 -->
+    <p class="zp-entry" id="zp-entry">卡片显示比例已挪到对局页标题后：两根滑条分别控制时间线卡与手牌，拖动即时生效。</p>
     <div class="editor-body" id="editor-body"></div>
   </section>
 
@@ -208,39 +225,6 @@
 <div class="modal" id="modal">
   <div class="modal-mask" id="modal-mask"></div>
   <div class="modal-box" id="modal-box"></div>
-</div>
-
-<!-- 画面显示设置：章节标题后的「⚙ 显示设置」/ 编辑器入口 / ?zoom=1 -->
-<div class="zp-mask" id="zp-mask">
-  <div class="zp-box" role="dialog" aria-modal="true" aria-label="画面显示设置">
-    <div class="zp-head"><b>⚙ 画面显示设置</b><button type="button" id="zp-close" aria-label="关闭">✕</button></div>
-    <p class="zp-note">只缩放「时间线卡」和「手牌」两排，布局与界面元素原样保留，卡牌比例始终 2:3。<br>除手机竖屏外，各种屏幕尺寸都生效。面板半透明，拖动即可看见下方卡牌的变化。</p>
-
-    <div class="zp-row">
-      <label for="zp-tl">上排 · 时间线卡 <span id="zp-tl-v">×1.00</span></label>
-      <input type="range" id="zp-tl" min="0.5" max="1.5" step="0.01" value="1">
-    </div>
-    <div class="zp-row">
-      <label for="zp-hand">下排 · 手牌 <span id="zp-hand-v">×1.00</span></label>
-      <input type="range" id="zp-hand" min="0.5" max="1.5" step="0.01" value="1">
-    </div>
-    <div class="zp-presets">
-      <button type="button" data-preset="small">紧凑 0.50</button>
-      <button type="button" data-preset="default">横屏 0.56</button>
-      <button type="button" data-preset="large">稍大 0.68</button>
-      <button type="button" data-preset="off">原尺寸 1.00</button>
-      <button type="button" data-preset="big">放大 1.25</button>
-      <button type="button" data-preset="max">最大 1.50</button>
-    </div>
-
-    <div class="zp-state" id="zp-state"></div>
-
-    <div class="zp-actions">
-      <button type="button" id="zp-reset">恢复默认</button>
-      <button type="button" id="zp-done" class="primary">完成</button>
-    </div>
-    <p class="zp-foot">范围 0.50–1.50。拖动只预览，点「完成」才保存；✕ / Esc 取消并还原。<br>保存后的比例在手机横屏与电脑屏幕上都会生效；手机竖屏始终不缩放。</p>
-  </div>
 </div>
 
 <div class="toast" id="toast"></div>
