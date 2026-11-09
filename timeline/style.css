@@ -740,13 +740,36 @@ small{font-size:.78em;opacity:.85}
 .flyback.f-state .fstrip{background:var(--state)}
 .flyback.f-both .fstrip{background:var(--both)}
 
+/* 游戏内卡面：与卡册同一套「插画内部左缘势力色竖条」。
+   卡册 .gcard/.bigcard 早已统一补过（见上文 609-623 行），但时间线卡、
+   手牌、放错弹回的卡影这三类游戏内卡面没跟上，同一张卡在卡册里有色条、
+   进了对局却没有。这里沿用完全相同的 1.875% 宽度与
+   --state / --church / --local / --both 配色：宽度正好与早期批次素材自带的
+   9px/480px 竖条重合，所以带条卡不会出现双条、缺条卡补齐；
+   .art 需要 position:relative 给伪元素当定位参照，原有的 overflow:hidden
+   会把竖条裁在图片圆角内。手机竖屏横条卡同样生效，竖条仍是满高竖线。
+   规则刻意排在下方困难模式隐藏规则之前，确保 .flyback.no-faction 与
+   .flyback.f-* 同优先级时能盖掉颜色。 */
+.tl-card .art,.hand-card .art,.flyback .art{position:relative}
+.tl-card .art::before,.hand-card .art::before,.flyback .art::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:1.875%;
+  z-index:2;pointer-events:none;background:var(--local);
+}
+.tl-card.f-church .art::before,.hand-card.f-church .art::before,.flyback.f-church .art::before{background:var(--church)}
+.tl-card.f-state  .art::before,.hand-card.f-state  .art::before,.flyback.f-state  .art::before{background:var(--state)}
+.tl-card.f-local  .art::before,.hand-card.f-local  .art::before,.flyback.f-local  .art::before{background:var(--local)}
+.tl-card.f-both   .art::before,.hand-card.f-both   .art::before,.flyback.f-both   .art::before{background:var(--both)}
+
 /* 困难模式「隐势力」：文字标签（faction-tag）已经不生成，但卡外圈还有 3px
-   势力色带（橙=皇权 / 蓝=教权 / 灰=地方 / 金=双方），玩家仍能靠颜色反推势力。
-   这里把手牌、以及放错弹回的卡影一并中性化；时间线上已放下的卡保留色带
+   势力色带（橙=皇权 / 蓝=教权 / 灰=地方 / 金=双方），插画内部又新增了
+   .art::before 左缘竖条，玩家仍能靠颜色反推势力。这里把手牌、以及放错
+   弹回的卡影的两种色条一并中性化；时间线上已放下的卡两种色条都保留
    （属于已揭晓信息，不参与猜牌），卡册与首页图例不受影响。
    规则排在 .flyback.f-* 之后，确保同优先级下能盖掉势力色。 */
 #view-game.hide-faction .hand-card .fstrip,
-.flyback.no-faction .fstrip{background:transparent}
+.flyback.no-faction .fstrip,
+#view-game.hide-faction .hand-card .art::before,
+.flyback.no-faction .art::before{background:transparent}
 
 /* 早期批次的 10 张插画把势力色烧进了素材本身：480px 宽原图的左缘有 9px
    纯色竖条（橙 (238,159,38)=皇权 / 蓝 (54,139,220)=教权），正好等于
@@ -874,7 +897,10 @@ small{font-size:.78em;opacity:.85}
   /* 手机上改成单列横条卡：三张手牌一屏看全，无需横向滚动 */
   .hand{grid-template-columns:1fr;gap:7px}
   .hand-card{height:74px;min-height:74px;flex-direction:row;align-items:center}
-  .hand-card .fstrip{flex:0 0 3px}
+  /* 横条卡里 .fstrip 要变成左缘满高竖线。只写 flex-basis 会留下桌面版的
+     height:3px，算出来是 3×3px 的短横块；与 .tl-card/.flyback 一样补齐
+     width:3px;height:100%，才是完整竖线。 */
+  .hand-card .fstrip{width:3px;height:100%;flex:0 0 3px}
   .hand-card .art{width:62px;height:100%;flex:0 0 62px;margin:0;border-radius:0}
   .hand-card .nm{flex:1;font-size:12.5px;padding:4px 8px;display:flex;align-items:center;justify-content:flex-start;text-align:left}
   .hand-card .yr{
