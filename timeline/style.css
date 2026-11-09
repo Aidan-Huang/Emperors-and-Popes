@@ -93,13 +93,7 @@ small{font-size:.78em;opacity:.85}
 .mode.big{background:linear-gradient(100deg,#2b3757,#212a44);border-color:var(--gold-dim)}
 .mode.big .mode-txt b{color:var(--gold)}
 
-.diff-box{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
-.diff-title{font-size:12px;color:var(--muted);margin-bottom:8px}
-.diff-btns{display:flex;gap:8px}
-.diff-btns button{flex:1;background:#182038;border:1px solid var(--line);border-radius:10px;padding:9px 4px;font-size:13px}
-.diff-btns button small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
-.diff-btns button.on{border-color:var(--gold);background:#2c2a17;color:var(--gold)}
-
+/* 首页难度选择已移除：规则绑定在关卡上，难度名见 .act-diff / .game-diff */
 .home-links{margin-top:18px}
 .sister{
   display:block;background:var(--panel);border:1px dashed var(--line);border-radius:14px;
@@ -127,6 +121,12 @@ small{font-size:.78em;opacity:.85}
 }
 .act-card:hover{border-color:var(--gold-dim)}
 .act-card .no{font-size:12px;color:var(--gold);letter-spacing:2px}
+/* 关卡难度名：抄录 / 考据 / 编年 / 立传，终章不显示 */
+.act-card .act-diff{
+  display:inline-block;margin-left:9px;padding:2px 9px;
+  border:1px solid var(--gold-dim);border-radius:999px;
+  font-size:11px;letter-spacing:1px;color:var(--gold);vertical-align:1px;
+}
 .act-card h3{font-size:19px;margin:2px 0 4px}
 .act-card .span{font-size:12px;color:var(--muted)}
 .act-card .desc{margin-top:8px;font-size:13px;color:#d5d9e6}
@@ -173,6 +173,13 @@ small{font-size:.78em;opacity:.85}
   display:block;min-width:0;flex:0 1 auto;font-size:16px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
+/* 对局标题旁的关卡难度名；终章 / 复习局用 hidden 整块收起，不占位 */
+.game-diff{
+  flex:0 0 auto;font-size:11px;letter-spacing:1px;color:var(--gold);
+  border:1px solid var(--gold-dim);border-radius:999px;
+  padding:2px 8px;white-space:nowrap;
+}
+.game-diff[hidden]{display:none}
 .game-title small{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ---------- 就地缩放滑条（标题后） ----------
@@ -829,8 +836,6 @@ small{font-size:.78em;opacity:.85}
 @media (max-width:760px) and (orientation:portrait){
   #app{padding:0 12px 24px}
   .brand h1{font-size:21px}
-  .diff-btns button{padding:9px 2px}
-  .diff-btns button small{font-size:10px;white-space:nowrap;letter-spacing:-.2px}
 
   #view-game.active{min-height:100dvh;padding-bottom:10px}
   .game-head{grid-template-columns:auto minmax(0,1fr);gap:8px;padding:10px 0 8px}

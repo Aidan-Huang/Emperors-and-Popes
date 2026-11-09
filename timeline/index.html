@@ -33,7 +33,7 @@
     <div class="mode-list">
       <button class="mode big" data-go="acts">
         <span class="mode-icon">🎬</span>
-        <span class="mode-txt"><b>闯关模式</b><small>四幕推进 · 失误预算随难度变化</small></span>
+        <span class="mode-txt"><b>闯关模式</b><small>四幕推进 · 每幕一套规则</small></span>
         <span class="mode-arrow">›</span>
       </button>
       <!-- 终章（第五幕）：通关全部四幕 / 打开测试口子后才显示，由 renderHome() 控制 -->
@@ -54,15 +54,8 @@
       </button>
     </div>
 
-    <div class="diff-box">
-      <div class="diff-title">难度</div>
-      <div class="diff-btns" id="diff-btns">
-        <button data-diff="easy">简单<small>5 次失误 · 显世纪</small></button>
-        <button data-diff="normal" class="on">普通<small>3 次失误 · 轻反馈</small></button>
-        <button data-diff="hard">困难<small>2 次失误 · 隐势力</small></button>
-      </div>
-    </div>
-
+    <!-- 难度选择已移除：失误预算、大小时间段、势力显隐等规则直接绑定在
+         每一幕上（见 app.js 的 ACT_RULES），玩家进哪一幕就用哪一套规则。 -->
     <div class="home-links">
       <a class="sister" href="../index.html">
         <span>姊妹作</span>
@@ -97,6 +90,8 @@
       <div class="game-title">
         <div class="title-row">
           <b id="game-act-name">第一幕</b>
+          <!-- 关卡难度名（抄录 / 考据 / 编年 / 立传）；终章与复习局隐藏 -->
+          <span class="game-diff" id="game-diff" hidden></span>
           <!-- 缩放滑条：就地拖动、即时生效、松手即存。省掉「开面板 → 拖 → 点完成」两道环节。 -->
           <div class="zoom-inline" id="zoom-inline" role="group" aria-label="卡片显示比例">
             <label class="zi-item" title="时间线卡牌显示比例（双击恢复默认）">

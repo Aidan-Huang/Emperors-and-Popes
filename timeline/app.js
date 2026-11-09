@@ -16,6 +16,38 @@
   const MAIN_ACTS = ACTS.filter(a => !a.all);
   const ACT5_TEST_KEY = 'tl_ch6_act5_test';   // 测试口子开关：五幕全部直接可玩；独立于游戏进度，开关本身不写 S.progress
 
+  /* ---------------- 难度：绑定到关卡 ----------------
+     玩家不再在首页挑难度，每一幕自带一套规则。底层仍复用 Engine.DIFFICULTY
+     三档预设（决定锚点、年代提示、势力显隐、反馈形态），每幕只覆盖
+     「失误预算 / 大小时间段开关 / 展示名」。
+     失误预算 5 / 4 / 3 / 3 / 8；大小时间段从第三幕起显示（竖屏仍按空间隐藏）；
+     人物卡（第四幕 4 张关键人物、终章全部人物）玩法未做完，暂不接入。 */
+  const ACT_RULES = {
+    1: { diff: 'easy',   mistakes: 5, name: '抄录', era: false },
+    2: { diff: 'normal', mistakes: 4, name: '考据', era: false },
+    3: { diff: 'hard',   mistakes: 3, name: '编年', era: true  },
+    4: { diff: 'hard',   mistakes: 3, name: '立传', era: true  }
+  };
+  const FINALE_RULE = { diff: 'hard', mistakes: 8, name: '', era: true };   // 终章：全要素正式版，不挂难度名
+  const REVIEW_RULE = { diff: 'normal', mistakes: 3, name: '', era: true };  // 复习局：不属于任何一幕，固定 3 次失误
+
+  /* 幕列表 / 对局标题要用的是产品规则，不受测试覆盖影响。 */
+  function productRule(actId) {
+    if (FINALE_ID && actId === FINALE_ID) return FINALE_RULE;
+    return ACT_RULES[actId] || ACT_RULES[1];
+  }
+  function ruleFor(actId) {
+    /* 验收脚本专用覆盖：完整复现旧的「全局难度」语义，用来验证底层三档
+       预设没有回归。只存内存、不写存档、刷新即失效；玩家路径永远走
+       productRule()。eras 与终章 +6 也按旧逻辑还原。 */
+    if (state.testDifficulty) {
+      const d = state.testDifficulty;
+      return { diff: d, mistakes: Engine.DIFFICULTY[d].mistakes,
+               name: '', era: d !== 'easy', test: true };
+    }
+    return productRule(actId);
+  }
+
   /* ---------------- 存档 ---------------- */
 
   const KEY = {
@@ -40,7 +72,9 @@
     progress: load(KEY.progress, {}),    // { actId: {plays, cleared, best, bestCombo} }
     collection: load(KEY.collection, {}),// { cardId: {at} }
     errors: load(KEY.errors, {}),        // { cardId: {count, lastAt} }
-    settings: load(KEY.settings, { difficulty: 'normal', useCustom: false }),
+    /* 难度不再由玩家选择、也不再存档：改为按幕绑定（见 ACT_RULES）。
+       旧存档里残留的 difficulty 字段无害，这里不再读取。 */
+    settings: load(KEY.settings, { useCustom: false }),
     custom: load(KEY.custom, [])
   };
   function persist() {
@@ -59,6 +93,8 @@
     actId: 1,
     session: null,
     selectedId: null,
+    rule: null,            // 本局生效的关卡规则（失误 / 名称 / 大小时间段开关）
+    testDifficulty: null,  // 仅验收脚本用的覆盖值，只存内存、不写存档、刷新即失效
     galleryTab: 'all',
     locked: false,         // 判定反馈展示期间锁输入（仅简单模式 / 主动展开详情时）
     sessionSeq: 0,         // 每开一局 +1，用于手牌增量重绘时识别旧闭包
@@ -251,17 +287,7 @@
         : '四幕已通关 · 全部 41 张卡，一条完整时间线';
     }
 
-    $$('#diff-btns button').forEach(b => b.classList.toggle('on', b.dataset.diff === S.settings.difficulty));
   }
-
-  $$('#diff-btns button').forEach(b => {
-    b.onclick = () => {
-      S.settings.difficulty = b.dataset.diff;
-      persist();
-      $$('#diff-btns button').forEach(x => x.classList.toggle('on', x === b));
-      toast('难度：' + Engine.DIFFICULTY[S.settings.difficulty].name);
-    };
-  });
 
   /* ---------------- 幕选择 ---------------- */
 
@@ -297,12 +323,18 @@
       const badge = p.cleared ? '<span class="cleared">✔ 已通关</span>'
         /* 测试口子临时放开的幕（含终章）标一下，关掉口子这些标记会随重绘消失 */
         : (testing && !actNormallyUnlocked(a.id) ? '<span class="test-tag">🧪 测试</span>' : '');
+      /* 难度名与失误预算直接写在关卡上；终章是「全要素正式版」，不挂难度名、
+         副标题也保持原样。这里用 productRule，不受验收脚本的测试覆盖影响。 */
+      const rule = productRule(a.id);
+      const diffTag = (!finale && rule.name)
+        ? '<span class="act-diff">' + rule.name + '</span>' : '';
       return '<button class="act-card' + (finale ? ' finale' : '') + (unlocked ? '' : ' locked') +
         '" data-act="' + a.id + '"' + (unlocked ? '' : ' disabled') + '>' +
         badge +
-        '<div class="no">' + (finale ? 'FINALE' : 'ACT ' + a.id) + '</div>' +
+        '<div class="no">' + (finale ? 'FINALE' : 'ACT ' + a.id) + diffTag + '</div>' +
         '<h3>' + a.name + '</h3>' +
-        '<div class="span">' + a.span + ' · ' + cards.length + ' 张卡' + (finale ? ' · 全卡池' : '') + '</div>' +
+        '<div class="span">' + a.span + ' · ' + cards.length + ' 张卡' +
+          (finale ? ' · 全卡池' : ' · ' + rule.mistakes + ' 次失误') + '</div>' +
         '<div class="desc">' + a.desc + '</div>' +
         '<div class="meta"><span>' + got + '/' + cards.length + '</span>' +
         '<span class="mini-bar"><i style="width:' + (got / cards.length * 100) + '%"></i></span>' +
@@ -363,13 +395,12 @@
     state.mode = 'act';
     state.actId = actId;
     const pool = poolForAct(actId);
-    const opts = { difficulty: S.settings.difficulty };
-    // 终章一局要放完 41 张，原难度预算（5/3/2）几乎必败；按难度各加宽 6 格
-    if (FINALE_ID && actId === FINALE_ID) {
-      const cfg = Engine.DIFFICULTY[S.settings.difficulty] || Engine.DIFFICULTY.normal;
-      opts.maxMistakes = cfg.mistakes + 6;
-    }
-    state.session = new Engine.GameSession(pool, opts);
+    const r = ruleFor(actId);
+    state.rule = r;
+    let mistakes = r.mistakes;
+    /* 测试覆盖模式复现旧终章「难度预算 +6」；玩家路径下终章固定 8 次。 */
+    if (r.test && FINALE_ID && actId === FINALE_ID) mistakes += 6;
+    state.session = new Engine.GameSession(pool, { difficulty: r.diff, maxMistakes: mistakes });
     state.selectedId = null;
     unlock(state.session.anchor.id);   // 锚点卡开局即在场，算已见过
     afterStart(ACTS.find(a => a.id === actId));
@@ -378,7 +409,11 @@
   function startReview() {
     state.mode = 'review';
     const pool = Engine.reviewPool(S.errors, S.collection, 8);
-    state.session = new Engine.GameSession(pool, { difficulty: S.settings.difficulty, maxMistakes: 3 });
+    /* 复习局不属任何一幕：固定普通预设 + 3 次失误、保留大小时间段。 */
+    const r = state.testDifficulty ? ruleFor(0) : REVIEW_RULE;
+    state.rule = r;
+    state.session = new Engine.GameSession(pool,
+      { difficulty: r.diff, maxMistakes: REVIEW_RULE.mistakes });
     state.selectedId = null;
     unlock(state.session.anchor.id);
     afterStart({ name: '复习局', span: '错题优先 · 8 张' });
@@ -398,6 +433,13 @@
     $$('.flyback').forEach(el => el.remove());
     $('#game-act-name').textContent = act.name;
     $('#game-act-span').textContent = act.span || '';
+    /* 关卡难度名挂在对局标题旁；终章与复习局没有名称，直接隐藏不占位。 */
+    const dn = $('#game-diff');
+    if (dn) {
+      const label = (state.rule && state.rule.name) || '';
+      dn.textContent = label;
+      dn.hidden = !label;
+    }
     go('game');
     renderGame();
   }
@@ -605,7 +647,9 @@
 
   /* ---------------- 两级纪元带（展示层 + 因果动画 + 悬停/点选浮起） ----------------
      统计仍是 eras.js 的纯函数：cards.js / engine.js / 41 张事件卡一行都不动。
-     · 显隐：手机竖屏、简单模式整条不显示（era-off），零占位零交互。
+     · 显隐：由本局关卡规则的 era 开关决定（前三幕里抄录/考据关闭、
+       编年/立传与终章开放）；手机竖屏因空间不足一律关闭。关闭时整条
+       era-off，零占位零交互。
      · 放对牌让某段「首次达标」时，不立刻点亮，改播一条因果链：
          ① 小段标签在新增卡牌正上方慢慢淡入
          ② 同时该段在时间线上的所有卡牌轻轻浮起（示意「是这几张触发的」）
@@ -640,10 +684,11 @@
     bigStep: 260    // 多个大段依次浮出的间隔
   };
 
-  /* 竖屏空间太小、横竖对不上；简单模式要减信息量 —— 两种都整条不显示。 */
+  /* 大小时间段（纪元带）从第三幕起开放；竖屏空间太小、横竖对不上，
+     仍按 v2 的约束整条不显示。开不开放由本局的关卡规则决定。 */
   function eraEnabled() {
     const g = state.session;
-    return !!g && g.difficulty !== 'easy' && !portraitLayout();
+    return !!g && !!(state.rule && state.rule.era) && !portraitLayout();
   }
   function eraTimer(fn, ms) {
     const t = setTimeout(() => {
@@ -991,7 +1036,8 @@
     band.classList.toggle('era-off', !enabled);
 
     if (!enabled) {
-      // 竖屏 / 简单模式：整条不显示，不播动画，统计仍算但 DOM 一律不点亮
+      // 本局规则未开放大小时间段 / 竖屏：整条不显示，不播动画，
+      // 统计仍算但 DOM 一律不点亮
       eraReset();
       band.dataset.sig = '';
       $$('#era-band .era-seg').forEach(el => el.classList.remove('on', 'emerge'));
@@ -1110,7 +1156,7 @@
     if (!g || state.locked) return;
     if (!state.selectedId) { toast('先点一张手牌'); return; }
     // 放牌前先记一份「已达标的段」，用来判断这次放对是否让某段首次达标。
-    // 简单模式 / 竖屏不显示纪元带，eraEnabled() 为假，直接不取、也不播动画。
+    // 本局未开放大小时间段 / 竖屏时 eraEnabled() 为假，直接不取、也不播动画。
     const eraPrev = (eraEnabled() && window.ERAS)
       ? window.ERAS.stats(g).on : null;
     const res = g.place(idx);
@@ -1512,7 +1558,7 @@
         '<p>系统按「错得越多、隔得越久」排序抽 8 张卡，组成一局复习。放对的卡会解锁进卡册。</p>' +
         '<div class="rev-stats"><span>已收集 ' + Object.keys(S.collection).length + ' 张</span>' +
         '<span>错题 ' + errs.length + ' 张</span>' +
-        '<span>难度 ' + Engine.DIFFICULTY[S.settings.difficulty].name + '</span></div>' +
+        '<span>复习局 · ' + REVIEW_RULE.mistakes + ' 次失误</span></div>' +
         '<div class="modal-actions" style="margin-top:12px">' +
           '<button class="primary" id="rev-start">开始复习局</button>' +
           '<button id="rev-clear">清空错题本</button>' +
@@ -1892,7 +1938,8 @@
       '5. 放错：扣 1 格失误预算，游戏会告诉你它应该在哪，并把这张卡送回牌堆——本局还会再见到它。<br>' +
       '6. 失误预算用尽，本幕提前结算；答错的卡进入错题本，可在复习模式里重排。<br>' +
       '7. 任一卡放对一次，就永久解锁进卡册，可看大图、讲解、书中原文与原声。<br>' +
-      '8. <b>简单模式</b>每次放置弹出完整讲解；<b>普通 / 困难</b>为快节奏：放对只给一句鼓励，' +
+      '8. 规则随关卡推进：<b>第一幕「抄录」</b>每次放置弹出完整讲解；' +
+      '<b>第二幕起、终章与复习局</b>为快节奏：放对只给一句鼓励，' +
       '放错则红色提示 + 卡牌弹回手牌摇一摇，失误预算也会闪一下，都不打断操作。' +
       '想看讲解，点提示上的「详情」即可展开。' +
       '</div></div>' +
@@ -1919,6 +1966,19 @@
   });
   window.__TL = {
     state: state, S: S, go: go, ALL_CARDS: ALL_CARDS, Engine: Engine,
+    /* 验收脚本专用：临时复现旧「全局难度」以回归底层三档预设。
+       只存内存、不写存档、刷新即失效；玩家路径完全不经过这里，
+       真实规则一律由 ACT_RULES / productRule() 决定。 */
+    debug: {
+      rules: () => ({ acts: ACT_RULES, finale: FINALE_RULE, review: REVIEW_RULE }),
+      rule: () => state.rule,
+      setDifficulty: d => {
+        state.testDifficulty = Engine.DIFFICULTY[d] ? d : null;
+        return state.testDifficulty;
+      },
+      difficulty: () => state.testDifficulty ||
+        (state.session ? state.session.difficulty : null)
+    },
     zoom: {
       get: () => ({ tl: zoomCfg.tl, hand: zoomCfg.hand }),
       cfg: () => zoomCfg, def: ZOOM_AUTO, key: ZOOM_KEY,
