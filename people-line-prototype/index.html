@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>人物线 · 交互原型（方案 B）</title>
+<link rel="stylesheet" href="./style.css">
+<link rel="icon" href="data:,">
+<style>
+/* ============================================================
+   人物线交互原型 · 独立 demo 页
+   - 不引入 / 不修改 index.html、app.js、engine.js 的任何逻辑
+   - 只复用 style.css 的配色变量与 .tl-card 卡面、.hand-card:hover 手感
+   - 数据来自 cards.js / people-cards.js 的全局词法绑定（非 window 属性）
+   ============================================================ */
+:root{
+  --cw:140px;      /* 一张事件卡宽，同 .tl-card */
+  --hw:70px;       /* 半卡虚位，用户拍板「空位默认半张」 */
+  --gap:8px;       /* 同 .timeline 的 gap */
+  --up:210px;      /* 上排事件卡高，同 .tl-card */
+  --ax:34px;       /* 共享时间轴 */
+  --lf:30px;       /* 生命线带 */
+  --lo:156px;      /* 下排人物头像 */
+}
+#app.pd{max-width:1400px;margin:0 auto;padding:0 18px 54px;min-height:100%}
+
+/* ---------- 页头 ---------- */
+.pd-head{padding:26px 4px 16px;text-align:center}
+.pd-kicker{font-size:10.5px;letter-spacing:3px;color:var(--gold-dim);margin-bottom:8px}
+.pd-head h1{font-size:27px;letter-spacing:1px;color:var(--gold)}
+.pd-head h1 span{color:var(--ink);font-weight:400;font-size:20px;margin-left:8px}
+.pd-sub{font-size:12.5px;color:var(--muted);margin:9px 0 0;line-height:1.7}
+
+/* ---------- 控制条 ---------- */
+.pd-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;
+  margin:6px 0 12px;padding:10px 12px;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px}
+.pd-scenes,.pd-toggles{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.pd-toolbar .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.pd-chip{font-size:11.5px;padding:6px 12px;border-radius:20px;border:1px solid var(--line);
+  background:var(--panel2);color:var(--muted);transition:.18s ease;white-space:nowrap}
+.pd-chip:hover{color:var(--ink);border-color:var(--gold-dim)}
+.pd-chip.on{background:var(--gold);border-color:var(--gold);color:#1a1a1a;font-weight:700}
+.pd-chip.tog.on{background:rgba(255,204,0,.14);border-color:var(--gold-dim);
+  color:var(--gold);font-weight:600}
+.pd-chip.tog::before{content:'○ ';font-size:12px}
+.pd-chip.tog.on::before{content:'● ';}
+
+/* ---------- 状态条 ---------- */
+.pd-status{min-height:34px;display:flex;align-items:center;justify-content:center;gap:10px;
+  flex-wrap:wrap;font-size:12px;color:var(--muted);margin:0 0 10px;text-align:center}
+.pd-status b{color:var(--gold);font-weight:600}
+.pd-status .pd-live{color:var(--ink)}
+.pd-status .pd-live em{color:var(--gold);font-style:normal;font-weight:600}
+
+/* ---------- 舞台 ---------- */
+.pd-stage{background:linear-gradient(180deg,rgba(33,42,68,.75),rgba(18,24,40,.9));
+  border:1px solid var(--line);border-radius:18px;overflow:hidden;
+  box-shadow:var(--shadow)}
+.pd-legend{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;
+  padding:11px 14px;border-bottom:1px solid var(--line);
+  font-size:10.5px;color:var(--muted);background:rgba(0,0,0,.14)}
+.pd-legend i{display:inline-block;vertical-align:middle;margin-right:5px;font-style:normal}
+.lg-ev{width:11px;height:14px;border-radius:2px;background:#fff;box-shadow:0 0 0 1px #999}
+.lg-pin{width:9px;height:14px;border:1px dashed var(--gold-dim);border-radius:2px}
+.lg-line{width:16px;height:0;border-top:1px dashed var(--gold-dim)}
+.lg-ava{width:12px;height:12px;border-radius:50%;border:2px solid var(--gold-dim);background:#2a3450}
+.lg-life{width:20px;height:5px;border-radius:3px;background:linear-gradient(90deg,rgba(255,204,0,.2),var(--gold))}
+
+.pd-scroll{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;
+  scrollbar-color:var(--gold-dim) transparent}
+.pd-scroll::-webkit-scrollbar{height:8px}
+.pd-scroll::-webkit-scrollbar-thumb{background:#4a557c;border-radius:6px}
+.pd-inner{position:relative;width:max-content;min-width:100%;padding:18px 24px 20px}
+/* 放得下就居中；溢出时 auto 外边距自动归零，最左侧虚位仍可滚回来
+   （与 style.css .timeline 同一套处理，不能用 justify-content:center） */
+.pd-cols{display:flex;align-items:stretch;gap:var(--gap)}
+.pd-cols > :first-child{margin-left:auto}
+.pd-cols > :last-child{margin-right:auto}
+
+.pd-col{position:relative;display:flex;flex-direction:column;flex:0 0 auto}
+.pd-col.ev{width:var(--cw)}
+.pd-col.pp{width:var(--hw)}
+.pd-up{height:var(--up);display:flex;align-items:center;justify-content:center;flex:0 0 var(--up)}
+.pd-ax{height:var(--ax);flex:0 0 var(--ax);display:flex;align-items:center;justify-content:center;
+  border-top:1px solid rgba(255,255,255,.09);position:relative}
+.pd-lf{height:var(--lf);flex:0 0 var(--lf);position:relative}
+.pd-lo{height:var(--lo);flex:0 0 var(--lo);padding-top:16px;position:relative}
+
+/* 上排：半卡虚位 */
+.pd-pin{width:100%;height:196px;border:1px dashed rgba(255,204,0,.42);border-radius:8px;
+  background:repeating-linear-gradient(135deg,rgba(255,204,0,.035) 0 8px,transparent 8px 16px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  transition:border-color .2s ease,background .2s ease}
+.pd-col.pp.on .pd-pin{border-color:var(--gold);background:rgba(255,204,0,.09)}
+.pd-pin .dia{width:11px;height:11px;transform:rotate(45deg);
+  border:1.5px solid var(--gold);opacity:.85}
+.pd-pin .lb{font-size:9.5px;letter-spacing:2px;color:#d9bd63;writing-mode:vertical-rl;
+  line-height:1;user-select:none}
+/* 虚线挂接：从虚位下缘一直连到下排头像顶 */
+.pd-col.pp::after{content:'';position:absolute;left:50%;top:203px;bottom:140px;
+  border-left:1px dashed rgba(255,204,0,.5);transform:translateX(-50%);
+  z-index:0;pointer-events:none;transition:border-color .2s ease}
+.pd-col.pp.on::after{border-left-color:var(--gold)}
+
+/* 时间轴：事件年份 / 人物锚点 */
+.pd-year{font-size:10px;color:#8792b4;letter-spacing:.3px;white-space:nowrap}
+.pd-dot{width:9px;height:9px;border-radius:50%;background:var(--gold-dim);
+  box-shadow:0 0 0 4px rgba(255,204,0,.12);transition:.2s ease}
+.pd-col.pp.on .pd-dot{background:var(--gold);box-shadow:0 0 0 6px rgba(255,204,0,.22)}
+.pd-col.ev .pd-lf::before{content:'';position:absolute;left:50%;top:0;bottom:0;
+  border-left:1px dashed rgba(255,255,255,.07)}
+
+/* 下排：头像圆片（方案 B） */
+.pd-ava{display:block;width:62px;height:62px;margin:0 auto;padding:0;border-radius:50%;
+  border:2px solid var(--gold-dim);background:#222b47;overflow:hidden;
+  box-shadow:0 3px 10px rgba(0,0,0,.4);cursor:pointer;
+  /* 与 .hand-card:hover 完全同款的浮现手感 */
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.pd-ava img{width:100%;height:100%;object-fit:cover;object-position:50% 20%;display:block}
+.pd-ava.f-church{border-color:var(--church)}
+.pd-ava.f-state{border-color:var(--state)}
+.pd-ava.f-local{border-color:var(--local)}
+.pd-ava.f-both{border-color:var(--both)}
+.pd-ava:hover,.pd-ava.on,.pd-col.pp.on .pd-ava{
+  transform:translateY(-3px) scale(1.04);
+  box-shadow:var(--card-shadow-hover);
+  border-color:var(--gold);z-index:20;position:relative}
+.pd-pname{font-size:10.5px;line-height:1.3;text-align:center;color:var(--ink);
+  margin:9px auto 0;max-width:78px;min-height:27px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pd-col.pp.on .pd-pname{color:var(--gold)}
+.pd-pyr{font-size:9.5px;line-height:1.3;text-align:center;color:var(--muted);margin-top:2px}
+
+/* 事件卡：生命线高亮态 */
+.pd-col.ev .tl-card{transition:transform .2s ease,box-shadow .2s ease,opacity .3s ease,filter .3s ease}
+.pd-stage.focus-life .pd-col.ev.out .tl-card{opacity:.4;filter:saturate(.5)}
+.pd-stage.focus-life .pd-col.ev.in .tl-card{
+  box-shadow:0 0 0 2px var(--gold),var(--card-shadow-hover);
+  transform:translateY(-3px) scale(1.025)}
+.pd-col.ev.tour-hit .tl-card{animation:pdHit .5s ease-out}
+@keyframes pdHit{0%{box-shadow:0 0 0 2px var(--gold),0 0 0 0 rgba(255,204,0,.6)}
+  100%{box-shadow:0 0 0 2px var(--gold),0 0 0 16px rgba(255,204,0,0)}}
+
+/* ---------- 生命线叠加层 ---------- */
+.pd-life,.pd-fx{position:absolute;inset:0;pointer-events:none}
+.pd-life{z-index:6}
+.pd-fx{z-index:30}
+.pd-life::after{content:'';position:absolute;left:24px;right:24px;top:259px;height:1px;
+  background:rgba(255,255,255,.05)}
+.pd-bar{position:absolute;height:8px;border-radius:6px;
+  background:linear-gradient(90deg,rgba(255,204,0,.22),rgba(255,204,0,.95) 16%,
+             rgba(255,204,0,.85) 84%,rgba(255,204,0,.12));
+  box-shadow:0 0 14px rgba(255,204,0,.45);
+  transform-origin:left center;opacity:0;transform:scaleX(0);
+  transition:transform .55s cubic-bezier(.2,.9,.3,1),opacity .28s ease}
+.pd-bar.show{opacity:1;transform:scaleX(1)}
+.pd-bar::before{content:'';position:absolute;left:-5px;top:-5px;width:18px;height:18px;
+  border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px rgba(255,204,0,.18)}
+/* 卒年标签放在生命线下方，避开时间轴那一行的事件年份文字 */
+.pd-bar::after{content:attr(data-end);position:absolute;right:0;top:12px;
+  transform:translateX(50%);font-size:9.5px;color:#1a1a1a;font-weight:600;
+  background:var(--gold);padding:1px 7px;border-radius:9px;white-space:nowrap;
+  box-shadow:0 2px 7px rgba(0,0,0,.45);letter-spacing:.2px}
+.pd-stage.all-bars .pd-bar{opacity:.42;transform:scaleX(1)}
+.pd-stage.all-bars .pd-bar::after{display:none}
+
+/* ---------- 巡游 ---------- */
+.pd-ghost{position:absolute;left:0;top:0;width:54px;height:54px;border-radius:50%;
+  overflow:hidden;border:2px solid var(--gold);background:#1a2238;
+  box-shadow:0 0 0 6px rgba(255,204,0,.16),0 8px 24px rgba(0,0,0,.5);
+  will-change:transform,opacity}
+.pd-ghost img{width:100%;height:100%;object-fit:cover;object-position:50% 20%}
+.pd-trail{position:absolute;left:0;top:0;height:3px;border-radius:3px;
+  background:linear-gradient(90deg,rgba(255,204,0,0),rgba(255,204,0,.95));
+  box-shadow:0 0 12px rgba(255,204,0,.7)}
+.pd-tourtag{position:absolute;font-size:10px;color:var(--gold);white-space:nowrap;
+  text-shadow:0 1px 4px #000;transform:translate(-50%,-140%)}
+
+/* ---------- 详情卡 ---------- */
+.pd-detail{margin-top:14px;background:var(--panel);border:1px solid var(--line);
+  border-radius:16px;padding:16px 18px;min-height:132px}
+.pd-empty{display:flex;align-items:center;justify-content:center;min-height:100px;
+  color:var(--muted);font-size:12.5px;text-align:center;line-height:1.9}
+.pd-info{display:flex;gap:18px;align-items:flex-start}
+.pd-portrait{flex:0 0 76px;width:76px;height:100px;border-radius:9px;overflow:hidden;
+  background:#222b47;border:1px solid var(--line);box-shadow:var(--card-shadow)}
+.pd-portrait img{width:100%;height:100%;object-fit:cover;object-position:50% 18%}
+.pd-main{flex:1;min-width:0}
+.pd-nm{font-size:17px;font-weight:700;color:var(--ink);line-height:1.3}
+.pd-nm small{font-size:11px;color:var(--muted);font-weight:400;margin-left:8px}
+.pd-meta{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 9px}
+.pd-tag{font-size:10.5px;padding:2px 8px;border-radius:12px;
+  background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.pd-tag.gold{color:var(--gold);border-color:var(--gold-dim)}
+.pd-explain{font-size:11.5px;color:var(--muted);line-height:1.75;margin:0 0 10px}
+.pd-sublabel{font-size:10px;color:var(--gold-dim);margin:0 0 6px;letter-spacing:.5px}
+.pd-events{display:flex;flex-wrap:wrap;gap:6px}
+.pd-evchip{font-size:10.5px;padding:3px 9px;border-radius:6px;
+  background:rgba(255,204,0,.1);border:1px solid rgba(255,204,0,.28);color:#f0dc9a}
+.pd-evchip b{color:var(--gold);margin-right:5px;font-weight:600}
+.pd-actions{display:flex;flex-direction:column;gap:8px;flex:0 0 126px}
+.pd-btn{font-size:11.5px;padding:8px 10px;border-radius:9px;
+  border:1px solid var(--gold-dim);background:rgba(255,204,0,.1);color:var(--gold);
+  transition:.18s ease}
+.pd-btn:hover{background:var(--gold);color:#1a1a1a}
+.pd-btn.ghost{border-color:var(--line);background:var(--panel2);color:var(--muted)}
+.pd-btn.ghost:hover{color:var(--ink);border-color:var(--gold-dim)}
+
+.pd-foot{margin-top:14px;text-align:center;font-size:10.5px;color:#69739a;line-height:1.9}
+
+/* ---------- 触屏 / 窄屏 ---------- */
+@media (hover:none){
+  .pd-ava{cursor:pointer}
+}
+@media (max-width:720px){
+  #app.pd{padding:0 10px 40px}
+  .pd-head h1{font-size:22px}
+  .pd-toolbar{padding:9px 8px;gap:7px}
+  .pd-chip{font-size:10.5px;padding:5px 9px}
+  .pd-toolbar .sep{display:none}
+  .pd-info{flex-direction:column}
+  .pd-actions{flex-direction:row;flex:0 0 auto;width:100%}
+  .pd-btn{flex:1}
+  .pd-legend{gap:10px;font-size:9.5px}
+}
+</style>
+</head>
+<body>
+<div id="app" class="pd">
+
+  <header class="pd-head">
+    <div class="pd-kicker">TIMELINE · PEOPLE LINE · PROTOTYPE</div>
+    <h1>人物线 <span>交互原型</span></h1>
+    <p class="pd-sub">方案 B：一人一虚拟卡位（半卡）· 头像圆片第二排 · 出生年排序（同年按卒年）<br>
+      生命线初始隐藏，悬停头像只亮一条；桌面点击头像可巡游一生</p>
+  </header>
+
+  <div class="pd-toolbar">
+    <div class="pd-scenes" id="scenes"></div>
+    <div class="sep"></div>
+    <div class="pd-toggles" id="toggles"></div>
+  </div>
+
+  <div class="pd-status" id="status"></div>
+
+  <section class="pd-stage" id="stage">
+    <div class="pd-legend">
+      <span><i class="lg-ev"></i>事件卡（上排 · 140px）</span>
+      <span><i class="lg-pin"></i>半卡虚位（70px）</span>
+      <span><i class="lg-line"></i>虚线挂接</span>
+      <span><i class="lg-ava"></i>人物头像（下排）</span>
+      <span><i class="lg-life"></i>生命线（悬停单条）</span>
+    </div>
+    <div class="pd-scroll" id="scroll">
+      <div class="pd-inner" id="inner">
+        <div class="pd-cols" id="cols"></div>
+        <div class="pd-life" id="life"></div>
+        <div class="pd-fx" id="fx"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pd-detail" id="detail"></section>
+
+  <footer class="pd-foot">
+    独立原型页 · 不修改 index.html / app.js / engine.js，不参与对局与回归套件。<br>
+    数据源：cards.js（41 张事件卡）、people-cards.js（39 张人物卡）；视觉复用 style.css。
+  </footer>
+</div>
+
+<script src="./cards.js"></script>
+<script src="./people-cards.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ---------- 工具 ---------- */
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(m){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
+function $(s){return document.querySelector(s);}
+function shortYear(e){
+  var y=Math.round(e.y), t=y<0?('前 '+Math.abs(y)):String(y);
+  return (e.approx?'约 ':'')+t;
+}
+function yearTxt(v){return v<0?('前 '+Math.abs(v)):String(v);}
+function bornVal(p){return p.born==null?-Infinity:p.born;}
+function diedVal(p){return p.died==null?Infinity:p.died;}
+var FCOLOR={church:'var(--church)',state:'var(--state)',local:'var(--local)',both:'var(--both)'};
+
+/* ---------- 场景 ---------- */
+var SCENES=[
+  {id:'act3', label:'第三幕 · 核心机制',
+   pickE:function(c){return c.act===3;},
+   pickP:function(p){return p.coverActs.indexOf(3)>=0;},
+   note:'三人全部出生在首张事件卡之前 → 三个半卡虚位连续排在最左，1:1 对应关系最清楚。'},
+  {id:'act1', label:'第一幕 · 密集压测',
+   pickE:function(c){return c.act===1;},
+   pickP:function(p){return p.coverActs.indexOf(1)>=0 && p.born!=null && p.born>=650 && p.born<=900;},
+   note:'本场景收 12 位人物；500 → 751 这一个缝隙就挤进 6 位（含 714 同年两位），检验半卡位与虚线是否还清爽。'},
+  {id:'act4', label:'第四幕 · 长跨度',
+   pickE:function(c){return c.act===4;},
+   pickP:function(p){return p.coverActs.indexOf(4)>=0;},
+   note:'生命线跨越大量事件卡，悬停一条就能看清「这个人活过了哪些事」。'},
+  {id:'all', label:'全量 · 千年长卷',
+   pickE:function(){return true;},
+   pickP:function(){return true;},
+   note:'39 位人物 / 41 张事件卡全序；含生年不详（圣彼得）与轴外（希特勒 1889–1945）边界样本。'}
+];
+
+var TOGGLES=[
+  {id:'hoverBar', label:'悬停显示单条生命线', on:true},
+  {id:'tour',     label:'点击头像巡游',       on:true},
+  {id:'allBars',  label:'显示全部生命线（对照）', on:false},
+  {id:'coarse',   label:'模拟触屏（点按）',   on:false}
+];
+
+var opt={hoverBar:true,tour:true,allBars:false,coarse:false};
+var scene=SCENES[0], units=[], people=[], events=[];
+var colById={}, evColById={}, barById={};
+var hoverId=null, pinnedId=null, tourRunning=null;
+var tourToken=0, tourAnims=[];
+/* 运行时判定，不用缓存值：混合设备 / 浏览器模拟 hover 后能立刻生效。
+   pointerMode 供桌面直接预览触屏交互（也是设计评审的对照开关）。 */
+var pointerMode='auto';
+function isCoarse(){
+  if(pointerMode==='fine')return false;
+  if(pointerMode==='coarse')return true;
+  return window.matchMedia('(hover:none)').matches;
+}
+function isReduce(){return window.matchMedia('(prefers-reduced-motion: reduce)').matches;}
+
+/* ---------- 构建场景数据：一人一虚拟卡位 ---------- */
+function build(){
+  events=CARDS.filter(scene.pickE).slice().sort(function(a,b){return a.y-b.y;});
+  people=PEOPLE.filter(scene.pickP).slice().sort(function(a,b){
+    var x=bornVal(a),y=bornVal(b);
+    if(x!==y) return x-y;                 /* 出生年升序 */
+    if(diedVal(a)!==diedVal(b)) return diedVal(a)-diedVal(b); /* 同年 → 卒年 */
+    return String(a.id).localeCompare(String(b.id));
+  });
+  /* 以 born 找插入位，但不真的插进事件序列 */
+  people.forEach(function(p){p._k=events.filter(function(e){return e.y<bornVal(p);}).length;});
+  units=[];
+  for(var k=0;k<=events.length;k++){
+    people.filter(function(p){return p._k===k;}).forEach(function(p){
+      units.push({type:'person',p:p});
+    });
+    if(k<events.length) units.push({type:'event',e:events[k]});
+  }
+}
+
+function cardHTML(c){
+  var f='f-'+c.faction;
+  var art=c.img
+    ? '<img src="'+esc(c.img)+'"'+(c.artPos==='top'?' class="art-top"':'')+' alt="" loading="lazy">'
+    : '<div class="crest">'+esc(c.icon||'❓')+'</div>';
+  /* 与产品一致：第三幕起不生成势力文字标签，只留顶部色条 */
+  return '<div class="tl-card '+f+'" data-id="'+esc(c.id)+'"><div class="face '+f+'">'+
+    '<div class="fstrip"></div><div class="art">'+art+'</div>'+
+    '<div class="nm">'+esc(c.zh)+'</div>'+
+    '<div class="yr">'+esc(c.dy)+'</div></div></div>';
+}
+function personHTML(p){
+  var f='f-'+p.faction;
+  var b=p.born==null?'？':yearTxt(p.born), d=p.died==null?'？':yearTxt(p.died);
+  return '<div class="pd-up"><div class="pd-pin"><span class="dia"></span><span class="lb">虚位</span></div></div>'+
+    '<div class="pd-ax"><span class="pd-dot"></span></div>'+
+    '<div class="pd-lf"></div>'+
+    '<div class="pd-lo">'+
+      '<button class="pd-ava '+f+'" data-id="'+esc(p.id)+'" aria-label="'+esc(p.zh)+'">'+
+        '<img src="'+esc(p.img)+'" alt="" loading="lazy"></button>'+
+      '<div class="pd-pname">'+esc(p.zh)+'</div>'+
+      '<div class="pd-pyr">'+esc(b)+'–'+esc(d)+'</div>'+
+    '</div>';
+}
+
+function render(){
+  stopTour(true);
+  hoverId=pinnedId=null;
+  colById={};evColById={};barById={};
+  var cols=$('#cols'), life=$('#life');
+  cols.innerHTML=''; life.innerHTML='';
+  $('#fx').innerHTML='';
+
+  units.forEach(function(u){
+    var d=document.createElement('div');
+    d.className='pd-col '+(u.type==='event'?'ev':'pp');
+    if(u.type==='event'){
+      d.dataset.eid=u.e.id;
+      d.innerHTML='<div class="pd-up">'+cardHTML(u.e)+'</div>'+
+        '<div class="pd-ax"><span class="pd-year">'+esc(shortYear(u.e))+'</span></div>'+
+        '<div class="pd-lf"></div><div class="pd-lo"></div>';
+      evColById[u.e.id]={col:d,e:u.e};
+    }else{
+      d.dataset.pid=u.p.id;
+      d.innerHTML=personHTML(u.p);
+      colById[u.p.id]={col:d,p:u.p};
+    }
+    cols.appendChild(d);
+  });
+
+  /* 生命条：从头像中心，越过其生命内所有事件卡，到最右那张的右缘 */
+  people.forEach(function(p){
+    var b=bornVal(p), dd=diedVal(p);
+    var inEv=events.filter(function(e){return e.y>=b && e.y<=dd;});
+    p._inEv=inEv;
+    var bar=document.createElement('div');
+    bar.className='pd-bar'; bar.dataset.pid=p.id;
+    bar.dataset.end='† '+(p.died==null?'？':yearTxt(p.died))+
+      (inEv.length?(' · '+inEv.length+' 事件'):' · 轴外');
+    life.appendChild(bar);
+    barById[p.id]=bar;
+  });
+
+  requestAnimationFrame(measure);
+  bindAvatars();
+  drawStatus();
+  drawDetail();
+  $('#stage').classList.toggle('all-bars',opt.allBars);
+  $('#scroll').scrollLeft=0;
+}
+
+/* 绝对坐标：相对 .pd-inner，滚动后依然正确 */
+function rectIn(el){
+  var r=el.getBoundingClientRect(), i=$('#inner').getBoundingClientRect();
+  return {x:r.left-i.left,y:r.top-i.top,w:r.width,h:r.height,
+          cx:r.left-i.left+r.width/2,cy:r.top-i.top+r.height/2};
+}
+function measure(){
+  var UP=210,AX=34;
+  people.forEach(function(p){
+    var rec=colById[p.id]; if(!rec)return;
+    var av=rec.col.querySelector('.pd-ava');
+    var a=rectIn(av);
+    var last=p._inEv.length?p._inEv[p._inEv.length-1]:null;
+    var endX=last?(rectIn(evColById[last.id].col).x+140):(a.cx+76);
+    var bar=barById[p.id];
+    bar.style.left=a.cx+'px';
+    bar.style.top=(UP+AX+11)+'px';
+    bar.style.width=Math.max(46,endX-a.cx)+'px';
+  });
+}
+
+/* ---------- 交互 ---------- */
+function effectiveId(){return pinnedId||hoverId||tourRunning;}
+function applyState(){
+  var id=effectiveId(), stage=$('#stage');
+  Object.keys(colById).forEach(function(k){colById[k].col.classList.toggle('on',k===id);});
+  /* 巡游期间不显示静态生命线，只留随头像生长的动态金色轨迹 */
+  Object.keys(barById).forEach(function(k){
+    barById[k].classList.toggle('show',
+      !!id&&k===id&&opt.hoverBar&&!opt.allBars&&!tourRunning);
+  });
+  stage.classList.toggle('focus-life',!!id&&opt.hoverBar&&!opt.allBars);
+  var p=id?PEOPLE.filter(function(x){return x.id===id;})[0]:null;
+  var inIds=p?p._inEv.map(function(e){return e.id;}):[];
+  Object.keys(evColById).forEach(function(k){
+    var c=evColById[k].col, hit=inIds.indexOf(k)>=0;
+    c.classList.toggle('in',!!p&&hit);
+    c.classList.toggle('out',!!p&&!hit);
+  });
+  drawStatus(p);
+  drawDetail(p);
+}
+
+function bindAvatars(){
+  Object.keys(colById).forEach(function(id){
+    var av=colById[id].col.querySelector('.pd-ava');
+    av.addEventListener('mouseenter',function(){
+      if(isCoarse())return;
+      hoverId=id; pinnedId=null; applyState();
+    });
+    av.addEventListener('mouseleave',function(){
+      if(isCoarse())return;
+      if(hoverId===id)hoverId=null;
+      if(!tourRunning)applyState();
+    });
+    av.addEventListener('click',function(ev){
+      ev.stopPropagation();
+      if(isCoarse()){
+        /* 触屏 / 只能点击的设备：只切换单条生命线，不做巡游 */
+        pinnedId=(pinnedId===id)?null:id; hoverId=null; applyState();
+      }else{
+        hoverId=id; pinnedId=null; applyState();
+        if(opt.tour)tour(id);
+      }
+    });
+  });
+  $('#stage').addEventListener('click',function(ev){
+    if(ev.target.closest('.pd-ava')||ev.target.closest('.pd-btn'))return;
+    pinnedId=null; hoverId=null; applyState();
+  });
+}
+
+/* ---------- 巡游：头像上升 → 向右经历生命内事件 → 淡出 ---------- */
+function anim(el,frames,opts){
+  var a=el.animate(frames,opts); tourAnims.push(a);
+  return a.finished.catch(function(){});
+}
+function stopTour(silent){
+  tourToken++;
+  tourAnims.forEach(function(a){try{a.cancel();}catch(e){}});
+  tourAnims=[];
+  $('#fx').innerHTML='';
+  tourRunning=null;
+  if(!silent)applyState();
+}
+function speed(ms){return isReduce()?Math.round(ms*.4):ms;}
+
+async function tour(id){
+  stopTour(true);
+  var my=tourToken;
+  var rec=colById[id]; if(!rec)return;
+  var p=rec.p, fx=$('#fx');
+  tourRunning=id; applyState();
+
+  var av=rec.col.querySelector('.pd-ava'), r=rectIn(av);
+  var startX=r.cx-27, startY=r.cy-27;
+  var travelY=18+150-27;                       /* 上升到上排卡区下缘附近 */
+  var targets=p._inEv.map(function(e){
+    var er=rectIn(evColById[e.id].col);
+    return {x:er.cx-27,col:evColById[e.id].col,e:e};
+  });
+
+  var ghost=document.createElement('div');
+  ghost.className='pd-ghost';
+  ghost.innerHTML='<img src="'+esc(p.img)+'" alt="">';
+  ghost.style.transform='translate('+startX+'px,'+startY+'px) scale(1)';
+  fx.appendChild(ghost);
+
+  var trail=document.createElement('div');
+  trail.className='pd-trail';
+  trail.style.left=r.cx+'px'; trail.style.top=(travelY+25)+'px'; trail.style.width='0px';
+  fx.appendChild(trail);
+
+  var curX=startX, curY=startY, E='cubic-bezier(.25,.8,.25,1)';
+  var t1='translate('+curX+'px,'+curY+'px) scale(1)';
+  curY=travelY;
+  var t2='translate('+curX+'px,'+curY+'px) scale(1.14)';
+  await anim(ghost,[{transform:t1},{transform:t2}],
+    {duration:speed(760),easing:E,fill:'forwards'});
+  if(my!==tourToken)return;
+
+  var prevW=0;
+  for(var i=0;i<targets.length;i++){
+    var t=targets[i], from='translate('+curX+'px,'+curY+'px) scale(1.14)';
+    curX=t.x;
+    var to='translate('+curX+'px,'+curY+'px) scale(1.14)';
+    t.col.classList.remove('tour-hit'); void t.col.offsetWidth; t.col.classList.add('tour-hit');
+    /* 起点必须累计：fill:forwards 不改内联 style.width，读它会永远拿到 0px */
+    var w1=Math.max(0,curX+27-r.cx);
+    await Promise.all([
+      anim(ghost,[{transform:from},{transform:to}],
+        {duration:speed(520),easing:E,fill:'forwards'}),
+      anim(trail,[{width:prevW+'px'},{width:w1+'px'}],
+        {duration:speed(520),easing:E,fill:'forwards'})
+    ]);
+    prevW=w1;
+    if(my!==tourToken)return;
+  }
+
+  var endLabel=document.createElement('div');
+  endLabel.className='pd-tourtag';
+  endLabel.textContent='† '+(p.died==null?'？':yearTxt(p.died))+' · '+(p.born==null?'？':yearTxt(p.born))+' 生';
+  endLabel.style.left=(curX+27)+'px'; endLabel.style.top=(curY+4)+'px';
+  fx.appendChild(endLabel);
+
+  var last='translate('+curX+'px,'+curY+'px) scale(1.14)';
+  await anim(ghost,[{transform:last,opacity:1},
+                    {transform:'translate('+curX+'px,'+(curY-16)+'px) scale(.72)',opacity:0}],
+    {duration:speed(1100),easing:'ease-in',fill:'forwards'});
+  if(my!==tourToken)return;
+  stopTour();
+}
+
+/* ---------- 状态条 / 详情卡 ---------- */
+function drawStatus(p){
+  var s=$('#status');
+  if(!p){
+    s.innerHTML='当前：<b>'+esc(scene.label)+'</b> · '+events.length+' 张事件卡 · '+people.length+
+      ' 位人物 · '+units.length+' 个卡位　<span class="pd-live">'+esc(scene.note)+'</span>';
+    return;
+  }
+  var b=p.born==null?'？':yearTxt(p.born), d=p.died==null?'？':yearTxt(p.died);
+  s.innerHTML='<span class="pd-live">'+(isCoarse()?'已选中':'悬停中')+'：<em>'+esc(p.zh)+'</em>　'+esc(b)+'–'+esc(d)+
+    '　寿命 '+esc(p.life||'—')+'　本场景内跨越 <em>'+p._inEv.length+'</em> 张事件卡</span>'+
+    (tourRunning?'　<b>巡游中…</b>':'');
+}
+function drawDetail(p){
+  var box=$('#detail');
+  if(!p){
+    box.innerHTML='<div class="pd-empty">把鼠标移到下排任意头像上 → 头像按现有卡牌手感浮起，<br>'+
+      '同时只亮出这个人的一条生命线，上排他经历过的事件卡会被点亮。<br>'+
+      (isCoarse()?'触屏：点按头像切换生命线；再点一次或点空白处收起。':'桌面：点击头像可看他「巡游一生」。')+'</div>';
+    return;
+  }
+  var b=p.born==null?'生年不详':yearTxt(p.born), d=p.died==null?'卒年不详':yearTxt(p.died);
+  var chips=p._inEv.length?p._inEv.map(function(e){
+    return '<span class="pd-evchip"><b>'+esc(shortYear(e))+'</b>'+esc(e.zh)+'</span>';
+  }).join(''):'<span class="pd-evchip">生命区间内没有事件卡（时间轴之外）</span>';
+  box.innerHTML='<div class="pd-info">'+
+    '<div class="pd-portrait"><img src="'+esc(p.img)+'" alt=""></div>'+
+    '<div class="pd-main">'+
+      '<div class="pd-nm">'+esc(p.zh)+'<small>'+esc(p.en||'')+'</small></div>'+
+      '<div class="pd-meta">'+
+        '<span class="pd-tag gold">'+esc(b)+' – '+esc(d)+'</span>'+
+        '<span class="pd-tag">'+esc(p.role||'')+'</span>'+
+        '<span class="pd-tag">'+esc(FACTIONS[p.faction].name)+'</span>'+
+        '<span class="pd-tag">寿命 '+esc(p.life||'—')+'</span>'+
+        '<span class="pd-tag">'+esc(p.cls==='A'?'原文点名':'史实推定')+'</span>'+
+      '</div>'+
+      '<p class="pd-explain">'+esc(p.explain||'')+'</p>'+
+      '<div class="pd-sublabel">本场景内经历的事件卡</div>'+
+      '<div class="pd-events">'+chips+'</div>'+
+    '</div>'+
+    '<div class="pd-actions">'+
+      '<button class="pd-btn" id="btn-tour">'+(isCoarse()?'▶ 播放巡游（可选）':'▶ 巡游一生')+'</button>'+
+      (tourRunning?'<button class="pd-btn ghost" id="btn-stop">■ 停止巡游</button>':'')+
+    '</div></div>';
+  var bt=$('#btn-tour'); if(bt)bt.onclick=function(){tour(p.id);};
+  var bs=$('#btn-stop'); if(bs)bs.onclick=function(){stopTour();};
+}
+
+/* ---------- 控制条 ---------- */
+function drawControls(){
+  $('#scenes').innerHTML=SCENES.map(function(s){
+    return '<button class="pd-chip'+(s.id===scene.id?' on':'')+'" data-scene="'+s.id+'">'+esc(s.label)+'</button>';
+  }).join('');
+  $('#toggles').innerHTML=TOGGLES.map(function(t){
+    return '<button class="pd-chip tog'+(opt[t.id]?' on':'')+'" data-tog="'+t.id+'">'+esc(t.label)+'</button>';
+  }).join('');
+  $('#scenes').onclick=function(ev){
+    var b=ev.target.closest('[data-scene]'); if(!b)return;
+    scene=SCENES.filter(function(s){return s.id===b.dataset.scene;})[0];
+    drawControls(); build(); render();
+  };
+  $('#toggles').onclick=function(ev){
+    var b=ev.target.closest('[data-tog]'); if(!b)return;
+    var k=b.dataset.tog; opt[k]=!opt[k];
+    if(k==='allBars'&&opt.allBars)opt.hoverBar=true;
+    if(k==='coarse'){
+      pointerMode=opt.coarse?'coarse':'auto';
+      stopTour(true); pinnedId=hoverId=null;
+    }
+    drawControls(); applyState();
+    $('#stage').classList.toggle('all-bars',opt.allBars);
+  };
+}
+
+/* ---------- 启动 ---------- */
+window.addEventListener('resize',function(){if(units.length)measure();});
+drawControls();
+build();
+render();
+
+/* 供截图 / 调试使用 */
+window.PD={
+  scene:function(id){scene=SCENES.filter(function(s){return s.id===id;})[0]||scene;
+    drawControls();build();render();return scene.label;},
+  activate:function(id){pinnedId=id;hoverId=null;applyState();return !!colById[id];},
+  clear:function(){pinnedId=hoverId=null;stopTour(true);applyState();},
+  tour:function(id){return tour(id);},
+  stop:function(){stopTour();},
+  /* 截图用：冻结 / 恢复正在播放的巡游动画，保证分帧可复现 */
+  freeze:function(){tourAnims.forEach(function(a){try{if(a.playState==='running')a.pause();}catch(e){}});},
+  resume:function(){tourAnims.forEach(function(a){try{if(a.playState==='paused')a.play();}catch(e){}});},
+  pointer:function(m){pointerMode=m;opt.coarse=(m==='coarse');drawControls();applyState();
+    return isCoarse();},
+  state:function(){return {scene:scene.id,events:events.length,people:people.length,
+    units:units.length,active:effectiveId(),pointer:pointerMode,coarse:isCoarse(),
+    reduce:isReduce(),opt:opt};},
+  order:function(){return people.map(function(p){return p.zh+' '+p.born+'-'+p.died+' k='+p._k;});}
+};
+})();
+</script>
+</body>
+</html>

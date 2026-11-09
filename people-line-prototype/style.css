@@ -1,0 +1,1137 @@
+/* ============================================================
+   Timeline：皇帝与教皇 — 样式
+   深蓝 + 金，与姊妹作《权力的双人舞》同一视觉语言
+   ============================================================ */
+
+:root{
+  --bg:#121828;
+  --bg2:#1a2238;
+  --panel:#212a44;
+  --panel2:#2a3450;
+  --line:#39456a;
+  --gold:#ffcc00;
+  --gold-dim:#c8a030;
+  --ink:#f2efe6;
+  --muted:#98a0b8;
+  --church:#378ADD;
+  --state:#EF9F27;
+  --local:#a8a79f;
+  --both:#c8b271;
+  --ok:#4CAF7D;
+  --bad:#E2504B;
+  /* 卡面按原版：纯白、极淡投影，不用米黄底和重阴影 */
+  --card-bg:#fff;
+  --card-ink:#2b2b2b;
+  --card-shadow:0 2px 6px rgba(0,0,0,.27);
+  --card-shadow-hover:0 8px 16px rgba(0,0,0,.32);
+  --shadow:0 6px 20px rgba(0,0,0,.35);
+  /* 两排卡的缩放倍率（标题后的滑条可调，存 localStorage） */
+  --tl-zoom:1;         /* 时间线区；JS 启动时按视口 / 本机设置覆盖 */
+  --hand-zoom:1;       /* 手牌区 */
+  /* 纪元带反向抵消倍数 = 1 / --tl-zoom，由 JS 同步写入。
+     纪元带是横跨整条时间线的刻度尺，不跟着卡牌缩：缩到 0.8 时字号会糊、
+     行高被压到 16px 不好点，所以用等值反向缩放把它的尺寸钉回原始值。 */
+  --era-unzoom:1;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:radial-gradient(1200px 700px at 50% -10%, #233056 0%, var(--bg) 60%);
+  color:var(--ink);
+  font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB",-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:15px;line-height:1.6;
+  overflow-x:hidden;
+}
+button{font-family:inherit;color:inherit;cursor:pointer}
+h1,h2,h3{margin:0;font-weight:700}
+small{font-size:.78em;opacity:.85}
+
+#app{max-width:1180px;margin:0 auto;padding:0 14px 40px;min-height:100%}
+
+/* ---------- 视图切换 ---------- */
+.view{display:none;animation:fade .28s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 首页 ---------- */
+.home-head{padding:26px 4px 14px;text-align:center}
+.brand-mark{font-size:32px;display:block;margin-bottom:4px}
+.brand h1{font-size:26px;letter-spacing:1px;color:var(--gold)}
+.brand .sub{margin:6px 0 0;color:var(--muted);font-size:13px}
+.result-beta{margin-top:12px;text-align:center;font-size:11.5px;color:var(--muted)}
+.progress-card{
+  margin:18px auto 0;max-width:460px;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:12px 16px;text-align:left;
+}
+.prog-row{display:flex;justify-content:space-between;align-items:baseline}
+.prog-label{color:var(--muted);font-size:13px}
+.prog-value b{font-size:20px;color:var(--gold)}
+.bar{height:7px;background:#0f1526;border-radius:6px;margin:8px 0 10px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--gold));border-radius:6px;transition:width .5s}
+.act-rings{display:flex;gap:8px}
+.ring{flex:1;text-align:center;font-size:11px;color:var(--muted)}
+.ring b{display:block;font-size:15px;color:var(--ink)}
+.ring.done b{color:var(--gold)}
+
+.mode-list{margin-top:18px;display:flex;flex-direction:column;gap:10px}
+.mode{
+  display:flex;align-items:center;gap:14px;width:100%;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:14px 16px;text-align:left;transition:.18s;
+}
+.mode:hover,.mode:active{border-color:var(--gold-dim);background:var(--panel2);transform:translateY(-1px)}
+.mode-icon{font-size:26px}
+.mode-txt{flex:1;display:block}
+.mode-txt b{display:block;font-size:16px}
+.mode-txt small{color:var(--muted)}
+.mode-arrow{color:var(--muted);font-size:22px}
+.mode.big{background:linear-gradient(100deg,#2b3757,#212a44);border-color:var(--gold-dim)}
+.mode.big .mode-txt b{color:var(--gold)}
+
+/* 首页难度选择已移除：规则绑定在关卡上，难度名见 .act-diff / .game-diff */
+.home-links{margin-top:18px}
+.sister{
+  display:block;background:var(--panel);border:1px dashed var(--line);border-radius:14px;
+  padding:12px 14px;text-decoration:none;color:var(--ink);
+}
+.sister span{font-size:11px;color:var(--muted)}
+.sister b{display:block;font-size:15px;color:var(--gold)}
+.sister small{color:var(--muted)}
+.home-foot{margin-top:12px;text-align:center;color:var(--muted);font-size:12px}
+.link-btn{background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;padding:4px}
+.dot{margin:0 6px}
+
+/* ---------- 顶栏 ---------- */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 2px 10px}
+.topbar h2{font-size:18px}
+.back{background:none;border:1px solid var(--line);border-radius:9px;padding:5px 12px;font-size:13px;color:var(--muted)}
+.back:hover{color:var(--ink);border-color:var(--gold-dim)}
+.topbar-right{font-size:12px;color:var(--muted)}
+
+/* ---------- 幕选择 ---------- */
+.act-list{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+.act-card{
+  position:relative;background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  padding:16px;text-align:left;overflow:hidden;transition:.18s;display:block;width:100%;
+}
+.act-card:hover{border-color:var(--gold-dim)}
+.act-card .no{font-size:12px;color:var(--gold);letter-spacing:2px}
+/* 关卡难度名：抄录 / 考据 / 编年 / 立传，终章不显示 */
+.act-card .act-diff{
+  display:inline-block;margin-left:9px;padding:2px 9px;
+  border:1px solid var(--gold-dim);border-radius:999px;
+  font-size:11px;letter-spacing:1px;color:var(--gold);vertical-align:1px;
+}
+.act-card h3{font-size:19px;margin:2px 0 4px}
+.act-card .span{font-size:12px;color:var(--muted)}
+.act-card .desc{margin-top:8px;font-size:13px;color:#d5d9e6}
+.act-card .meta{margin-top:10px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.act-card .mini-bar{flex:1;height:6px;background:#0f1526;border-radius:5px;overflow:hidden}
+.act-card .mini-bar i{display:block;height:100%;background:var(--gold)}
+.act-card.locked{opacity:.5}
+.act-card .lock{position:absolute;right:14px;top:16px;font-size:20px}
+.act-card .cleared{position:absolute;right:14px;top:14px;font-size:13px;color:var(--gold)}
+
+/* ---------- 终章（第五幕）与测试口子 ---------- */
+/* 终章入口：通关四幕 / 打开测试口子后才显示 */
+.mode[hidden]{display:none}
+.mode.finale{background:linear-gradient(100deg,#3b3115,#252238);border-color:var(--gold)}
+.mode.finale .mode-txt b{color:var(--gold)}
+.mode.finale.test-on{border-style:dashed}
+/* 幕列表里的终章卡：金调底，与主线四幕区分 */
+.act-card.finale{background:linear-gradient(135deg,#2c2a1c,#212a44);border-color:var(--gold-dim)}
+.act-card.finale .no{letter-spacing:2.5px}
+.act-card .test-tag{
+  position:absolute;right:14px;top:14px;font-size:12px;color:var(--gold);
+  border:1px dashed var(--gold-dim);border-radius:6px;padding:2px 7px;
+}
+.act-card .finale-lock{margin-top:9px;font-size:12px;color:var(--gold)}
+#view-acts .topbar h2{user-select:none;-webkit-user-select:none;cursor:pointer}
+.act5-test-btn{
+  display:block;width:100%;margin-top:14px;padding:11px;
+  border:1px dashed var(--gold-dim);border-radius:10px;
+  background:rgba(255,204,0,.07);color:var(--gold);font-size:13px;
+}
+.act5-test-btn:hover{background:rgba(255,204,0,.14)}
+.act5-test-btn[hidden]{display:none}
+
+/* ---------- 对局 ---------- */
+#view-game.active{display:flex;flex-direction:column;min-height:100vh;padding-bottom:16px}
+.game-head{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;gap:10px;padding:12px 2px 10px;flex:0 0 auto;
+}
+.game-title{min-width:0;padding-left:4px}
+/* 本章标题 + 两根缩放滑条同一行；标题过长省略，滑条不被挤掉 */
+.game-title .title-row{display:flex;align-items:center;gap:10px;min-width:0}
+.game-title b{
+  display:block;min-width:0;flex:0 1 auto;font-size:16px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+/* 对局标题旁的关卡难度名；终章 / 复习局用 hidden 整块收起，不占位 */
+.game-diff{
+  flex:0 0 auto;font-size:11px;letter-spacing:1px;color:var(--gold);
+  border:1px solid var(--gold-dim);border-radius:999px;
+  padding:2px 8px;white-space:nowrap;
+}
+.game-diff[hidden]{display:none}
+.game-title small{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- 就地缩放滑条（标题后） ----------
+   两排各一根：时间线卡 / 手牌。拖动即时生效、松手即存，不再有弹窗与「完成」。 */
+.zoom-inline{
+  flex:0 0 auto;display:flex;align-items:center;gap:9px;
+  padding:2px 7px 2px 6px;border-radius:9px;
+  background:rgba(255,204,0,.05);border:1px solid rgba(255,204,0,.16);
+  transition:box-shadow .35s ease,background .35s ease;
+}
+/* 标题五击的提示：把滑条框闪一下，告诉玩家调的是这里 */
+.zoom-inline.zi-flash{
+  background:rgba(255,204,0,.16);border-color:var(--gold);
+  box-shadow:0 0 0 3px rgba(255,204,0,.22);
+}
+.zi-item{display:flex;align-items:center;gap:5px;min-width:0;cursor:pointer}
+.zi-tag{font-size:10.5px;color:var(--muted);white-space:nowrap;letter-spacing:.2px}
+.zi-val{
+  font-size:10.5px;font-variant-numeric:tabular-nums;color:var(--gold);
+  font-weight:600;min-width:34px;text-align:right;
+}
+.zi-item input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  width:78px;height:14px;margin:0;background:transparent;cursor:pointer;
+}
+/* 轨道 / 滑块：两端都写，Safari 只用 -webkit- 前缀那一套 */
+.zi-item input[type=range]::-webkit-slider-runnable-track{
+  height:4px;border-radius:2px;
+  background:linear-gradient(90deg,rgba(255,204,0,.55),rgba(255,255,255,.16));
+}
+.zi-item input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:13px;height:13px;margin-top:-4.5px;
+  border-radius:50%;background:var(--gold);border:1px solid rgba(0,0,0,.35);
+  box-shadow:0 1px 4px rgba(0,0,0,.5);
+}
+.zi-item input[type=range]::-moz-range-track{
+  height:4px;border-radius:2px;
+  background:linear-gradient(90deg,rgba(255,204,0,.55),rgba(255,255,255,.16));
+}
+.zi-item input[type=range]::-moz-range-thumb{
+  width:13px;height:13px;border-radius:50%;background:var(--gold);
+  border:1px solid rgba(0,0,0,.35);box-shadow:0 1px 4px rgba(0,0,0,.5);
+}
+.zi-item input[type=range]:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:4px}
+.zi-reset{
+  flex:0 0 auto;width:19px;height:19px;padding:0;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-family:inherit;font-size:12px;cursor:pointer;
+  background:transparent;border:1px solid rgba(255,204,0,.28);border-radius:6px;
+  color:var(--gold-dim);
+}
+.zi-reset:hover{background:rgba(255,204,0,.16);border-color:var(--gold);color:var(--gold)}
+
+/* 竖屏：时间线是纵向卡、手牌是横条，本来就按视口铺满，不需要缩放 → 滑条隐藏 */
+@media (max-width:760px) and (orientation:portrait){
+  .zoom-inline{display:none}
+}
+/* 矮横屏（手机横屏）宽度紧张：压缩标签与轨道，保证两根滑条都能完整操作 */
+@media (orientation:landscape) and (max-height:540px){
+  .zoom-inline{gap:7px;padding:1px 5px}
+  .zi-item{gap:4px}
+  .zi-tag{font-size:9.5px}
+  .zi-val{font-size:9.5px;min-width:30px}
+  .zi-item input[type=range]{width:62px;height:13px}
+  .zi-reset{width:17px;height:17px;font-size:11px}
+}
+.hud{display:flex;gap:6px;align-items:center;grid-column:3}
+.hud-item{
+  background:var(--panel);border:1px solid var(--line);border-radius:9px;
+  padding:5px 9px;font-size:12.5px;white-space:nowrap;
+}
+#hud-mistakes{letter-spacing:2px;color:var(--bad);display:inline-block}
+#hud-mistakes.hit{animation:hudHit .9s ease-out}
+@keyframes hudHit{
+  0%,100%{color:var(--bad);text-shadow:none;transform:scale(1)}
+  25%    {color:#ff9a95;text-shadow:0 0 10px rgba(226,80,75,.9);transform:scale(1.18)}
+}
+#hud-combo-box{color:var(--gold)}
+
+.timeline-wrap{
+  flex:0 0 auto;display:flex;flex-direction:column;min-height:0;position:relative;
+  background:linear-gradient(180deg,#1c2440,#161d33);
+  border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-top:2px;
+}
+/* 提示行：全对局唯一的信息源。固定单行高度，无论 idle / 选中 / 放对 / 放错 / 通关
+   都占同样高度，不再因为新增或收起一条反馈行让整个画面上下抖动。 */
+.timeline-hint{
+  font-size:12.5px;color:var(--muted);margin-bottom:8px;text-align:center;flex:0 0 auto;
+  height:20px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  border-radius:6px;
+}
+.timeline-hint b{color:var(--gold);font-weight:600}
+.timeline-hint.hint-ok{background:#1b2340;color:var(--ok)}
+.timeline-hint.hint-ok b{color:var(--ok)}
+.timeline-hint.hint-bad{background:#3a1b22;color:#ff8b85;box-shadow:inset 3px 0 0 var(--bad)}
+.timeline-hint.hint-bad b{color:#ff8b85}
+.timeline-hint.bad-pulse{animation:qfBad .6s ease-out 2}
+.timeline-hint .qf-note{display:inline-block;color:#ffb3ae}
+/* 「详情」做成 inline 文字按钮，不撑高这一行 */
+.timeline-hint .hint-detail{
+  display:inline-block;line-height:1;vertical-align:baseline;
+  margin-left:6px;padding:0;border:0;background:none;
+  font:inherit;font-size:11.5px;color:var(--gold);text-decoration:underline;cursor:pointer;
+}
+.timeline-hint .hint-detail:hover{color:#ffe38a}
+.tl-axis{
+  flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;color:#6f7ca2;padding:0 4px 6px;letter-spacing:.5px;
+}
+.tl-axis b{color:var(--muted);font-weight:400}
+/* 关键：滚动容器不能用 justify-content:center，否则溢出会跑到左侧、
+   最前面的锚点卡永远滚不回来。用首尾 auto 外边距实现「放得下就居中」。 */
+.timeline{
+  flex:0 0 auto;display:flex;align-items:center;justify-content:flex-start;gap:8px;
+  /* hover 收敛为轻微上浮后，24px 留白已足够，区块也更紧凑 */
+  height:260px;padding:24px 4px;position:relative;overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:thin;scrollbar-color:var(--gold-dim) transparent;
+  scroll-behavior:smooth;
+}
+.timeline > :first-child{margin-left:auto}
+.timeline > :last-child{margin-right:auto}
+.timeline::-webkit-scrollbar{height:7px}
+.timeline::-webkit-scrollbar-thumb{background:#4a557c;border-radius:6px}
+/* 左右翻页按钮：卡片超过一屏时才出现 */
+.tl-nav{
+  position:absolute;top:52%;transform:translateY(-50%);z-index:5;
+  width:34px;height:52px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  background:rgba(28,36,64,.94);border:1px solid var(--gold-dim);color:var(--gold);
+  font-size:24px;line-height:1;box-shadow:0 3px 14px rgba(0,0,0,.4);
+}
+.tl-nav:hover{background:#333f68}
+.tl-nav[hidden]{display:none}
+.tl-nav-l{left:6px}
+.tl-nav-r{right:6px}
+/* 时间轴轨道：插入位改为视觉隐形后，这条穿过缝隙的金线会和
+   「选中手牌才浮出的细金线」混淆，索性不再生成；时间方向交给卡牌年份表达。 */
+.timeline::before{content:none}
+.timeline > *{position:relative;z-index:1}
+
+/* 插入位：视觉完全隐形——不画横条间隔、不画纵栏虚线框、不写年份文字。
+   卡牌之间只留一道极窄透明缝隙；::after 吃掉两侧 gap 放大落点，
+   不侵入卡牌本体（否则点卡看详情会被抢走）。
+   只有选中手牌时，才在缝隙里浮出一条 2px 金线，指明「点这里放牌」。 */
+.slot{
+  flex:0 0 6px;height:210px;border:0;border-radius:0;
+  background:transparent;padding:0;color:transparent;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+}
+.slot .slot-plus,.slot .slot-txt{display:none}
+.slot::after{content:'';position:absolute;top:0;bottom:0;left:-8px;right:-8px}
+/* 选中手牌 → 细金线；hover → 加粗变亮（静态浮现，reduce 下照常保留） */
+.slot::before{
+  content:'';position:absolute;top:8%;bottom:8%;left:50%;
+  width:2px;transform:translateX(-50%);border-radius:2px;
+  background:rgba(255,204,0,.5);opacity:0;pointer-events:none;
+  transition:opacity .14s ease;
+}
+.slot.armed::before{opacity:1}
+.slot:hover::before{opacity:1;width:3px;background:var(--gold)}
+.slot.ghost::before{opacity:1;width:3px;background:var(--gold)}
+
+/* 简单模式例外：教学向，保留间隔里的年代区间提示（「约 312 — 约 400 之间」）。
+   只恢复文字和容纳它的空间，不恢复虚线框 / 横条底色 / 时间轴轨道；
+   普通、困难仍是无字无框的透明细缝。 */
+.slot.with-hint{
+  flex:0 0 24px;color:#8792b4;font-size:16px;line-height:1;
+  flex-direction:column;gap:4px;padding:4px 0;
+}
+.slot.with-hint .slot-plus,.slot.with-hint .slot-txt{display:block}
+.slot.with-hint .slot-txt{
+  writing-mode:vertical-rl;text-orientation:mixed;white-space:nowrap;
+  font-size:11.5px;color:#98a4c6;line-height:1.4;letter-spacing:1px;text-align:center;
+}
+.slot.with-hint .tcy{
+  font-style:normal;text-combine-upright:all;-webkit-text-combine:horizontal;
+}
+/* 有文字指路就不需要细金线了，避免两种提示叠在一起 */
+.slot.with-hint::before{display:none}
+.slot.with-hint.armed .slot-txt,.slot.with-hint.armed .slot-plus{color:var(--gold)}
+.slot.with-hint:hover .slot-txt{color:#ffe38a}
+
+/* cardFace 的内层容器：跟随外层卡片方向，避免手机横排时内容溢出卡外 */
+.face{
+  display:flex;flex-direction:inherit;align-items:inherit;justify-content:inherit;
+  width:100%;height:100%;min-height:0;
+}
+
+/* 时间线上的卡 */
+/* 桌面卡牌统一 2:3（140×210），与旧版 120×180 同一比例 */
+.tl-card{
+  flex:0 0 140px;height:210px;background:var(--card-bg);color:var(--card-ink);border-radius:8px;
+  border:0;box-shadow:var(--card-shadow);overflow:hidden;position:relative;
+  display:flex;flex-direction:column;cursor:pointer;
+}
+.tl-card .fstrip{height:3px;background:var(--local);flex:0 0 3px}
+.tl-card.f-church .fstrip{background:var(--church)}
+.tl-card.f-state .fstrip{background:var(--state)}
+.tl-card.f-local .fstrip{background:var(--local)}
+.tl-card.f-both .fstrip{background:var(--both)}
+/* 原版：图片四周留白边 + 小圆角，不铺满卡面 */
+.tl-card .art{
+  height:104px;flex:0 0 104px;margin:8px 8px 0;border-radius:4px;
+  background:#f0efec;overflow:hidden;display:flex;align-items:center;justify-content:center;
+}
+.tl-card .art img{width:100%;height:100%;object-fit:cover;display:block}
+/* 人物卡（奥古斯都 / 拉文纳）：人脸在原素材上部，横带缩略图默认取中带会把头裁掉。
+   object-position 把显示窗口上移到原图顶部附近，脸完整露出；仅对带 artPos:'top' 的卡生效。 */
+.art img.art-top{object-position:50% 15%}
+.tl-card .crest{
+  width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:30px;
+  background:radial-gradient(circle at 50% 40%,#fbf8f0,#e6dfcd);
+}
+/* 白卡占位：加一圈徽章线，让无图卡也像纪念币 */
+.crest{position:relative}
+.crest::before{
+  content:'';position:absolute;inset:14%;border-radius:50%;
+  border:1px solid rgba(120,100,60,.32);box-shadow:inset 0 0 0 3px rgba(255,255,255,.4);
+}
+.crest::after{
+  content:'';position:absolute;inset:6%;border-radius:50%;
+  border:1px dashed rgba(120,100,60,.18);
+}
+.tl-card .nm{
+  padding:6px 10px;font-size:12.5px;line-height:1.45;font-weight:500;color:#333;
+  flex:1;display:flex;align-items:center;justify-content:center;text-align:center;
+}
+/* 年份按原版收成底部一行小灰字，不做整条色带 */
+.tl-card .yr{
+  text-align:center;font-size:12px;font-weight:600;color:#8a8578;
+  background:none;border:0;padding:0 0 10px;flex:0 0 auto;
+}
+.tl-card .yr .approx{font-size:10px;font-weight:400}
+.tl-card .faction-tag{
+  position:absolute;top:12px;right:10px;z-index:2;font-size:9.5px;font-weight:600;
+  padding:1px 5px;border-radius:4px;
+}
+.tl-card.new{animation:land .5s cubic-bezier(.2,1.2,.3,1)}
+.tl-card.focus{outline:3px solid var(--gold);outline-offset:2px}
+.tl-card.ghost{opacity:.55;outline:2px dashed var(--gold);outline-offset:2px}
+
+/* 手牌：独立区块，桌面居中铺开、手机双列 */
+.hand-wrap{
+  flex:0 0 auto;margin-top:12px;background:var(--panel);
+  border:1px solid var(--line);border-radius:16px;padding:12px 14px 14px;
+}
+.hand-label{font-size:12.5px;color:var(--muted);margin-bottom:10px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.hand-label b{color:var(--ink);font-weight:600;font-size:13px}
+.hand-label small{opacity:.75}
+.hand{
+  display:grid;gap:16px;justify-content:center;align-items:stretch;
+  grid-template-columns:repeat(auto-fit,140px);
+}
+.hand .empty{grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;padding:18px 0}
+.hand-card{
+  height:210px;min-height:210px;background:var(--card-bg);color:var(--card-ink);border-radius:8px;
+  border:0;box-shadow:var(--card-shadow);overflow:hidden;position:relative;
+  display:flex;flex-direction:column;cursor:pointer;
+}
+.hand-card .fstrip{height:3px;background:var(--local)}
+.hand-card.f-church .fstrip{background:var(--church)}
+.hand-card.f-state .fstrip{background:var(--state)}
+.hand-card.f-both .fstrip{background:var(--both)}
+.hand-card .art{
+  height:104px;flex:0 0 104px;margin:8px 8px 0;border-radius:4px;
+  background:#f0efec;display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.hand-card .art img{width:100%;height:100%;object-fit:cover}
+.hand-card .crest{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:34px;
+  background:radial-gradient(circle at 50% 40%,#fbf8f0,#e6dfcd)}
+.hand-card .nm{
+  padding:6px 10px;font-size:12.5px;line-height:1.45;font-weight:500;color:#333;
+  flex:1;display:flex;align-items:center;justify-content:center;text-align:center;
+}
+.hand-card .yr{
+  text-align:center;background:none;color:#a08b4a;font-weight:600;font-size:14px;
+  padding:0 0 10px;flex:0 0 auto;
+}
+.hand-card .hint{position:absolute;left:0;right:0;bottom:28px;text-align:center;font-size:9px;color:#aaa}
+.hand-card.sel{outline:3px solid var(--gold)}
+.hand-card .faction-tag{
+  position:absolute;top:12px;right:10px;font-size:9.5px;font-weight:600;
+  padding:1px 5px;border-radius:4px;
+}
+/* 势力标签按原版的 category 小字处理：白底、彩色细字，不用实心胶囊 */
+.faction-tag.church,.faction-tag.state,.faction-tag.local,.faction-tag.both{
+  background:rgba(255,255,255,.94);border:1px solid currentColor;
+}
+.faction-tag.church{color:#2f6fb5}
+.faction-tag.state{color:#b87610}
+.faction-tag.local{color:#7c7b74}
+.faction-tag.both{color:#96813c}
+.faction-tag.hidden{display:none}
+
+/* ---------- 卡牌浮现：按原版的克制手感 ----------
+   原版 .card:hover = scale(1.05) + transition:transform .2s，
+   没有位移、金边、光晕、投影暴涨、卡面提亮或图片推近。
+   这里只保留一点点上浮让「浮」可感，其余一律不加，避免突兀。 */
+.tl-card,.hand-card{
+  transition:transform .2s ease,box-shadow .2s ease;
+}
+/* .era-hover 与原生 hover 同选择器组：纪元带悬停 / 点选触发的浮起，
+   用的就是完全相同的位移、投影与过渡，不加任何金边或光晕。 */
+.tl-card:hover,.hand-card:hover,.tl-card.era-hover{
+  transform:translateY(-3px) scale(1.04);
+  box-shadow:var(--card-shadow-hover);
+  z-index:20;
+}
+/* 选中沿用原版的纯金边，不额外抬升卡片 */
+.hand-card.sel{z-index:15}
+.hand-card.sel:hover{z-index:21}
+/* 发牌 / 落位也一并收敛，保持整体「淡淡的」节奏 */
+.hand-card{animation:deal .3s cubic-bezier(.2,.9,.3,1) backwards}
+@keyframes deal{
+  from{opacity:0;transform:translateY(10px) scale(.98)}
+  to{opacity:1;transform:none}
+}
+@keyframes land{from{transform:translateY(-8px) scale(.94);opacity:0}to{transform:none;opacity:1}}
+/* 系统开了「减少动态效果」（Windows 辅助功能 / 远程桌面常见）时：
+   只取消发牌、落地、脉冲这些持续动画，hover 的「浮起来」是静态状态反馈，
+   必须原样保留，否则整个浮现效果会消失。
+   只压手牌；时间线卡完全不覆盖，保持 shorthand 里的原生 .2s —— 纪元带触发的
+   浮起与收回必须和鼠标直接移到卡牌上完全同速，连 transitionDuration 的值都一致，
+   否则 Windows 与 Mac 看到的不是同一个效果。 */
+@media (prefers-reduced-motion:reduce){
+  .hand-card{transition-duration:.08s}
+  .hand-card,.tl-card.new,.slot.armed{animation:none}
+  #hud-mistakes.hit{animation:none}
+}
+
+/* ---------- 判定反馈 ---------- */
+.feedback{
+  position:fixed;left:0;right:0;bottom:0;z-index:60;transform:translateY(110%);
+  /* 收起时整条彻底不可见：.fb-inner 的深色底与 box-shadow 会往视口里投一层
+     阴影，首页 / 幕列表底部于是凭空多出一块「没有文字的深色背景」。
+     visibility 延到收起动画播完再切，展开时立刻可见，动画手感不变。 */
+  visibility:hidden;
+  transition:transform .3s cubic-bezier(.2,.9,.3,1), visibility 0s linear .3s;
+}
+.feedback.show{
+  transform:none;visibility:visible;
+  transition:transform .3s cubic-bezier(.2,.9,.3,1), visibility 0s;
+}
+.fb-inner{
+  max-width:760px;margin:0 auto;background:var(--panel);border:1px solid var(--line);
+  border-bottom:none;border-radius:16px 16px 0 0;padding:14px 16px 18px;
+  box-shadow:0 -8px 30px rgba(0,0,0,.45);max-height:78vh;overflow-y:auto;
+}
+.fb-head{display:flex;align-items:center;gap:10px}
+.fb-verdict{font-size:17px;font-weight:700}
+.fb-verdict.ok{color:var(--ok)}
+.fb-verdict.bad{color:var(--bad)}
+.fb-year{color:var(--gold);font-weight:700}
+.fb-close{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px}
+.fb-event{font-size:14px;margin-top:2px}
+.fb-explain{margin-top:8px;font-size:14px;line-height:1.65;color:#e7e3d6}
+/* 反馈条里的「书中原句」与卡册大卡详情同一套排版：
+   无底色无边框，只有一枚金色小标题 + 中文原句；
+   英文原文改用下方 .quotebox 的金色竖线块承载。 */
+.fb-quote{margin-top:10px;font-size:13px;color:#cfd4e4}
+.fb-quote .h{font-size:12px;color:var(--gold-dim);margin-bottom:5px}
+.fb-quote .zh{font-size:13.5px;line-height:1.7;color:var(--ink)}
+.fb-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.fb-btn{background:#2a3450;border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13px}
+.fb-btn:hover{border-color:var(--gold-dim)}
+.fb-btn.primary{background:var(--gold);color:#241f18;border-color:var(--gold);font-weight:700;flex:1;min-width:96px}
+.fb-src{
+  display:none;margin-top:10px;padding:11px;background:#141b2e;border:1px solid var(--line);
+  border-radius:9px;font-size:13px;line-height:1.7;
+}
+.fb-src.show{display:block}
+.fb-src .en{font-style:italic;color:#cfc9b8}
+.fb-src .zh{display:block;margin-top:6px;color:#a9b0c6}
+.fb-src .quotebox{margin-top:0}
+.fb-pos{margin-top:8px;font-size:13px;color:var(--gold)}
+
+/* ---------- 结算 ---------- */
+.result-card{
+  margin:14px auto;max-width:640px;background:var(--panel);border:1px solid var(--line);
+  border-radius:16px;padding:18px;
+}
+.result-title{font-size:22px;text-align:center;color:var(--gold)}
+.result-sub{text-align:center;color:var(--muted);font-size:13px;margin-top:2px}
+.stats{display:flex;gap:10px;margin:16px 0}
+.stat{flex:1;background:#182038;border:1px solid var(--line);border-radius:11px;padding:10px;text-align:center}
+.stat b{display:block;font-size:22px;color:var(--gold)}
+.stat span{font-size:11px;color:var(--muted)}
+.band-wrap{margin:14px 0}
+.band-title{font-size:12px;color:var(--muted);margin-bottom:6px}
+.band{display:flex;height:26px;border-radius:7px;overflow:hidden;border:1px solid var(--line)}
+.band i{display:block;height:100%}
+.band-legend{display:flex;gap:12px;font-size:11px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.band-legend span::before{content:'';display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.legend-church::before{background:var(--church)}
+.legend-state::before{background:var(--state)}
+.legend-local::before{background:var(--local)}
+.legend-both::before{background:var(--both)}
+.band-note{margin-top:8px;font-size:13px;color:#dcd8cb;background:#161d33;border-radius:9px;padding:9px 11px;border-left:3px solid var(--gold-dim)}
+.wrong-list{margin-top:12px}
+.wrong-list h4{font-size:13px;color:var(--muted);margin:0 0 6px}
+.wrong-item{display:flex;gap:8px;align-items:baseline;font-size:13px;padding:5px 0;border-bottom:1px dashed #2c3556}
+.wrong-item b{color:var(--gold);flex:0 0 78px}
+.result-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.result-actions button{flex:1;min-width:110px;background:#2a3450;border:1px solid var(--line);border-radius:11px;padding:12px;font-size:14px}
+.result-actions button.primary{background:var(--gold);color:#241f18;border-color:var(--gold);font-weight:700}
+
+/* ---------- 复习 ---------- */
+.review-body{margin-top:8px}
+.rev-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.rev-panel h3{font-size:16px}
+.rev-panel p{font-size:13px;color:#cfd4e4;margin:6px 0 10px}
+.rev-stats{display:flex;gap:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.rev-list{margin-top:10px}
+.rev-item{display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px dashed #2c3556;font-size:13px}
+.rev-item .y{color:var(--gold);flex:0 0 72px;font-size:12px}
+.rev-item .t{flex:1}
+.rev-item .c{font-size:11px;color:var(--bad)}
+.rev-item button{background:none;border:1px solid var(--line);border-radius:7px;font-size:11px;padding:2px 7px;color:var(--muted)}
+.empty{text-align:center;color:var(--muted);font-size:13px;padding:26px 0}
+
+/* ---------- 卡册 ---------- */
+.gallery-tabs{display:flex;gap:6px;overflow-x:auto;padding:6px 0 10px}
+.gallery-tabs button{
+  flex:0 0 auto;background:#182038;border:1px solid var(--line);border-radius:20px;
+  padding:6px 13px;font-size:12.5px;color:var(--muted);
+}
+.gallery-tabs button.on{background:#2c2a17;border-color:var(--gold);color:var(--gold)}
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+.gcard{
+  background:var(--card-bg);color:var(--card-ink);border-radius:8px;overflow:hidden;
+  border:0;box-shadow:var(--card-shadow);cursor:pointer;position:relative;
+  transition:transform .2s ease,box-shadow .2s ease;
+}
+.gcard:hover{
+  transform:translateY(-3px) scale(1.035);
+  box-shadow:var(--card-shadow-hover);z-index:2;
+}
+.gcard .fstrip{height:3px;background:var(--local)}
+.gcard.f-church .fstrip{background:var(--church)}
+.gcard.f-state .fstrip{background:var(--state)}
+.gcard.f-both .fstrip{background:var(--both)}
+/* 卡册缩略图 / 大卡详情：统一在插画左缘补一条势力色竖条。
+   早期批次 10 张卡图把 9px 竖条烧进了素材本身（480px 宽 = 1.875%），
+   后来补的卡图没有，同一面卡册里有的有、有的没有。这里由 CSS 统一画一条
+   1.875% 宽的竖条：宽度与素材自带那条完全重合，颜色取同一组
+   --state / --church / --local / --both，所以带条卡观感不变、缺条卡补齐；
+   缩略图与放大图共用一套规则，自定义卡同样生效。 */
+.gcard .art,.bigcard .art{position:relative}
+.gcard .art::before,.bigcard .art::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:1.875%;
+  z-index:2;pointer-events:none;background:var(--local);
+}
+.gcard.f-church .art::before,.bigcard.f-church .art::before{background:var(--church)}
+.gcard.f-state  .art::before,.bigcard.f-state  .art::before{background:var(--state)}
+.gcard.f-local  .art::before,.bigcard.f-local  .art::before{background:var(--local)}
+.gcard.f-both   .art::before,.bigcard.f-both   .art::before{background:var(--both)}
+.gcard .art{height:112px;margin:8px 8px 0;border-radius:4px;background:#f0efec;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.gcard .art img{width:100%;height:100%;object-fit:cover}
+.gcard .crest{font-size:38px;width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 40%,#fbf8f0,#e6dfcd)}
+.gcard .nm{padding:7px 8px;font-size:12px;font-weight:500;line-height:1.35;min-height:36px;color:#333;text-align:center}
+.gcard .yr{text-align:center;font-size:11.5px;font-weight:600;color:#8a8578;background:none;padding:0 0 8px}
+.gcard.locked{filter:grayscale(1) brightness(.72)}
+.gcard.locked .nm{color:#5d5748}
+.gcard.locked .yr{color:#6d6350}
+.gcard .lockmark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:32px;color:rgba(255,255,255,.85)}
+.gcard .seen{position:absolute;top:6px;right:6px;font-size:10px;background:rgba(0,0,0,.5);color:#fff;border-radius:6px;padding:1px 5px}
+
+/* ---------- 弹窗 ---------- */
+.modal{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.modal-mask{position:absolute;inset:0;background:rgba(6,9,18,.78);backdrop-filter:blur(2px)}
+.modal-box{
+  position:relative;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);
+}
+.modal-box h3{font-size:18px;color:var(--gold)}
+.modal-close{position:absolute;right:12px;top:12px;background:none;border:none;color:var(--muted);font-size:18px}
+.bigcard{display:flex;gap:14px;margin:12px 0}
+.bigcard .art{flex:0 0 150px;height:200px;background:#e9e3d4;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.bigcard .art img{width:100%;height:100%;object-fit:cover}
+/* 详情大图：早期批次卡图把中文标题与右下角黄色椭圆年份徽章（「约 312」之类）
+   一起烧进了素材底部，480×700 原图里徽章约在 y=644..684。桌面 150×200 的竖窗口
+   用 cover 居中裁切时，徽章正好露出一半，与右侧已有的独立年份文字重复、很难看。
+   art-detail 把详情大图的显示窗口改为顶部对齐，下沿停在 y≈640，徽章整体落在
+   裁切区外；游戏内卡面、卡册缩略图不受影响（只作用于 .bigcard 内的详情图）。
+   手机竖屏的大图是横带窗口，本就看不到素材底部，在竖屏断点里回落到居中，
+   以免画面主体被推上去。 */
+.bigcard .art img.art-detail{object-position:50% 0%}
+.bigcard .crest{font-size:56px;width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 40%,#fbf8f0,#e6dfcd)}
+.bigcard .info{flex:1;min-width:0}
+.bigcard .yr{font-size:26px;font-weight:800;color:var(--gold)}
+.bigcard .zh{font-size:16px;font-weight:700;margin-top:2px}
+.bigcard .en{font-size:12px;color:var(--muted);font-style:italic;margin-top:2px}
+.bigcard .ex{margin-top:10px;font-size:13.5px;line-height:1.7}
+.detail-sec{margin-top:12px;background:#161d33;border:1px solid var(--line);border-radius:10px;padding:11px}
+.detail-sec .h{font-size:12px;color:var(--gold-dim);margin-bottom:5px}
+.detail-sec .en{font-style:italic;font-size:13px;color:#cfc9b8}
+.detail-sec .zh{font-size:13px;color:#a9b0c6;margin-top:5px}
+/* 大卡详情：只留一句「书中原句」中译，下面接一段英文原文。
+   引用块照搬姊妹作《权力的双人舞》的 .quotebox：左侧 3px 金色竖线，
+   无边框、无底色、无标题，英文在右；不再中英各译一遍造成重复。 */
+.card-quote{margin-top:12px}
+.card-quote .h{font-size:12px;color:var(--gold-dim);margin-bottom:5px}
+.card-quote .zh{font-size:13.5px;line-height:1.7;color:var(--ink)}
+.quotebox{border-left:3px solid var(--gold);padding-left:12px;margin-top:10px}
+.quotebox.en-only .en{
+  display:block;margin-top:2px;font-style:italic;
+  font-size:13.5px;line-height:1.65;color:#cfc9b8;
+}
+.modal-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.modal-actions button{background:#2a3450;border:1px solid var(--line);border-radius:9px;padding:9px 13px;font-size:13px;flex:1;min-width:110px}
+.modal-actions button.primary{background:var(--gold);color:#241f18;font-weight:700;border-color:var(--gold)}
+
+/* ---------- 编辑器 ---------- */
+.editor-body{margin-top:8px}
+.ed-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.ed-row input,.ed-row select,.ed-row textarea{
+  background:#182038;border:1px solid var(--line);border-radius:9px;color:var(--ink);
+  padding:9px 10px;font-size:13px;font-family:inherit;flex:1;min-width:120px;
+}
+.ed-row textarea{flex:1 1 100%;min-height:80px}
+.ed-btn{background:#2a3450;border:1px solid var(--line);border-radius:9px;padding:9px 13px;font-size:13px}
+.ed-btn.primary{background:var(--gold);color:#241f18;font-weight:700;border-color:var(--gold)}
+.ed-list{margin-top:12px}
+.ed-item{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px dashed #2c3556;font-size:13px}
+.ed-item .y{flex:0 0 66px;color:var(--gold)}
+.ed-item .t{flex:1}
+.ed-item button{background:none;border:1px solid var(--line);border-radius:7px;font-size:11px;padding:3px 8px;color:var(--muted)}
+.ed-note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.7}
+
+/* ---------- toast ---------- */
+.toast{
+  position:fixed;left:50%;top:16%;transform:translate(-50%,-10px);z-index:100;
+  background:rgba(20,26,46,.96);border:1px solid var(--gold-dim);color:var(--ink);
+  padding:9px 16px;border-radius:11px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- 判定反馈（普通 / 困难） ----------
+   文案直接写进上面的 #timeline-hint，不再单独占一行、也不再自动收起：
+   放对转深蓝、放错转暗红并脉冲两下，全程只有那一行，画面高度恒定。
+   「详情」按需展开底部完整讲解条。 */
+@keyframes qfBad{
+  0%,100%{box-shadow:inset 3px 0 0 var(--bad),0 0 0 0 rgba(226,80,75,0)}
+  50%    {box-shadow:inset 3px 0 0 var(--bad),0 0 0 4px rgba(226,80,75,.3)}
+}
+
+/* 通关待确认：在提示条下方就地展开，不遮挡时间线，玩家可先翻看整条。
+   无持续动画（reduce 下也一致），只保留按钮 hover 的静态浮现。 */
+.win-bar{
+  flex:0 0 auto;display:none;align-items:center;gap:10px;
+  margin:0 0 8px;padding:9px 11px;
+  border:1px solid var(--gold-dim);border-radius:9px;
+  background:rgba(255,204,0,.07);font-size:12.5px;color:var(--ink);
+}
+.win-bar.show{display:flex}
+.win-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.win-txt b{color:var(--gold);font-size:13.5px}
+.win-txt span{color:var(--muted);line-height:1.45}
+.win-bar button{
+  flex:0 0 auto;padding:7px 12px;font-size:12.5px;cursor:pointer;
+  background:var(--gold);border:1px solid var(--gold);border-radius:8px;
+  color:#241f18;font-weight:700;white-space:nowrap;
+}
+.win-bar button:hover{background:#ffd75c;border-color:var(--gold-dim)}
+@media (max-width:760px) and (orientation:portrait){
+  .win-bar{flex-direction:column;align-items:stretch}
+  .win-bar button{width:100%;padding:9px}
+}
+
+/* 放错时从插入位弹回手牌并摇一摇的临时卡影 */
+.flyback{
+  position:fixed;z-index:70;width:96px;height:140px;pointer-events:none;
+  background:var(--card-bg);color:var(--card-ink);border-radius:8px;overflow:hidden;
+  box-shadow:var(--card-shadow-hover);display:flex;flex-direction:column;
+}
+.flyback .fstrip{height:3px;flex:0 0 3px;background:var(--local)}
+.flyback.f-church .fstrip{background:var(--church)}
+.flyback.f-state .fstrip{background:var(--state)}
+.flyback.f-both .fstrip{background:var(--both)}
+
+/* 游戏内卡面：与卡册同一套「插画内部左缘势力色竖条」。
+   卡册 .gcard/.bigcard 早已统一补过（见上文 609-623 行），但时间线卡、
+   手牌、放错弹回的卡影这三类游戏内卡面没跟上，同一张卡在卡册里有色条、
+   进了对局却没有。这里沿用完全相同的 1.875% 宽度与
+   --state / --church / --local / --both 配色：宽度正好与早期批次素材自带的
+   9px/480px 竖条重合，所以带条卡不会出现双条、缺条卡补齐；
+   .art 需要 position:relative 给伪元素当定位参照，原有的 overflow:hidden
+   会把竖条裁在图片圆角内。手机竖屏横条卡同样生效，竖条仍是满高竖线。
+   规则刻意排在下方困难模式隐藏规则之前，确保 .flyback.no-faction 与
+   .flyback.f-* 同优先级时能盖掉颜色。 */
+.tl-card .art,.hand-card .art,.flyback .art{position:relative}
+.tl-card .art::before,.hand-card .art::before,.flyback .art::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:1.875%;
+  z-index:2;pointer-events:none;background:var(--local);
+}
+.tl-card.f-church .art::before,.hand-card.f-church .art::before,.flyback.f-church .art::before{background:var(--church)}
+.tl-card.f-state  .art::before,.hand-card.f-state  .art::before,.flyback.f-state  .art::before{background:var(--state)}
+.tl-card.f-local  .art::before,.hand-card.f-local  .art::before,.flyback.f-local  .art::before{background:var(--local)}
+.tl-card.f-both   .art::before,.hand-card.f-both   .art::before,.flyback.f-both   .art::before{background:var(--both)}
+
+/* 困难模式「隐势力」：文字标签（faction-tag）已经不生成，但卡外圈还有 3px
+   势力色带（橙=皇权 / 蓝=教权 / 灰=地方 / 金=双方），插画内部又新增了
+   .art::before 左缘竖条，玩家仍能靠颜色反推势力。这里把手牌、以及放错
+   弹回的卡影的两种色条一并中性化；时间线上已放下的卡两种色条都保留
+   （属于已揭晓信息，不参与猜牌），卡册与首页图例不受影响。
+   规则排在 .flyback.f-* 之后，确保同优先级下能盖掉势力色。 */
+#view-game.hide-faction .hand-card .fstrip,
+.flyback.no-faction .fstrip,
+#view-game.hide-faction .hand-card .art::before,
+.flyback.no-faction .art::before{background:transparent}
+
+/* 早期批次的 10 张插画把势力色烧进了素材本身：480px 宽原图的左缘有 9px
+   纯色竖条（橙 (238,159,38)=皇权 / 蓝 (54,139,220)=教权），正好等于
+   --state / --church。只把 .fstrip 透明化仍会漏出这条颜色，玩家照样能反推势力。
+   手牌 / 卡影的 .art 都是 object-fit:cover 且按宽度缩放，所以左缘色条恒定占
+   容器宽度的 9/480 = 1.875%。这里把 img 右推并放大 2.6%，左边界落到 -2.6%、
+   右边界仍回到 100%，色条被 overflow:hidden 裁掉，卡面尺寸与布局完全不变。
+   仅作用于困难模式的手牌与放错弹回的卡影；时间线已揭晓卡、卡册、首页图例，
+   以及简单 / 普通模式的手牌都不受影响。 */
+#view-game.hide-faction .hand-card .art img,
+.flyback.no-faction .art img{
+  transform:translateX(-1.3%) scale(1.026);
+}
+.flyback .art{
+  height:72px;flex:0 0 72px;margin:6px 6px 0;border-radius:4px;background:#f0efec;
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+}
+.flyback .art img{width:100%;height:100%;object-fit:cover}
+.flyback .crest{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px}
+.flyback .nm{
+  flex:1;padding:4px 6px;font-size:10.5px;line-height:1.35;color:#333;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+}
+.flyback .yr{text-align:center;font-size:10px;color:#a08b4a;padding:0 0 6px}
+.flyback.shake{
+  /* 整段动画都带红框，明确告诉用户「这张卡被退回来了」 */
+  box-shadow:0 0 0 2px var(--bad),0 0 18px 4px rgba(226,80,75,.4),var(--card-shadow-hover);
+  animation:bounceBack 1.55s cubic-bezier(.25,.8,.3,1) forwards;
+}
+@keyframes bounceBack{
+  /* 0–22%：从插入位弹回手牌，全程清晰可见 */
+  0%   {transform:translate(0,0) scale(1) rotate(0);opacity:1}
+  22%  {transform:translate(var(--dx),var(--dy)) scale(.94) rotate(0);opacity:1}
+  /* 22–32%：停一拍，让用户看清「卡回来了」 */
+  32%  {transform:translate(var(--dx),var(--dy)) scale(.94) rotate(0);opacity:1}
+  /* 32–72%：加大摆幅与角度，来回摇三下 */
+  40%  {transform:translate(calc(var(--dx) - 16px),var(--dy)) scale(.94) rotate(-8deg)}
+  48%  {transform:translate(calc(var(--dx) + 16px),var(--dy)) scale(.94) rotate(8deg)}
+  56%  {transform:translate(calc(var(--dx) - 13px),var(--dy)) scale(.94) rotate(-6deg)}
+  64%  {transform:translate(calc(var(--dx) + 13px),var(--dy)) scale(.94) rotate(6deg)}
+  72%  {transform:translate(var(--dx),var(--dy)) scale(.94) rotate(0);opacity:1}
+  /* 72–88%：再停一拍，然后才淡出 */
+  88%  {transform:translate(var(--dx),var(--dy)) scale(.94) rotate(0);opacity:1}
+  100% {transform:translate(var(--dx),var(--dy)) scale(.78);opacity:0}
+}
+@media (prefers-reduced-motion:reduce){
+  /* 只取消装饰性动画，hover 静态浮现状态原样保留。
+     ★ 这里刻意不写 .flyback{display:none}：放错弹回是核心判定反馈，
+       Windows 关掉系统动画后 Chrome 报 reduce，旧版这条会把整张卡影藏掉，
+       Windows 玩家看不到「卡被退回来了」。与纪元带一样全平台统一播完整动画。 */
+  .timeline-hint.bad-pulse{animation:none}
+}
+
+/* ---------- 手机竖屏：纵向时间线 ----------
+   加 orientation:portrait：窄横屏（如手机横屏 740×360）不该命中竖屏横条卡规则，
+   否则卡牌会被拉成横条、比例压扁。横屏统一走桌面竖卡 + 缩放。 */
+@media (max-width:760px) and (orientation:portrait){
+  #app{padding:0 12px 24px}
+  .brand h1{font-size:21px}
+
+  #view-game.active{min-height:100dvh;padding-bottom:10px}
+  .game-head{grid-template-columns:auto minmax(0,1fr);gap:8px;padding:10px 0 8px}
+  .game-title{grid-column:2}
+  .game-title b{font-size:15px}
+  .hud{grid-column:1/-1;grid-row:2;justify-content:flex-end;gap:6px}
+  .hud-item{padding:4px 8px;font-size:11.5px}
+
+  .timeline-wrap{flex:0 0 auto;min-height:0;padding:10px 10px 8px;margin-top:4px;border-radius:13px}
+  .timeline-hint{font-size:11.5px;margin-bottom:6px}
+  .tl-axis{display:none}
+  .timeline{
+    flex:0 0 auto;flex-direction:column;align-items:stretch;justify-content:flex-start;
+    gap:6px;overflow-x:visible;overflow-y:auto;max-height:44vh;padding:6px 0 8px;
+    height:auto;scroll-behavior:auto;
+  }
+  .timeline > :first-child{margin-left:0}
+  .timeline > :last-child{margin-right:0}
+  .tl-nav{display:none}
+  .timeline::before{content:none}
+  /* 手机竖屏：横条间隔同样去掉，只留 8px 透明缝隙，卡牌上下紧挨。
+     ::after 上下各外扩 6px，正好吃满 gap 不侵入卡牌，命中区 20px。 */
+  .slot{
+    flex:0 0 8px;height:8px;width:100%;min-height:8px;
+    border:0;border-radius:0;background:transparent;padding:0;color:transparent;
+    flex-direction:row;gap:0;
+  }
+  .slot .slot-plus,.slot .slot-txt{display:none}
+  .slot::after{left:0;right:0;top:-6px;bottom:-6px}
+  /* 纵向排布里，落点提示改成一条横向细金线，而不是横条框 */
+  .slot::before{
+    top:50%;bottom:auto;left:6%;right:6%;width:auto;height:2px;
+    transform:translateY(-50%);
+  }
+  .slot:hover::before,.slot.ghost::before{width:auto;height:3px;background:var(--gold)}
+  /* 简单模式：竖屏恢复横排年代提示，同样不加虚线框 */
+  .slot.with-hint{
+    flex:0 0 24px;height:24px;min-height:24px;color:#8792b4;font-size:16px;
+    flex-direction:row;gap:6px;padding:0 8px;
+  }
+  .slot.with-hint .slot-plus,.slot.with-hint .slot-txt{display:block}
+  .slot.with-hint .slot-txt{
+    writing-mode:horizontal-tb;text-orientation:mixed;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
+    flex:1;text-align:left;font-size:11px;letter-spacing:normal;
+    color:#98a4c6;line-height:1.4;
+  }
+  .slot.with-hint::after{top:-6px;bottom:-6px}
+  .tl-card{
+    flex:0 0 auto;width:100%;height:80px;min-height:80px;
+    flex-direction:row;align-items:center;
+  }
+  .tl-card .fstrip{width:3px;height:100%;flex:0 0 3px}
+  /* 手机横条卡：撤掉桌面的图片白边，恢复满高缩略图 */
+  .tl-card .art{width:64px;height:100%;flex:0 0 64px;margin:0;border-radius:0}
+  .tl-card .nm{flex:1;font-size:13px;padding:6px 9px;justify-content:flex-start;text-align:left}
+  .tl-card .yr{
+    flex:0 0 78px;height:100%;background:none;border:none;border-left:1px solid #eeeae1;
+    display:flex;align-items:center;justify-content:center;font-size:12.5px;padding:0 4px;
+    color:#8a8578;
+  }
+  .tl-card .faction-tag{display:none}
+
+  .hand-wrap{margin-top:10px;padding:10px 10px 12px;border-radius:13px}
+  .hand-label{margin-bottom:8px;font-size:11.5px}
+  /* 手机上改成单列横条卡：三张手牌一屏看全，无需横向滚动 */
+  .hand{grid-template-columns:1fr;gap:7px}
+  .hand-card{height:74px;min-height:74px;flex-direction:row;align-items:center}
+  /* 横条卡里 .fstrip 要变成左缘满高竖线。只写 flex-basis 会留下桌面版的
+     height:3px，算出来是 3×3px 的短横块；与 .tl-card/.flyback 一样补齐
+     width:3px;height:100%，才是完整竖线。 */
+  .hand-card .fstrip{width:3px;height:100%;flex:0 0 3px}
+  .hand-card .art{width:62px;height:100%;flex:0 0 62px;margin:0;border-radius:0}
+  .hand-card .nm{flex:1;font-size:12.5px;padding:4px 8px;display:flex;align-items:center;justify-content:flex-start;text-align:left}
+  .hand-card .yr{
+    height:100%;flex:0 0 52px;display:flex;align-items:center;justify-content:center;
+    font-size:15px;padding:0;color:#a08b4a;
+  }
+  .hand-card .hint{left:auto;right:58px;bottom:3px;font-size:9px}
+  .hand-card .faction-tag{top:4px;right:4px;font-size:9px}
+  .fb-inner{max-height:66vh;border-radius:14px 14px 0 0;padding:12px 13px 16px}
+  /* 放错的说明文字在手机上也完整显示，这是本次要传达的关键信息 */
+  .timeline-hint .qf-note{font-size:11px}
+  .timeline-hint.hint-bad b{font-size:12.5px}
+  .timeline-hint .hint-detail{font-size:11px}
+  /* 弹回的卡影跟随手机手牌的横条形状，不出现一张突兀的竖卡 */
+  .flyback{width:180px;height:74px;flex-direction:row;align-items:center}
+  .flyback .fstrip{width:3px;height:100%;flex:0 0 3px}
+  .flyback .art{width:56px;height:100%;flex:0 0 56px;margin:0;border-radius:0}
+  .flyback .nm{flex:1;min-width:0;font-size:10px;padding:4px 6px;justify-content:flex-start;text-align:left}
+  .flyback .yr{flex:0 0 26px;height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;padding:0}
+  .gallery-grid{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:9px}
+  .gcard .art{height:86px;margin:6px 6px 0}
+  .bigcard{flex-direction:column}
+  .bigcard .art{flex:0 0 auto;width:100%;height:220px}
+  .bigcard .art img.art-detail:not(.art-top){object-position:50% 50%}
+  .stats{flex-wrap:wrap}
+  .stat{flex:0 0 calc(50% - 5px)}
+}
+
+/* 竖屏窄屏：横条卡几乎占满整行，放大到 1.04 会撑破视口，再收一档 */
+@media (max-width:760px) and (orientation:portrait) and (hover:hover){
+  .tl-card:hover,.hand-card:hover,.gcard:hover{transform:translateY(-2px) scale(1.02)}
+}
+
+/* 只在真正没有鼠标悬停能力的触屏设备上关闭 hover 浮起，
+   避免把「窄窗口桌面 / 远程桌面」也误判成手机、把 hover 一起禁掉。
+   触屏没有 hover，改用「点击选中」承载同一套浮起手感：
+   与桌面 hover 完全相同的 translateY(-3px) scale(1.04) + 加深投影 + 金边。 */
+@media (hover:none),(pointer:coarse){
+  .tl-card:hover,.hand-card:hover,.gcard:hover{
+    transform:none;box-shadow:var(--card-shadow);
+  }
+  .hand-card.sel{
+    transform:translateY(-3px) scale(1.04);
+    box-shadow:var(--card-shadow-hover);
+    outline:2px solid var(--gold);
+    z-index:15;
+  }
+}
+
+/* 竖屏横条手牌几乎占满整行，放大幅度收一档（两侧余量够，不会溢出视口），
+   但保留与桌面同方向的「浮起来」手感。 */
+@media (max-width:760px) and (orientation:portrait) and (hover:none),
+       (max-width:760px) and (orientation:portrait) and (pointer:coarse){
+  .hand-card.sel{transform:translateY(-3px) scale(1.03)}
+}
+
+/* ============================================================
+   两排卡分别缩放（通用）
+   - 只作用于两个卡区容器（zoom 等比缩放），布局流与界面元素原样保留
+   - 卡牌 2:3 比例不变、不压扁
+   - 倍率由标题后的两根滑条调（CSS 变量），范围 0.5–1.5
+   - 除手机竖屏外，所有视口（电脑 / 平板 / 手机横屏 …）都生效
+   - 未自定义时由 JS 给：大屏 1/1，手机横屏 0.8/0.6
+   ============================================================ */
+.timeline-wrap{zoom:var(--tl-zoom)}
+.hand-wrap{zoom:var(--hand-zoom)}
+
+/* 手机竖屏本来就是横条卡布局，不需要缩放（滑条也一起隐藏） */
+@media (max-width:760px) and (orientation:portrait){
+  .timeline-wrap,.hand-wrap{zoom:1}
+}
+
+/* 卡牌编辑器里的旧入口已改成说明文字 */
+.zp-entry{
+  margin:0 0 12px;padding:8px 12px;font-size:12px;line-height:1.6;
+  background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+  color:var(--muted);
+}
+
+/* ============================================================
+   两级纪元带（纯展示层，放在 .timeline-wrap 内 → 自动继承 --tl-zoom）
+   - 容器高度恒定：放牌前后卡牌位置一个像素都不动，既有布局零影响
+   - 段未达标：完全隐形（无框 / 无线 / 无字），但仍占宽度，段位几何不跳
+   - 段达标加 .on：纯 CSS 淡入，零点击 / 零 toast / 零弹窗 / 零音效
+   - 全程 pointer-events:none，绝不抢时间线卡与插入位的点击
+   ============================================================ */
+.era-band{
+  flex:0 0 auto;display:flex;flex-direction:column;gap:2px;
+  height:49px;margin:0 0 3px;overflow:hidden;
+  pointer-events:none;user-select:none;-webkit-user-select:none;
+  /* 带内不做滚动 / 缩放手势：iPhone / iPad 上手指微动会被判成 pan 而不派发 click，
+     touch-action:none 让指针事件完整送达，点段必定生效。
+     带内本来就没有可滚动内容，禁掉手势不影响任何操作。 */
+  touch-action:none;-webkit-touch-callout:none;
+}
+.era-row{display:flex;align-items:stretch;min-width:0;gap:2px;min-height:0}
+.era-row-big{height:19px}
+.era-row-small{height:28px}
+
+/* ---------- 纪元带不随卡牌缩放，尺寸始终钉在原始值 ----------
+   现状问题：整个 .timeline-wrap 被 zoom 缩放，纪元带作为它的子元素被一起等比缩掉，
+   时间线拖到 0.8 时，小段名从 11px 变成实测 8.8px、行高从 28px 变成 22px，
+   字开始糊、点起来也变窄（手机横屏更明显）。
+
+   做法：给纪元带一个等值反向 zoom（--era-unzoom = 1 / --tl-zoom）。
+   zoom 父级 → 子级叠加是相乘关系，0.8 × 1.25 = 1，于是带内一切回到原始尺寸：
+   字号、行高、段宽都与「不缩放」时逐像素一致。
+   反向缩放只影响这一块自己的内部度量，不参与 .timeline-wrap 的布局流计算，
+   时间线卡与插入位的排布完全不受影响（这也保证了飞签定位与点选的几何稳定）。
+
+   倍数只跟着「时间线」的滑条变，手牌滑条与它无关。
+   极端值下（滑条到 1.5 → 反向 0.67）文字会大于原始尺寸，但仍清晰可读。 */
+.era-band{
+  zoom:var(--era-unzoom,1);
+  /* 反向缩放后外部尺寸可能略胖于容器：让它缩在自己的格子里，不挤出横向溢出 */
+  max-width:100%;
+}
+.era-seg{
+  flex:1 1 0;min-width:0;overflow:hidden;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:row;gap:5px;white-space:nowrap;line-height:1.15;
+  border-top:1px solid transparent;border-radius:3px 3px 0 0;
+  background:transparent;border-left:0;border-right:0;border-bottom:0;
+  opacity:0;visibility:hidden;transition:opacity .55s ease;
+}
+.era-seg.on{
+  opacity:1;visibility:visible;border-top-color:var(--gold-dim);
+  background:linear-gradient(180deg,rgba(255,204,0,.10),rgba(255,204,0,0));
+  /* 容器仍 pointer-events:none，只有已点亮的段放开：悬停 / 点选让这段卡牌浮起，
+     不抢时间线卡与插入位的点击（范围仅限带内这一行）。 */
+  pointer-events:auto;cursor:pointer;
+}
+.era-seg.on:hover{background:linear-gradient(180deg,rgba(255,204,0,.20),rgba(255,204,0,.02))}
+/* 大段：等小段到位之后再「慢慢浮出」 */
+@keyframes eraEmerge{
+  from{opacity:0;transform:translateY(-9px)}
+  to{opacity:1;transform:none}
+}
+.era-big-seg.emerge{animation:eraEmerge .8s cubic-bezier(.2,.9,.3,1) both}
+/* 整条不显示：手机竖屏 / 简单模式 */
+.era-band.era-off{display:none}
+
+/* 因果链的「飞签」：从新增卡牌正上方淡入，再位移到所属区间。
+   挂在 body 上用 fixed 视口坐标，避开 --tl-zoom 缩放与 #era-band 的 overflow:hidden。 */
+.era-fly{
+  position:fixed;z-index:65;pointer-events:none;overflow:visible;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  padding:3px 11px;min-width:88px;white-space:nowrap;line-height:1.15;
+  border:1px solid var(--gold);border-radius:9px;
+  background:linear-gradient(180deg,rgba(255,204,0,.20),rgba(26,32,54,.96));
+  box-shadow:0 10px 30px rgba(0,0,0,.5),0 0 0 3px rgba(255,204,0,.12);
+  opacity:0;transform:translateY(9px) scale(1.04);
+  transition:opacity .46s ease,transform .46s ease,
+             left .6s cubic-bezier(.4,0,.2,1),top .6s cubic-bezier(.4,0,.2,1),
+             width .6s cubic-bezier(.4,0,.2,1),height .6s cubic-bezier(.4,0,.2,1);
+}
+/* 指向下方卡牌的小箭头：点明「这一段是由这张卡触发的」 */
+.era-fly::after{
+  content:'';position:absolute;left:50%;bottom:-6px;
+  width:9px;height:9px;margin-left:-5px;
+  background:rgba(26,32,54,.96);
+  border-right:1px solid var(--gold);border-bottom:1px solid var(--gold);
+  transform:rotate(45deg);transition:opacity .3s ease;
+}
+.era-fly.show{opacity:1;transform:none}
+.era-fly.to{
+  opacity:.18;transform:scale(.88);overflow:hidden;   /* 收进槽位时不溢出文字 */
+}
+.era-fly.to::after{opacity:0}   /* 位移时收起指向箭头 */
+.era-fly .era-nm{font-size:12px;color:var(--gold)}
+.era-fly .era-c{font-size:10.5px}
+.era-fly .era-war,.era-fly .era-inv{font-size:11px}
+
+/* 上层：Ⅰ 罗马的余晖 · 前 27 – 500
+   大段宽度 = 所含小段数（2/3/2/3），用自定义属性传入，不写内联 flex，
+   这样竖屏媒体查询仍能把段收成 chips。 */
+.era-row-big .era-seg{flex:var(--era-w,1) 1 0}
+.era-row-big .era-nm{font-size:11.5px;font-weight:700;color:var(--gold);letter-spacing:.3px}
+.era-row-big .era-yr{font-size:9.5px;color:var(--muted);font-weight:400}
+/* 中层：第一行 C4–5 ⚔日日，第二行段名 */
+.era-row-small .era-seg{flex-direction:column;gap:2px}
+.era-line1{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0}
+.era-c{font-size:10px;font-weight:700;color:var(--gold-dim);letter-spacing:.2px}
+.era-nm{font-size:11px;font-weight:600;color:var(--ink)}
+/* 入侵提示：每组前统一一枚战争图标，后面跟种族单字徽章（*2 就是放两次） */
+.era-war{font-size:11px;line-height:1;color:#e9a06b}
+.era-inv{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:13px;height:13px;padding:0 1px;line-height:1;
+  border:1px solid rgba(255,204,0,.48);border-radius:3px;
+  background:rgba(255,204,0,.09);color:#ffe08a;
+  font-size:10px;font-weight:700;
+}
+/* 第三层：未来人物生命带的空容器，本轮预留、不渲染任何内容 */
+.era-life{display:none}
+
+/* 手机竖屏：空间太小，横向分期与纵向时间线对不上，整条纪元带不显示。
+   JS 同时给 #era-band 加 .era-off，双保险（旋转/改窗口时也会重算）。 */
+@media (max-width:760px) and (orientation:portrait){
+  .era-band{display:none}
+}
+/* ★ 这里刻意不写 @media (prefers-reduced-motion:reduce) 的纪元带降级。
+   Windows 常在「辅助功能 → 视觉效果」关掉系统动画，Chrome 随即报告 reduce；
+   一旦把 .era-seg / .era-fly / .era-big-seg.emerge 的 transition 与 animation
+   关掉，玩家就完全看不到「标签浮现 → 位移归位 → 大段浮出」，与 Mac 不一致。
+   纪元带是核心信息反馈，全平台统一播完整动画。 */
+
+/* 测试模式后台入口：仅在打开第五幕测试口子时由 JS 动态插入，
+   正常玩家视图不存在这个节点，游戏逻辑也不读取它。 */
+.people-test-link{
+  display:block;width:100%;margin:10px 0 0;padding:10px 12px;
+  background:rgba(255,204,0,.06);border:1px dashed var(--gold-dim);
+  border-radius:10px;color:var(--gold);font-size:12.5px;text-align:center;
+  text-decoration:none;
+}
+.people-test-link:hover{background:rgba(255,204,0,.13)}
