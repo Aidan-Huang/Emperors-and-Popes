@@ -20,8 +20,10 @@
      玩家不再在首页挑难度，每一幕自带一套规则。底层仍复用 Engine.DIFFICULTY
      三档预设（决定锚点、年代提示、势力显隐、反馈形态），每幕只覆盖
      「失误预算 / 大小时间段开关 / 展示名」。
-     失误预算 5 / 4 / 3 / 3 / 8；大小时间段从第三幕起显示（竖屏仍按空间隐藏）；
-     人物卡（第四幕 4 张关键人物、终章全部人物）玩法未做完，暂不接入。 */
+     失误预算 5 / 4 / 3 / 3 / 8；大小时间段是账号级全局开关：第一次打到第三幕
+     才解锁，解锁后也只有 rule.era 为真的关卡（第三幕起、终章、复习局）显示，
+     手机竖屏一律按空间隐藏；人物卡（第四幕 4 张关键人物、终章全部人物）
+     玩法未做完，暂不接入。 */
   const ACT_RULES = {
     1: { diff: 'easy',   mistakes: 5, name: '抄录', era: false },
     2: { diff: 'normal', mistakes: 4, name: '考据', era: false },
@@ -73,8 +75,10 @@
     collection: load(KEY.collection, {}),// { cardId: {at} }
     errors: load(KEY.errors, {}),        // { cardId: {count, lastAt} }
     /* 难度不再由玩家选择、也不再存档：改为按幕绑定（见 ACT_RULES）。
-       旧存档里残留的 difficulty 字段无害，这里不再读取。 */
-    settings: load(KEY.settings, { useCustom: false }),
+       旧存档里残留的 difficulty 字段无害，这里不再读取。
+       eraUnlocked 是大小时间段的账号级开关：第一次打到第三幕时置真，
+       之前连复习局都不显示纪元带（见 eraGloballyUnlocked）。 */
+    settings: load(KEY.settings, { useCustom: false, eraUnlocked: false }),
     custom: load(KEY.custom, [])
   };
   function persist() {
@@ -104,7 +108,8 @@
     hint: { html: '点一张手牌，再点亮起的插入位', tone: 'idle' },
     pendingFinish: null,
     hudHitTimer: null,     // HUD 失误预算被扣时的高亮计时
-    winPending: false      // 通关后停在对局页等玩家确认，不直接跳结算
+    winPending: false,     // 通关后停在对局页等玩家确认，不直接跳结算
+    settled: false         // 本局是否已记过一次「玩过」：结算与中途退出只记一次
   };
 
   /* ---------------- 测试口子：解锁与开关 ---------------- */
@@ -199,6 +204,10 @@
     if (v !== 'game') {
       hideWinBar();   // 离开对局页就撤掉待确认条
       eraReset();     // 飞签挂在 body 上，离开对局必须撤掉，否则会飘到别的页面
+      /* #feedback 是挂在 #app 之外的全局固定条。玩家不点关闭就按「退出」时，
+         旧版这条深色面板会一直留在首页 / 幕列表底部，看起来像凭空多出一截
+         没有文字的深色底栏。离开对局页无条件收起。 */
+      $('#feedback').classList.remove('show');
     }
     state.view = v;
     $$('.view').forEach(el => el.classList.remove('active'));
@@ -216,16 +225,20 @@
 
   function factionClass(f) { return 'f-' + f; }
 
-  function artHTML(c, thumb) {
+  function artHTML(c, thumb, detail) {
     if (c.img) {
       /* 卡册缩略图只有 112px 高，早期批次卡图（footText）把中文标题与年份
          徽章烧在素材底部，cover 居中裁切正好切出半行字。这里复用 art-top
          把显示窗口上移到 15%，让底部文字整体藏掉，与奥古斯都 / 拉文纳
-         （artPos:'top'）保持同一观感。thumb 仅在卡册缩略图传入；放大图
-         和游戏内卡面保持原样，不受影响。 */
+         （artPos:'top'）保持同一观感。thumb 仅在卡册缩略图传入。
+         detail 只在卡牌详情大图传入：桌面 150×200 的竖窗口会把右下角黄色
+         年份徽章露出一半，交给 CSS 的 .art-detail 顶部对齐整体裁掉。
+         游戏内卡面两个标记都不加，保持原样。 */
       const lift = c.artPos || (thumb && c.footText ? 'top' : '');
+      const cls = [lift ? 'art-' + lift : '', detail ? 'art-detail' : '']
+        .filter(Boolean).join(' ');
       return '<img src="' + c.img + '"' +
-        (lift ? ' class="art-' + lift + '"' : '') +
+        (cls ? ' class="' + cls + '"' : '') +
         ' alt="' + esc(c.zh) + '" loading="lazy">';
     }
     return '<div class="crest">' + (c.icon || '❓') + '</div>';
@@ -397,6 +410,15 @@
     const pool = poolForAct(actId);
     const r = ruleFor(actId);
     state.rule = r;
+    /* 大小时间段是账号级开关：第一次打到第三幕（以及之后任何开放 era 的关卡）
+       才永久解锁。解锁之前连复习局都不该看到纪元带；解锁后仍由本局
+       rule.era 决定哪些关卡能看。测试覆盖 / 测试口子属于后台通道，只走
+       eraGloballyUnlocked() 的放行分支，不写进玩家存档。 */
+    if (!state.testDifficulty && !act5Test() &&
+        +actId >= 3 && productRule(actId).era) {
+      S.settings.eraUnlocked = true;
+      persist();
+    }
     let mistakes = r.mistakes;
     /* 测试覆盖模式复现旧终章「难度预算 +6」；玩家路径下终章固定 8 次。 */
     if (r.test && FINALE_ID && actId === FINALE_ID) mistakes += 6;
@@ -409,7 +431,8 @@
   function startReview() {
     state.mode = 'review';
     const pool = Engine.reviewPool(S.errors, S.collection, 8);
-    /* 复习局不属任何一幕：固定普通预设 + 3 次失误、保留大小时间段。 */
+    /* 复习局不属任何一幕：固定普通预设 + 3 次失误、era 规则为真；
+       实际显不显示还要看账号级全局开关（没打到第三幕前复习局也不显示）。 */
     const r = state.testDifficulty ? ruleFor(0) : REVIEW_RULE;
     state.rule = r;
     state.session = new Engine.GameSession(pool,
@@ -422,6 +445,7 @@
   function afterStart(act) {
     state.sessionSeq++;
     state.locked = false;
+    state.settled = false;    // 新的一局：结算与中途退出共用这一份「玩过」记账
     state.lastRes = null;
     eraReset();                    // 新开一局：撤掉上一局可能残留的飞签 / 定时器 / 浮起
     hideWinBar();                  // 新开一局，撤掉上一局可能残留的待确认条
@@ -647,9 +671,10 @@
 
   /* ---------------- 两级纪元带（展示层 + 因果动画 + 悬停/点选浮起） ----------------
      统计仍是 eras.js 的纯函数：cards.js / engine.js / 41 张事件卡一行都不动。
-     · 显隐：由本局关卡规则的 era 开关决定（前三幕里抄录/考据关闭、
-       编年/立传与终章开放）；手机竖屏因空间不足一律关闭。关闭时整条
-       era-off，零占位零交互。
+     · 显隐：账号级全局开关（第一次打到第三幕才解锁）与本局关卡规则的 era
+       开关（抄录/考据关闭，编年/立传、终章、复习局开放）同时满足才显示；
+       没解锁之前连复习局都不出现。手机竖屏因空间不足一律关闭。
+       关闭时整条 era-off，零占位零交互。
      · 放对牌让某段「首次达标」时，不立刻点亮，改播一条因果链：
          ① 小段标签在新增卡牌正上方慢慢淡入
          ② 同时该段在时间线上的所有卡牌轻轻浮起（示意「是这几张触发的」）
@@ -684,11 +709,19 @@
     bigStep: 260    // 多个大段依次浮出的间隔
   };
 
-  /* 大小时间段（纪元带）从第三幕起开放；竖屏空间太小、横竖对不上，
-     仍按 v2 的约束整条不显示。开不开放由本局的关卡规则决定。 */
+  /* 大小时间段（纪元带）是账号级开关：第一次打到第三幕才解锁，没解锁之前
+     复习局、终章等任何地方都不显示；解锁后也只有 rule.era 为真的关卡显示。
+     测试覆盖（复现旧全局难度）与测试口子（后台预览）直接放行，不写存档。 */
+  function eraGloballyUnlocked() {
+    if (state.testDifficulty) return true;
+    if (act5Test()) return true;
+    return S.settings.eraUnlocked === true;
+  }
+  /* 竖屏空间太小、横竖对不上，仍按 v2 的约束整条不显示。 */
   function eraEnabled() {
     const g = state.session;
-    return !!g && !!(state.rule && state.rule.era) && !portraitLayout();
+    return !!g && !!(state.rule && state.rule.era) &&
+      eraGloballyUnlocked() && !portraitLayout();
   }
   function eraTimer(fn, ms) {
     const t = setTimeout(() => {
@@ -1036,7 +1069,7 @@
     band.classList.toggle('era-off', !enabled);
 
     if (!enabled) {
-      // 本局规则未开放大小时间段 / 竖屏：整条不显示，不播动画，
+      // 账号级未解锁 / 本局规则未开放大小时间段 / 竖屏：整条不显示，不播动画，
       // 统计仍算但 DOM 一律不点亮
       eraReset();
       band.dataset.sig = '';
@@ -1142,11 +1175,20 @@
     return el;
   }
 
+  /* 右上角的势力文字标签（「皇权 / 教权」）从第三幕起整体关掉：
+     底层预设 showFaction=false 时手牌早已不生成，时间线里已揭晓的卡也不该
+     再留一块文字。卡顶部的势力色条与插画左缘竖条已经足够表意。
+     第一、二幕沿用预设照常显示。 */
+  function showFactionTag() {
+    const g = state.session;
+    return !g || g.cfg.showFaction !== false;
+  }
+
   function timelineCardEl(c) {
     const el = document.createElement('div');
     el.className = 'tl-card ' + factionClass(c.faction);
     el.dataset.id = c.id;
-    el.innerHTML = cardFace(c, { year: true });
+    el.innerHTML = cardFace(c, { year: true, showFaction: showFactionTag() });
     el.onclick = () => openCard(c);
     return el;
   }
@@ -1156,7 +1198,7 @@
     if (!g || state.locked) return;
     if (!state.selectedId) { toast('先点一张手牌'); return; }
     // 放牌前先记一份「已达标的段」，用来判断这次放对是否让某段首次达标。
-    // 本局未开放大小时间段 / 竖屏时 eraEnabled() 为假，直接不取、也不播动画。
+    // 账号级未解锁 / 本局未开放大小时间段 / 竖屏时 eraEnabled() 为假，直接不取、也不播动画。
     const eraPrev = (eraEnabled() && window.ERAS)
       ? window.ERAS.stats(g).on : null;
     const res = g.place(idx);
@@ -1246,7 +1288,7 @@
       } else {
         const ghost = document.createElement('div');
         ghost.className = 'tl-card ghost ' + factionClass(c.faction);
-        ghost.innerHTML = cardFace(c, { year: true });
+        ghost.innerHTML = cardFace(c, { year: true, showFaction: showFactionTag() });
         const tl = $('#timeline');
         const slots = $$('#timeline .slot');
         const ref = slots[res.correctIndex];
@@ -1450,6 +1492,8 @@
 
   function finish() {
     const g = state.session;
+    if (!g || state.settled) return;   // 一局只记一次「玩过」：结算 / 中途退出互斥
+    state.settled = true;
     const acc = g.accuracy();
     const cleared = g.mistakesLeft > 0;
     const actId = state.actId;
@@ -1535,7 +1579,20 @@
   }
 
   $('#game-quit').onclick = () => {
-    if (confirm('退出本局？进度不会保存。')) { stopAudio(); go(state.mode === 'review' ? 'review' : 'acts'); }
+    if (!confirm('退出本局？进度不会保存。')) return;
+    /* 中途退出也算玩过这一幕：旧版只在结算时 plays++，没打完就退出的话，
+       回幕列表第一幕仍写着「未开始」。这里补记一次，与 finish() 用
+       state.settled 互斥，同一局绝不会记两次。复习局不属于任何一幕，不记。 */
+    if (state.mode === 'act' && !state.settled) {
+      state.settled = true;
+      const p = S.progress[state.actId] ||
+        { plays: 0, cleared: false, best: null, bestCombo: 0 };
+      p.plays++;
+      S.progress[state.actId] = p;
+      persist();
+    }
+    stopAudio();
+    go(state.mode === 'review' ? 'review' : 'acts');
   };
 
   /* ---------------- 复习模式 ---------------- */
@@ -1626,7 +1683,7 @@
     openModal(
       '<h3>' + esc(has ? c.dy : '？') + ' · ' + esc(c.zh) + '</h3>' +
       '<div class="bigcard ' + factionClass(c.faction) + '">' +
-        '<div class="art">' + (has ? artHTML(c) : '<div class="crest">' + (c.icon || '❓') + '</div>') + '</div>' +
+        '<div class="art">' + (has ? artHTML(c, false, true) : '<div class="crest">' + (c.icon || '❓') + '</div>') + '</div>' +
         '<div class="info">' +
           '<div class="yr">' + (has ? esc(c.dy) : '未解锁') + '</div>' +
           '<div class="zh">' + esc(c.zh) + '</div>' +
@@ -1977,7 +2034,16 @@
         return state.testDifficulty;
       },
       difficulty: () => state.testDifficulty ||
-        (state.session ? state.session.difficulty : null)
+        (state.session ? state.session.difficulty : null),
+      /* 大小时间段全局开关：验收脚本用来验证「没打到第三幕前哪里都不显示，
+         解锁后也只有 era 关卡显示」。eraEffective 含测试通道的放行分支。 */
+      eraUnlocked: () => S.settings.eraUnlocked === true,
+      eraEffective: () => eraGloballyUnlocked(),
+      setEraUnlocked: v => {
+        S.settings.eraUnlocked = !!v;
+        persist();
+        return S.settings.eraUnlocked;
+      }
     },
     zoom: {
       get: () => ({ tl: zoomCfg.tl, hand: zoomCfg.hand }),
