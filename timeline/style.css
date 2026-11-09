@@ -816,9 +816,11 @@ small{font-size:.78em;opacity:.85}
   100% {transform:translate(var(--dx),var(--dy)) scale(.78);opacity:0}
 }
 @media (prefers-reduced-motion:reduce){
-  /* 只取消动画本身，hover 静态浮现状态原样保留 */
+  /* 只取消装饰性动画，hover 静态浮现状态原样保留。
+     ★ 这里刻意不写 .flyback{display:none}：放错弹回是核心判定反馈，
+       Windows 关掉系统动画后 Chrome 报 reduce，旧版这条会把整张卡影藏掉，
+       Windows 玩家看不到「卡被退回来了」。与纪元带一样全平台统一播完整动画。 */
   .timeline-hint.bad-pulse{animation:none}
-  .flyback{display:none}
 }
 
 /* ---------- 手机竖屏：纵向时间线 ----------

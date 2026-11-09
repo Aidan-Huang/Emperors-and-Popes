@@ -1272,10 +1272,13 @@
     state.hudHitTimer = setTimeout(() => el.classList.remove('hit'), 900);
   }
 
-  /* 放错：被放下的卡从插入位弹回手牌区，明显摇一摇、停一拍再淡出；
-     reduced-motion 下只保留静态提示，不播动画。 */
+  /* 放错：被放下的卡从插入位弹回手牌区，明显摇一摇、停一拍再淡出。
+     ★ 这里刻意不按 prefers-reduced-motion 降级：Windows 常在「辅助功能 →
+       视觉效果」关掉系统动画，Chrome 随即报告 reduce，旧版在此直接 return，
+       Windows 玩家完全看不到「卡被退回来了」，只剩一行文字，与 Mac / 手机
+       不一致。弹回是放错判定的核心反馈（与纪元带同理），全平台统一播完整
+       动画；提示条脉冲、HUD 闪烁等装饰性动效仍按 reduce 降级。 */
   function bounceBack(c, slot) {
-    if (reducedMotion()) return;
     $$('.flyback').forEach(el => el.remove());
     const from = $('#timeline .slot[data-slot="' + slot + '"]');
     const hand = $('#hand');
