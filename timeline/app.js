@@ -25,11 +25,17 @@
      5 张既满足 4~5 张以上的游戏性，又不把无关朝代的关键人物硬拉进来。
      终章「全部人物」是后续规划，本轮不接入。 */
   const PEOPLE_ALL = (typeof PEOPLE !== 'undefined' && Array.isArray(PEOPLE)) ? PEOPLE : [];
-  /* 虚拟卡位宽度：原为半个事件卡（70px）。人物线圆头像放大到与手牌一致的
-     88px 后，半卡位也要留出余量，否则密集段相邻头像会贴在一起 —— 96px
-     = 头像 88px + 8px 间隙。它同时驱动上排 --pgap 加宽量与下排头像间距、
-     圆点插入位坐标，改这里必须同步 style.css 的 .pl-person 宽度。 */
-  const HALF_CARD = 96;
+  /* 虚拟卡位宽度：原为半个事件卡（70px），后随 88px 圆头像放大到 96px。
+     本轮再放宽到 112px = 头像 88px + 24px 间隙 —— 中间那个金色圆点落在
+     相邻两头像的中点，卡位一宽，它与两侧头像边框之间就有 12px 呼吸位，
+     不再显得挤在缝里。它同时驱动上排 --pgap 加宽量与下排头像间距，
+     改这里必须同步 style.css 的 .pl-person 宽度。 */
+  const HALF_CARD = 112;
+  /* 序列两端金色圆点距头像中心的距离：88px 头像半径 44 + 14px 呼吸位。
+     刻意不再用 ±HALF_CARD —— 否则卡位一放宽，两端的圆点反而被推得更远。
+     固定贴边后，两端圆点与中间圆点（两头像中点，距边框 12px）观感一致，
+     也和事件卡两侧紧贴卡牌的插入金线是同一手感。 */
+  const DOT_EDGE = 58;
   const ACT4_SPAN = (function () {
     const cs = (typeof Engine !== 'undefined' && Engine.actCards) ? Engine.actCards(4) : [];
     if (!cs.length) return { min: 0, max: 0 };
@@ -528,6 +534,28 @@
     });
   }
 
+  /* 卡面只放得下一行短外号：优先选不带括号注释、9 字以内的那一条，
+     否则退到最短的一条并截到 12 字。完整外号列表留给详情档案。 */
+  function shortAlias(p) {
+    const a = (p.aliases || []).filter(s => typeof s === 'string' && s.length);
+    if (!a.length) return '';
+    const plain = a.filter(s => !/[（(]/.test(s) && s.length <= 9);
+    const pick = plain.length ? plain[0] : a.slice().sort((x, y) => x.length - y.length)[0];
+    return pick.length > 12 ? pick.slice(0, 11) + '…' : pick;
+  }
+  /* 生命条长度只由寿命决定：1.15px/年，夹在 40–220px。
+     生卒年缺失 / 精度不足时返回 0（不画），避免误导成「这人只活了几年」。 */
+  const LIFE_PX_PER_YEAR = 1.15;
+  function lifeBarWidth(p) {
+    if (typeof p.born !== 'number' || typeof p.died !== 'number') return 0;
+    const y = p.died - p.born;
+    return y > 0 ? Math.max(40, Math.min(220, Math.round(y * LIFE_PX_PER_YEAR))) : 0;
+  }
+  function setLifeBar(id) {
+    $$('#people-line .pl-bar').forEach(b =>
+      b.classList.toggle('show', !!id && b.dataset.id === id));
+  }
+
   /* 下排：圆头像 + n+1 个金色圆点插入位。
      DOM 顺序刻意排成「slot0, 人0, slot1, 人1, …, slotN」：桌面用绝对
      定位按算出的 x 摆，手机竖屏降级成 flex 横排时顺序天然正确。 */
@@ -570,13 +598,14 @@
       .filter(a => typeof a.x === 'number').sort((a, b) => a.x - b.x);
     const slotXs = [];
     if (avatars.length) {
-      // n+1 个放置位：两端各留一个半卡位，中间落在相邻头像的中点
-      slotXs.push(avatars[0].x - HALF_CARD);
+      // n+1 个放置位：两端贴着头像边缘（DOT_EDGE），中间落在相邻头像的中点。
+      // 两端不用 ±HALF_CARD，卡位放宽时圆点不会被一起推远。
+      slotXs.push(avatars[0].x - DOT_EDGE);
       for (let i = 1; i < avatars.length; i++)
         slotXs.push((avatars[i - 1].x + avatars[i].x) / 2);
-      slotXs.push(avatars[avatars.length - 1].x + HALF_CARD);
+      slotXs.push(avatars[avatars.length - 1].x + DOT_EDGE);
     } else {
-      slotXs.push(HALF_CARD);
+      slotXs.push(DOT_EDGE);
     }
 
     let html = '<div class="pl-track">';
@@ -586,18 +615,34 @@
         '<i></i></button>';
       if (i < avatars.length) {
         const person = avatars[i].person;
-        html += '<div class="pl-person" data-id="' + esc(person.id) + '"' +
+        const key = person.tier === 'key';
+        const alias = key ? shortAlias(person) : '';
+        html += '<div class="pl-person' + (key ? ' is-key' : '') + '" data-id="' + esc(person.id) + '"' +
+          ' data-tier="' + esc(person.tier || 'normal') + '"' +
           ' style="left:' + Math.round(avatars[i].x) + 'px" title="' +
           esc(person.zh + ' · ' + person.born + '–' + person.died) + '">' +
           '<div class="pl-stem"></div>' +
+          (key ? '<span class="pl-star" aria-hidden="true">✦</span>' : '') +
           '<div class="pl-ava ' + factionClass(person.faction) + '">' +
             (person.img ? '<img src="' + esc(person.img) + '" class="art-top" alt="">' : '👤') +
           '</div>' +
+          (alias ? '<div class="pl-alias">' + esc(alias) + '</div>' : '') +
           '<div class="pl-nm">' + esc(person.zh) + '</div>' +
           '<div class="pl-life">' + esc(person.born + '–' + person.died) + '</div>' +
           '</div>';
       }
     }
+    /* 生命条层：按真实寿命线性画长度（不与「期间有几张事件卡」挂钩），
+       初始全部隐藏，hover 头像只亮对应一条；触屏不启用，档案里静态呈现。 */
+    html += '<div class="pl-bars" aria-hidden="true">';
+    avatars.forEach(a => {
+      const w = lifeBarWidth(a.person);
+      if (!w) return;
+      html += '<div class="pl-bar" data-id="' + esc(a.person.id) + '"' +
+        ' style="left:' + Math.round(a.x) + 'px;width:' + w + 'px">' +
+        '<i></i><em>† ' + esc(a.person.died) + ' · ' + esc(a.person.life || '') + '</em></div>';
+    });
+    html += '</div>';
     html += '</div>';
     wrap.innerHTML = html;
     const track = wrap.querySelector('.pl-track');
@@ -607,22 +652,62 @@
     $$('#people-line .people-slot').forEach(el => {
       el.onclick = () => onPeoplePlace(+el.dataset.pslot);
     });
+    /* 桌面（真 hover 设备）才挂生命条；只能点按的手机/平板不抢点击，
+       寿命信息在详情档案里静态给出，竖屏画面保持零变化。 */
+    const canHover = window.matchMedia && window.matchMedia('(hover:hover)').matches;
     $$('#people-line .pl-person').forEach(el => {
       el.onclick = () => {
         const person = PEOPLE_ALL.find(x => x.id === el.dataset.id);
         if (person) openPerson(person);
       };
+      if (canHover) {
+        el.onmouseenter = () => setLifeBar(el.dataset.id);
+        el.onmouseleave = () => setLifeBar(null);
+      }
     });
     $$('#people-line .people-slot').forEach(el =>
       el.classList.toggle('armed', !!state.selectedId && state.selectedKind === 'person'));
+  }
+
+  const REL_ZH = {
+    'father-son': '父子', 'mother-son': '母子', 'brother': '兄弟',
+    'spouse': '夫妻', 'grandfather-grandson': '祖孙',
+    'rival': '对手', 'counterpart': '事件双方'
+  };
+  /* 关键人物详情：把人物册里那份档案搬进游戏。普通人物（本轮不会进对局）
+     保持原来的「图 + 出处原文」简洁版，形成明确的详略差别。 */
+  function personFile(p) {
+    if (p.tier !== 'key') return '';
+    const aliases = (p.aliases || []).map(a =>
+      '<span class="pf-alias">' + esc(a) + '</span>').join('');
+    const hl = (p.highlights || []).map(h =>
+      '<li><b>' + esc(h.y) + '</b> ' + esc(h.t) +
+      (h.card ? '<span class="pf-card">↔ 游戏事件卡</span>' : '') + '</li>').join('');
+    const rl = (p.relations || []).map(r => {
+      const o = PEOPLE_ALL.find(x => x.id === r.to);
+      return '<span class="pf-rel">' + esc(o ? o.zh : r.to) +
+        '<i>[' + esc(REL_ZH[r.type] || r.type) + ']</i> ' + esc(r.note || '') + '</span>';
+    }).join('');
+    const w = lifeBarWidth(p);
+    return '<div class="pf">' +
+      '<div class="pf-h">✦ 关键人物档案</div>' +
+      (p.bio ? '<p class="pf-bio">' + esc(p.bio) + '</p>' : '') +
+      (w ? '<div class="pf-bar"><i style="width:' + w + 'px"></i>' +
+        '<span>† ' + esc(p.died) + ' · ' + esc(p.life || '') + '</span></div>' : '') +
+      (aliases ? '<div class="pf-row"><b>外号 / 异译</b><div>' + aliases + '</div></div>' : '') +
+      (hl ? '<div class="pf-row"><b>生平大事</b><ul>' + hl + '</ul></div>' : '') +
+      (rl ? '<div class="pf-row"><b>人物关系</b><div>' + rl + '</div></div>' : '') +
+      '</div>';
   }
 
   function openPerson(p) {
     const pic = p.img
       ? '<img src="' + esc(p.img) + '" class="art-top" alt="">'
       : '<div class="crest">👤</div>';
+    const key = p.tier === 'key';
     openModal(
-      '<h3>' + esc(p.zh) + ' <small style="color:var(--muted);font-weight:400">' + esc(p.en || '') + '</small></h3>' +
+      '<h3>' + esc(p.zh) + ' <small style="color:var(--muted);font-weight:400">' + esc(p.en || '') + '</small>' +
+        (key ? '<span class="pf-key">✦ 关键人物</span>' : '') + '</h3>' +
       '<div class="bigcard ' + factionClass(p.faction) + '">' +
         '<div class="art">' + pic + '</div>' +
         '<div class="info">' +
@@ -633,6 +718,7 @@
         '</div>' +
       '</div>' +
       (p.src ? '<div class="quotebox en-only"><span class="en">' + esc(p.src.en || '') + '</span></div>' : '') +
+      personFile(p) +
       '<div class="modal-actions"><button class="primary" id="pp-ok">关闭</button></div>'
     );
     $('#pp-ok').onclick = closeModal;
@@ -2498,7 +2584,9 @@
     people: {
       active: peopleActive,
       pool: () => PEOPLE_POOL.map(p => ({ id: p.id, zh: p.zh, born: p.born, died: p.died })),
-      rule: () => ({ halfCard: HALF_CARD, span: ACT4_SPAN, size: PEOPLE_POOL.length }),
+      rule: () => ({ halfCard: HALF_CARD, dotEdge: DOT_EDGE, avatar: 88,
+                     lifePxPerYear: LIFE_PX_PER_YEAR, span: ACT4_SPAN,
+                     size: PEOPLE_POOL.length }),
       state: () => state.people ? {
         line: state.people.line.map(p => p.id),
         hand: state.people.hand.map(p => p.id),

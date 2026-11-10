@@ -5,7 +5,8 @@
    卡图：Wikimedia Commons 公版历史画作 / 雕像 / 手稿（见 cards/people/ATTRIBUTION.md）
    ------------------------------------------------------------
    ★ 本文件是独立模块：不进 CARDS、不参与引擎排序，不影响 41 张事件卡 / 四幕 / 终章。
-     仅被 people-preview.html 引用；游戏本体不加载本文件。
+     被 people-preview.html（人物册）与游戏本体 timeline/index.html（第四幕
+     人物线）共同引用；只读数据源，不写任何 DOM / 布局 / 引擎逻辑。
    字段：
      kind      'person' 标记，与时间卡的 undefined 区分
      born/died 生卒年（公元前为负 / 生年不详为 null）
