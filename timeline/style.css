@@ -1144,18 +1144,21 @@ small{font-size:.78em;opacity:.85}
    - 下排与 #timeline 共用同一个横向滚动位置，金色虚线把头像挂到虚拟卡位
    ============================================================ */
 
-/* 上排：一个人 = 半个卡位的留白；细金线仍钉在原缝隙（不是加宽区中点）。
-   加宽区里画一条淡金竖虚线，与下排 .pl-stem 呼应，把「这里挂着一个人」
-   指回事件卡序列；不改 DOM，只加背景。 */
+/* 上排：一个人 = 半个卡位的留白。只预留空间，不画任何占位虚线。
+   插入金线沿用 .slot::before 的基础定位（left:50% / translateX(-50%)），
+   加宽后仍落在缝隙中心：两卡之间就是两卡中点，序列末尾保持原位，
+   序列起始也比钉在左端更靠近第一张卡。 */
 .slot.people-anchor{
   flex:0 0 calc(6px + var(--pgap,0px));
-  background:repeating-linear-gradient(180deg,rgba(255,204,0,.45) 0 5px,transparent 5px 11px)
-             65% 8% / 1px 84% no-repeat;
 }
-.slot.people-anchor::before{left:3px;transform:none}
+/* 序列起始：留白向左扩，金线仍紧贴第一张卡，别被撑宽区推到最左边。
+   中间插槽用上面的中心定位，末尾插槽未加宽时保持原样。 */
+#timeline > .slot:first-child.people-anchor::before{
+  left:auto;right:3px;transform:none;
+}
 
 .people-line{
-  flex:0 0 auto;position:relative;width:100%;height:106px;margin-top:2px;
+  flex:0 0 auto;position:relative;width:100%;height:118px;margin-top:2px;
   overflow-x:hidden;overflow-y:hidden;scrollbar-width:none;
   border-top:1px dashed rgba(255,204,0,.20);
 }
@@ -1174,7 +1177,7 @@ small{font-size:.78em;opacity:.85}
   border-left:1px dashed rgba(255,204,0,.75);
 }
 .pl-ava{
-  width:46px;height:46px;border-radius:50%;overflow:hidden;
+  width:56px;height:56px;border-radius:50%;overflow:hidden;
   border:2px solid var(--gold-dim);background:#f0efec;
   box-shadow:0 2px 10px rgba(0,0,0,.35);
   display:flex;align-items:center;justify-content:center;
@@ -1188,7 +1191,8 @@ small{font-size:.78em;opacity:.85}
 .pl-ava.f-both{border-color:var(--both)}
 .pl-nm{
   font-size:11px;color:var(--ink);line-height:1.25;white-space:nowrap;
-  max-width:84px;overflow:hidden;text-overflow:ellipsis;text-align:center;
+  /* 头像放大后限制在半卡位宽内，密集段名字不叠到相邻头像上 */
+  max-width:70px;overflow:hidden;text-overflow:ellipsis;text-align:center;
 }
 .pl-life{font-size:9.5px;color:#aab4d4;line-height:1.25}
 
@@ -1206,14 +1210,32 @@ small{font-size:.78em;opacity:.85}
 .people-slot.armed i{background:var(--gold);box-shadow:0 0 0 4px rgba(255,204,0,.16);transform:scale(1.3)}
 .people-slot:hover i{background:var(--gold);transform:scale(1.3)}
 
-/* 第四幕手牌：事件卡 3 张 + 留白 + 人物卡 2 张，不用任何风格分隔符 */
+/* 第四幕手牌：事件卡 3 张 + 留白 + 人物卡 2 张，不用任何风格分隔符。
+   两类卡之间留出明显更大的间距，避免混在一起。 */
 .hand.with-people{
-  display:flex;flex-wrap:wrap;gap:16px;justify-content:center;align-items:flex-start;
+  display:flex;flex-wrap:wrap;gap:24px;justify-content:center;align-items:flex-start;
 }
 .hand.with-people .hand-card{width:140px;flex:0 0 140px}
-.hand.with-people .hand-card.person-first{margin-left:24px}
-.hand-card.person-card .art img{object-position:50% 15%}
+.hand.with-people .hand-card.person-first{margin-left:48px}
+
+/* 人物手牌：卡内头像裁成圆形，与人物线 .pl-ava 保持一致。
+   .art 本身只做居中容器、背景透明；势力不再用左缘竖条，改由圆框颜色表达。 */
+.hand-card.person-card .art{background:transparent;overflow:visible}
+.hand-card.person-card .art::before{display:none}
+.hand-card.person-card .art img{
+  width:88px;height:88px;border-radius:50%;object-fit:cover;object-position:50% 15%;
+  border:2px solid var(--gold-dim);background:#f0efec;
+  box-shadow:0 2px 10px rgba(0,0,0,.28);
+}
+.hand-card.person-card.f-church .art img{border-color:var(--church)}
+.hand-card.person-card.f-state  .art img{border-color:var(--state)}
+.hand-card.person-card.f-local  .art img{border-color:var(--local)}
+.hand-card.person-card.f-both   .art img{border-color:var(--both)}
 .hand-card.person-card .yr{font-size:13px}
+/* 困难模式隐势力：人物手牌不泄露势力色，也不做事件卡那套裁色条位移 */
+#view-game.hide-faction .hand-card.person-card .art img{
+  border-color:var(--gold-dim);transform:none;
+}
 
 /* 手机竖屏：时间线本身是纵向的，上排不撑高；人物线单独横排即可 */
 @media (max-width:760px) and (orientation:portrait){
@@ -1228,11 +1250,13 @@ small{font-size:.78em;opacity:.85}
     justify-content:center;gap:4px;width:max-content;min-width:100%;height:auto;
   }
   .pl-person,.people-slot{position:static;transform:none;top:auto}
-  .pl-person{width:60px;height:auto;gap:3px}
-  .people-slot{width:22px;flex:0 0 22px;height:70px}
+  .pl-person{width:66px;height:auto;gap:3px}
+  .people-slot{width:22px;flex:0 0 22px;height:82px}
   .pl-stem{display:none}
-  .pl-ava{width:42px;height:42px}
-  .hand.with-people{gap:7px}
+  .pl-ava{width:50px;height:50px}
+  .hand.with-people{gap:12px}
   .hand.with-people .hand-card{width:100%;flex:1 1 100%}
-  .hand.with-people .hand-card.person-first{margin-left:0}
+  .hand.with-people .hand-card.person-first{margin-left:0;margin-top:14px}
+  /* 竖屏横条卡里圆形头像收进 62px 宽的图像区 */
+  .hand-card.person-card .art img{width:54px;height:54px}
 }
