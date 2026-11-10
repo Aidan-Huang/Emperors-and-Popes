@@ -25,7 +25,11 @@
      5 张既满足 4~5 张以上的游戏性，又不把无关朝代的关键人物硬拉进来。
      终章「全部人物」是后续规划，本轮不接入。 */
   const PEOPLE_ALL = (typeof PEOPLE !== 'undefined' && Array.isArray(PEOPLE)) ? PEOPLE : [];
-  const HALF_CARD = 70;   // 虚拟半卡位宽度 = 时间线卡 140px 的一半
+  /* 虚拟卡位宽度：原为半个事件卡（70px）。人物线圆头像放大到与手牌一致的
+     88px 后，半卡位也要留出余量，否则密集段相邻头像会贴在一起 —— 96px
+     = 头像 88px + 8px 间隙。它同时驱动上排 --pgap 加宽量与下排头像间距、
+     圆点插入位坐标，改这里必须同步 style.css 的 .pl-person 宽度。 */
+  const HALF_CARD = 96;
   const ACT4_SPAN = (function () {
     const cs = (typeof Engine !== 'undefined' && Engine.actCards) ? Engine.actCards(4) : [];
     if (!cs.length) return { min: 0, max: 0 };

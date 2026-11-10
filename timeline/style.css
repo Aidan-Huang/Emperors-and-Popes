@@ -1144,21 +1144,25 @@ small{font-size:.78em;opacity:.85}
    - 下排与 #timeline 共用同一个横向滚动位置，金色虚线把头像挂到虚拟卡位
    ============================================================ */
 
-/* 上排：一个人 = 半个卡位的留白。只预留空间，不画任何占位虚线。
-   插入金线沿用 .slot::before 的基础定位（left:50% / translateX(-50%)），
-   加宽后仍落在缝隙中心：两卡之间就是两卡中点，序列末尾保持原位，
-   序列起始也比钉在左端更靠近第一张卡。 */
+/* 上排：一个人 = 一个虚拟卡位的留白。只预留空间，不画任何占位虚线。
+   插入金线沿用 .slot::before 的基础定位（left:50% / translateX(-50%)）：
+   未加宽的插槽自然紧贴卡牌，加宽后的插槽再按「两端贴卡、中间居中」修正。 */
 .slot.people-anchor{
   flex:0 0 calc(6px + var(--pgap,0px));
 }
-/* 序列起始：留白向左扩，金线仍紧贴第一张卡，别被撑宽区推到最左边。
-   中间插槽用上面的中心定位，末尾插槽未加宽时保持原样。 */
+/* 序列两端：留白只往序列外侧扩，金线仍钉在紧邻卡牌的那一端 ——
+   起始位钉加宽区右端（贴第一张卡左缘），末尾位钉左端（贴最后一张卡右缘），
+   两者对称。两端都被撑宽时（序列仅一张卡）用 :not(:first-child) 让起始
+   规则生效。中间插槽保持基础中心定位 = 两卡中点；未加宽的插槽不受影响。 */
 #timeline > .slot:first-child.people-anchor::before{
   left:auto;right:3px;transform:none;
 }
+#timeline > .slot:last-child:not(:first-child).people-anchor::before{
+  left:3px;right:auto;transform:none;
+}
 
 .people-line{
-  flex:0 0 auto;position:relative;width:100%;height:118px;margin-top:2px;
+  flex:0 0 auto;position:relative;width:100%;height:156px;margin-top:2px;
   overflow-x:hidden;overflow-y:hidden;scrollbar-width:none;
   border-top:1px dashed rgba(255,204,0,.20);
 }
@@ -1166,8 +1170,9 @@ small{font-size:.78em;opacity:.85}
 .people-line::-webkit-scrollbar{display:none}
 .pl-track{position:relative;height:100%;min-width:100%}
 
+/* 宽度必须与 app.js 的 HALF_CARD 一致，头像中心才能与虚拟卡位逐像素对齐 */
 .pl-person{
-  position:absolute;top:30px;width:70px;transform:translateX(-50%);
+  position:absolute;top:30px;width:96px;transform:translateX(-50%);
   display:flex;flex-direction:column;align-items:center;gap:2px;z-index:2;
 }
 /* 从人物线顶边垂到头像的金色虚线，正好落在上排事件卡下方；
@@ -1176,10 +1181,11 @@ small{font-size:.78em;opacity:.85}
   position:absolute;bottom:100%;left:50%;height:28px;width:0;
   border-left:1px dashed rgba(255,204,0,.75);
 }
+/* 与手牌 .hand-card.person-card .art img 完全同尺寸同圆框 */
 .pl-ava{
-  width:56px;height:56px;border-radius:50%;overflow:hidden;
+  width:88px;height:88px;border-radius:50%;overflow:hidden;
   border:2px solid var(--gold-dim);background:#f0efec;
-  box-shadow:0 2px 10px rgba(0,0,0,.35);
+  box-shadow:0 2px 10px rgba(0,0,0,.28);
   display:flex;align-items:center;justify-content:center;
   cursor:pointer;transition:transform .2s ease,box-shadow .2s ease;
 }
@@ -1191,8 +1197,8 @@ small{font-size:.78em;opacity:.85}
 .pl-ava.f-both{border-color:var(--both)}
 .pl-nm{
   font-size:11px;color:var(--ink);line-height:1.25;white-space:nowrap;
-  /* 头像放大后限制在半卡位宽内，密集段名字不叠到相邻头像上 */
-  max-width:70px;overflow:hidden;text-overflow:ellipsis;text-align:center;
+  /* 限制在虚拟卡位宽内，密集段名字不叠到相邻头像上 */
+  max-width:88px;overflow:hidden;text-overflow:ellipsis;text-align:center;
 }
 .pl-life{font-size:9.5px;color:#aab4d4;line-height:1.25}
 
@@ -1253,7 +1259,9 @@ small{font-size:.78em;opacity:.85}
   .pl-person{width:66px;height:auto;gap:3px}
   .people-slot{width:22px;flex:0 0 22px;height:82px}
   .pl-stem{display:none}
+  /* 竖屏本轮不优化：显式锁回原值，避免桌面放大后继承过去改变横条卡排版 */
   .pl-ava{width:50px;height:50px}
+  .pl-nm{max-width:70px}
   .hand.with-people{gap:12px}
   .hand.with-people .hand-card{width:100%;flex:1 1 100%}
   .hand.with-people .hand-card.person-first{margin-left:0;margin-top:14px}
