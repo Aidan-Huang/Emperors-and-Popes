@@ -16,14 +16,35 @@
   const MAIN_ACTS = ACTS.filter(a => !a.all);
   const ACT5_TEST_KEY = 'tl_ch6_act5_test';   // 测试口子开关：五幕全部直接可玩；独立于游戏进度，开关本身不写 S.progress
 
+  /* ---------------- 第四幕人物线：数据池 ----------------
+     只在第四幕出现。池 = 10 位关键人物 ∩ 与第四幕事件年代有交集：
+       严格按「strongCards 命中第四幕事件」只有 3 位（拿破仑 / 马丁·路德 /
+       庇护七世），刚好是「1 个锚点 + 2 张人物手牌」的下限，一局放完就没了；
+       按生卒区间与第四幕（1066–1870）相交可得 5 位，多出的格里高利七世、
+       亨利四世正是 1066 威廉征服同代、也是「双雄相争的遗产」的由来。
+     5 张既满足 4~5 张以上的游戏性，又不把无关朝代的关键人物硬拉进来。
+     终章「全部人物」是后续规划，本轮不接入。 */
+  const PEOPLE_ALL = (typeof PEOPLE !== 'undefined' && Array.isArray(PEOPLE)) ? PEOPLE : [];
+  const HALF_CARD = 70;   // 虚拟半卡位宽度 = 时间线卡 140px 的一半
+  const ACT4_SPAN = (function () {
+    const cs = (typeof Engine !== 'undefined' && Engine.actCards) ? Engine.actCards(4) : [];
+    if (!cs.length) return { min: 0, max: 0 };
+    return { min: Math.min.apply(null, cs.map(c => c.y)),
+             max: Math.max.apply(null, cs.map(c => c.y)) };
+  })();
+  const PEOPLE_POOL = PEOPLE_ALL.filter(p =>
+    p.tier === 'key' && typeof p.born === 'number' && typeof p.died === 'number' &&
+    p.born <= ACT4_SPAN.max && p.died >= ACT4_SPAN.min
+  ).slice().sort(peopleOrder);
+
   /* ---------------- 难度：绑定到关卡 ----------------
      玩家不再在首页挑难度，每一幕自带一套规则。底层仍复用 Engine.DIFFICULTY
      三档预设（决定锚点、年代提示、势力显隐、反馈形态），每幕只覆盖
      「失误预算 / 大小时间段开关 / 展示名」。
      失误预算 5 / 4 / 3 / 3 / 8；大小时间段是账号级全局开关：第一次打到第三幕
      才解锁，解锁后也只有 rule.era 为真的关卡（第三幕起、终章、复习局）显示，
-     手机竖屏一律按空间隐藏；人物卡（第四幕 4 张关键人物、终章全部人物）
-     玩法未做完，暂不接入。 */
+     手机竖屏一律按空间隐藏。第四幕人物线已接入（5 位与第四幕年代相交的
+     关键人物）；终章「全部人物」仍是后续规划，本轮未接入。 */
   const ACT_RULES = {
     1: { diff: 'easy',   mistakes: 5, name: '抄录', era: false },
     2: { diff: 'normal', mistakes: 4, name: '考据', era: false },
@@ -97,6 +118,8 @@
     actId: 1,
     session: null,
     selectedId: null,
+    selectedKind: 'event', // event | person：第四幕两类手牌共用选中态，靠它区分点亮哪排插入位
+    people: null,          // 第四幕人物线状态 { pool, line, hand, deck }，其它关卡恒为 null
     rule: null,            // 本局生效的关卡规则（失误 / 名称 / 大小时间段开关）
     testDifficulty: null,  // 仅验收脚本用的覆盖值，只存内存、不写存档、刷新即失效
     galleryTab: 'all',
@@ -391,6 +414,264 @@
     }
   }
 
+  /* ============================================================
+     第四幕人物线（独立子系统，不动 engine.js / CARDS / 事件卡序列）
+     ------------------------------------------------------------
+     模型：1 个人物 = 1 个「虚拟半卡位」。以 born 找到它在事件卡序列里的
+     插入缝隙，不实际插进 g.timeline，只把对应的 .slot 加宽半张卡，
+     再用一条金色虚线把下排圆头像挂到上排。人物按 born 排序（同年按 died）。
+     放置位与事件卡完全同逻辑：n+1 个，选中人物手牌后点亮成金色圆点。
+     两个人物之间夹着事件卡时，上排虚拟卡位随事件序列自然拉开、下排头像
+     跟着重新排布 —— 每次 renderGame() 都按当前时间线重算一次坐标。
+     ============================================================ */
+
+  function peopleOrder(a, b) {
+    const ab = (typeof a.born === 'number') ? a.born : Infinity;
+    const bb = (typeof b.born === 'number') ? b.born : Infinity;
+    if (ab !== bb) return ab - bb;
+    // 同年出生按卒年（用户拍板）
+    const ad = (typeof a.died === 'number') ? a.died : Infinity;
+    const bd = (typeof b.died === 'number') ? b.died : Infinity;
+    if (ad !== bd) return ad - bd;
+    return String(a.id).localeCompare(String(b.id));
+  }
+
+  function peopleActive() {
+    return !!(state.mode === 'act' && state.actId === 4 &&
+      !state.testDifficulty && state.people && state.people.pool.length >= 3);
+  }
+
+  function peopleComplete() {
+    const p = state.people;
+    return !p || (!p.deck.length && !p.hand.length);
+  }
+
+  function initPeople(actId) {
+    state.people = null;
+    state.selectedKind = 'event';
+    if (!(actId === 4 && !state.testDifficulty && PEOPLE_POOL.length >= 3)) return;
+    const deck = PEOPLE_POOL.slice();
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = deck[i]; deck[i] = deck[j]; deck[j] = t;
+    }
+    const st = {
+      pool: PEOPLE_POOL.slice(),
+      line: [deck.shift()],   // 开局人物线随机落 1 人作锚点
+      deck: deck,
+      hand: []
+    };
+    while (st.hand.length < 2 && st.deck.length) st.hand.push(st.deck.shift());
+    state.people = st;
+  }
+
+  /* 人物 born 落在当前事件时间线的第几个插入缝隙（0..N），
+     与 #timeline .slot[data-slot=idx] 一一对应。 */
+  function personTimelineSlot(person) {
+    const g = state.session;
+    if (!g || typeof person.born !== 'number') return 0;
+    for (let i = 0; i < g.timeline.length; i++) {
+      if (person.born < g.timeline[i].y) return i;
+    }
+    return g.timeline.length;
+  }
+
+  function peopleCorrectIndex(line, card) {
+    for (let i = 0; i < line.length; i++) if (peopleOrder(card, line[i]) < 0) return i;
+    return line.length;
+  }
+  function checkPeoplePlacement(line, card, idx) {
+    if (idx < 0 || idx > line.length) return false;
+    const prev = line[idx - 1], next = line[idx];
+    return (!prev || peopleOrder(card, prev) >= 0) &&
+           (!next || peopleOrder(card, next) <= 0);
+  }
+
+  /* 人物卡面：与事件手牌同一套 .fstrip/.art/.nm/.yr 骨架。
+     手牌不显示生卒（年份未知，和事件手牌一样）；人物线已落位的头像另用 .pl-*。 */
+  function personFace(p, opts) {
+    opts = opts || {};
+    const art = p.img
+      ? '<img src="' + esc(p.img) + '" class="art-top" alt="">'
+      : '<div class="crest">👤</div>';
+    return '<div class="fstrip"></div>' +
+      '<div class="art">' + art + '</div>' +
+      '<div class="nm">' + esc(p.zh) + '</div>' +
+      '<div class="yr">' + (opts.year ? esc(p.born + '–' + p.died) : '？') + '</div>';
+  }
+
+  /* 上排：给挂了人物的 .slot 加宽 n 个半卡位。
+     只加 class + CSS 变量，不往 #timeline 里插任何节点 —— 插入位数量、
+     卡牌数量、判定链路、既有回归断言全部保持原样。 */
+  function applyPeopleAnchors() {
+    $$('#timeline .slot').forEach(s => {
+      s.classList.remove('people-anchor');
+      s.style.removeProperty('--pgap');
+    });
+    // 手机竖屏时间线是纵向的，上排不撑高度；人物线单独横排，逐像素对齐无意义。
+    if (!peopleActive() || portraitLayout()) return;
+    const cnt = {};
+    state.people.line.forEach(person => {
+      const i = personTimelineSlot(person);
+      cnt[i] = (cnt[i] || 0) + 1;
+    });
+    const slots = $$('#timeline .slot');
+    Object.keys(cnt).forEach(k => {
+      const slot = slots[+k];
+      if (!slot) return;
+      slot.classList.add('people-anchor');
+      slot.style.setProperty('--pgap', (cnt[k] * HALF_CARD) + 'px');
+    });
+  }
+
+  /* 下排：圆头像 + n+1 个金色圆点插入位。
+     DOM 顺序刻意排成「slot0, 人0, slot1, 人1, …, slotN」：桌面用绝对
+     定位按算出的 x 摆，手机竖屏降级成 flex 横排时顺序天然正确。 */
+  function renderPeopleLine() {
+    const wrap = $('#people-line');
+    if (!wrap) return;
+    if (!peopleActive()) {
+      wrap.hidden = true;
+      wrap.classList.remove('on');
+      wrap.innerHTML = '';
+      return;
+    }
+    const tl = $('#timeline');
+    const p = state.people;
+    wrap.hidden = false;
+    wrap.classList.add('on');
+
+    const groups = {};
+    p.line.forEach(person => {
+      const i = personTimelineSlot(person);
+      (groups[i] = groups[i] || []).push(person);
+    });
+    const xs = {};
+    const slots = $$('#timeline .slot');
+    Object.keys(groups).forEach(k => {
+      const slot = slots[+k];
+      if (!slot) return;
+      const n = groups[k].length;
+      /* slot 已被 applyPeopleAnchors() 撑宽 n 个半卡位，offsetWidth 里含加宽量。
+         先减掉它得到原缝宽，再让第 j 个人落在第 j 个半卡的中心 —— 与上排
+         .slot.people-anchor 留白的位置逐像素对齐。 */
+      const baseW = Math.max(6, slot.offsetWidth - n * HALF_CARD);
+      const base = slot.offsetLeft + baseW + HALF_CARD / 2;
+      groups[k].slice().sort(peopleOrder).forEach((person, j) => {
+        xs[person.id] = base + j * HALF_CARD;
+      });
+    });
+
+    const avatars = p.line.map(person => ({ person: person, x: xs[person.id] }))
+      .filter(a => typeof a.x === 'number').sort((a, b) => a.x - b.x);
+    const slotXs = [];
+    if (avatars.length) {
+      // n+1 个放置位：两端各留一个半卡位，中间落在相邻头像的中点
+      slotXs.push(avatars[0].x - HALF_CARD);
+      for (let i = 1; i < avatars.length; i++)
+        slotXs.push((avatars[i - 1].x + avatars[i].x) / 2);
+      slotXs.push(avatars[avatars.length - 1].x + HALF_CARD);
+    } else {
+      slotXs.push(HALF_CARD);
+    }
+
+    let html = '<div class="pl-track">';
+    for (let i = 0; i < slotXs.length; i++) {
+      html += '<button type="button" class="people-slot" data-pslot="' + i + '"' +
+        ' style="left:' + Math.round(slotXs[i]) + 'px" aria-label="人物插入位置 ' + (i + 1) + '">' +
+        '<i></i></button>';
+      if (i < avatars.length) {
+        const person = avatars[i].person;
+        html += '<div class="pl-person" data-id="' + esc(person.id) + '"' +
+          ' style="left:' + Math.round(avatars[i].x) + 'px" title="' +
+          esc(person.zh + ' · ' + person.born + '–' + person.died) + '">' +
+          '<div class="pl-stem"></div>' +
+          '<div class="pl-ava ' + factionClass(person.faction) + '">' +
+            (person.img ? '<img src="' + esc(person.img) + '" class="art-top" alt="">' : '👤') +
+          '</div>' +
+          '<div class="pl-nm">' + esc(person.zh) + '</div>' +
+          '<div class="pl-life">' + esc(person.born + '–' + person.died) + '</div>' +
+          '</div>';
+      }
+    }
+    html += '</div>';
+    wrap.innerHTML = html;
+    const track = wrap.querySelector('.pl-track');
+    // 竖屏人物线降级成 flex 横排，宽度交给 max-content；桌面才按时间线宽度铺开
+    if (track && !portraitLayout()) track.style.width = Math.max(tl.scrollWidth, tl.clientWidth) + 'px';
+    if (!portraitLayout()) wrap.scrollLeft = tl.scrollLeft;
+    $$('#people-line .people-slot').forEach(el => {
+      el.onclick = () => onPeoplePlace(+el.dataset.pslot);
+    });
+    $$('#people-line .pl-person').forEach(el => {
+      el.onclick = () => {
+        const person = PEOPLE_ALL.find(x => x.id === el.dataset.id);
+        if (person) openPerson(person);
+      };
+    });
+    $$('#people-line .people-slot').forEach(el =>
+      el.classList.toggle('armed', !!state.selectedId && state.selectedKind === 'person'));
+  }
+
+  function openPerson(p) {
+    const pic = p.img
+      ? '<img src="' + esc(p.img) + '" class="art-top" alt="">'
+      : '<div class="crest">👤</div>';
+    openModal(
+      '<h3>' + esc(p.zh) + ' <small style="color:var(--muted);font-weight:400">' + esc(p.en || '') + '</small></h3>' +
+      '<div class="bigcard ' + factionClass(p.faction) + '">' +
+        '<div class="art">' + pic + '</div>' +
+        '<div class="info">' +
+          '<div class="yr">' + esc(p.born + '–' + p.died) + ' · ' + esc(p.life || '') + '</div>' +
+          '<div class="zh">' + esc(p.zh) + '</div>' +
+          '<div class="en">' + esc(p.role || '') + '</div>' +
+          '<div class="ex">' + esc(p.explain || '') + '</div>' +
+        '</div>' +
+      '</div>' +
+      (p.src ? '<div class="quotebox en-only"><span class="en">' + esc(p.src.en || '') + '</span></div>' : '') +
+      '<div class="modal-actions"><button class="primary" id="pp-ok">关闭</button></div>'
+    );
+    $('#pp-ok').onclick = closeModal;
+  }
+
+  /* 人物卡放置：与 onPlace() 完全同构，但只作用于人物线。
+     放错复用事件卡那套弹回动画、失误预算与提示脉冲（用户拍板）。 */
+  function onPeoplePlace(idx) {
+    if (!peopleActive() || state.locked) return;
+    if (state.selectedKind !== 'person' || !state.selectedId) {
+      toast('先点一张人物手牌'); return;
+    }
+    const p = state.people;
+    const card = p.hand.find(x => x.id === state.selectedId);
+    if (!card) return;
+    const ok = checkPeoplePlacement(p.line, card, idx);
+    p.hand = p.hand.filter(x => x !== card);
+    state.selectedId = null;
+    state.selectedKind = 'event';
+    const g = state.session;
+
+    if (ok) {
+      p.line.splice(idx, 0, card);
+      g.correct++; g.combo++;
+      if (g.combo > g.maxCombo) g.maxCombo = g.combo;
+      state.lastRes = null;      // 人物卡没有事件卡那套「详情」，别让入口指向旧结果
+      setHint('<b>✓ 放对了</b> · ' + esc(card.born + '–' + card.died) + ' · ' + esc(card.zh), 'ok');
+    } else {
+      g.wrong++; g.combo = 0; g.mistakesLeft--;
+      p.deck.push(card);         // 回到人物牌堆尾，本局还会再见到他
+      state.lastRes = { ok: false };   // scheduleFinish 据此等弹回动画播完
+      setHint('<b>✕ 放错了</b> · <span class="qf-note">已弹回手牌 · 换个圆点再试</span>', 'bad');
+      const hint = $('#timeline-hint');
+      hint.classList.remove('bad-pulse'); void hint.offsetWidth; hint.classList.add('bad-pulse');
+      const ps = $$('#people-line .people-slot')[idx];
+      bounceBack(card, 0, personFace(card, { year: false }), ps);
+      flashMistakes();
+    }
+    while (p.hand.length < 2 && p.deck.length) p.hand.push(p.deck.shift());
+    renderGame();
+    scheduleFinish(g);
+  }
+
   /* ---------------- 对局 ---------------- */
 
   function poolForAct(actId) {
@@ -410,6 +691,7 @@
     const pool = poolForAct(actId);
     const r = ruleFor(actId);
     state.rule = r;
+    initPeople(actId);   // 只有第四幕会建人物线，其余关卡恒为 null
     /* 大小时间段是账号级开关：第一次打到第三幕（以及之后任何开放 era 的关卡）
        才永久解锁。解锁之前连复习局都不该看到纪元带；解锁后仍由本局
        rule.era 决定哪些关卡能看。测试覆盖 / 测试口子属于后台通道，只走
@@ -430,6 +712,7 @@
 
   function startReview() {
     state.mode = 'review';
+    initPeople(0);       // 复习局无幕概念，不出现人物线
     const pool = Engine.reviewPool(S.errors, S.collection, 8);
     /* 复习局不属任何一幕：固定普通预设 + 3 次失误、era 规则为真；
        实际显不显示还要看账号级全局开关（没打到第三幕前复习局也不显示）。 */
@@ -447,6 +730,17 @@
     state.locked = false;
     state.settled = false;    // 新的一局：结算与中途退出共用这一份「玩过」记账
     state.lastRes = null;
+    state.selectedId = null;
+    state.selectedKind = 'event';
+    /* 新开一局：人物线容器与手牌区的「双类手牌」状态一起复位，
+       否则从第四幕退回再进别的关卡会残留上一局的头像与 flex 布局。 */
+    const pl = $('#people-line');
+    if (pl) { pl.hidden = true; pl.classList.remove('on'); pl.innerHTML = ''; pl.scrollLeft = 0; }
+    const hw = $('#hand'); if (hw) hw.classList.remove('with-people');
+    const hl = $('#hand-label');
+    if (hl) hl.innerHTML = peopleActive()
+      ? '手牌 <small>（事件卡放金色细线 · 人物卡放金色圆点）</small>'
+      : '手牌 <small>（年份未知，点选后放入缝隙）</small>';
     eraReset();                    // 新开一局：撤掉上一局可能残留的飞签 / 定时器 / 浮起
     hideWinBar();                  // 新开一局，撤掉上一局可能残留的待确认条
     clearTimeout(state.pendingFinish);
@@ -505,18 +799,26 @@
      只动输入层，不改 Engine / CARDS / 判定 / 渲染结构。 */
   let touchClickSuppressed = () => false;   // bindTouchSelection() 启动后接管
 
-  function toggleHandSelect(id) {
+  function toggleHandSelect(id, kind) {
     const g = state.session;
     if (!g || state.locked) return;
-    state.selectedId = (state.selectedId === id) ? null : id;
-    g.select(state.selectedId);
+    /* 第四幕有两类手牌：事件卡走 Engine.select()，人物卡只在人物线子系统里
+       记选中态。selectedKind 决定点亮 #timeline .slot 还是 #people-line .people-slot。 */
+    const k = kind || (state.people && state.people.hand.some(x => x.id === id) ? 'person' : 'event');
+    const same = state.selectedId === id && state.selectedKind === k;
+    state.selectedId = same ? null : id;
+    state.selectedKind = state.selectedId ? k : 'event';
+    g.select(state.selectedKind === 'event' ? state.selectedId : null);
+    if (state.people) state.people.selected = state.selectedKind === 'person' ? state.selectedId : null;
     syncSelection();   // 只切选中态，不重建时间线图片
   }
   function clearHandSelect() {
     const g = state.session;
     if (!g || !state.selectedId) return;
     state.selectedId = null;
+    state.selectedKind = 'event';
     g.select(null);
+    if (state.people) state.people.selected = null;
     syncSelection();
   }
 
@@ -540,7 +842,8 @@
       press = {
         id: e.pointerId, x: e.clientX, y: e.clientY, card: card,
         // 插入位要留着 selectedId 放牌；手牌自己处理；其余一律算「点在了别处」
-        keep: !!(card || near(t, '.slot'))
+        // 人物线的金色圆点同样是放置位，点它时不能提前清掉 selectedId
+        keep: !!(card || near(t, '.slot') || near(t, '.people-slot'))
       };
     }, true);
 
@@ -552,7 +855,7 @@
       if (Math.abs(e.clientX - p.x) > 10 || Math.abs(e.clientY - p.y) > 10) return;
       if (p.card) {
         handledAt = Date.now();
-        toggleHandSelect(p.card.dataset.id);
+        toggleHandSelect(p.card.dataset.id, p.card.dataset.kind || undefined);
       } else if (!p.keep) {
         clearHandSelect();
       }
@@ -576,18 +879,24 @@
   function syncSelection() {
     const g = state.session;
     const armed = !!state.selectedId;
+    const isPerson = state.selectedKind === 'person';
     $$('#hand .hand-card').forEach(el => {
       el.classList.toggle('sel', el.dataset.id === state.selectedId);
     });
-    $$('#timeline .slot').forEach(el => el.classList.toggle('armed', armed));
-    const sel = g && g.hand.find(c => c.id === state.selectedId);
+    // 选中人物手牌时只点亮人物线的圆点，事件线的细金线保持熄灭，反之亦然
+    $$('#timeline .slot').forEach(el => el.classList.toggle('armed', armed && !isPerson));
+    $$('#people-line .people-slot').forEach(el => el.classList.toggle('armed', armed && isPerson));
+    const sel = isPerson
+      ? (state.people && state.people.hand.find(x => x.id === state.selectedId))
+      : (g && g.hand.find(c => c.id === state.selectedId));
     /* 只在三种情况下改写提示行：通关、玩家点选手牌、回到空闲态。
        判定结果态（ok/bad）由 quietFeedback 持有，这里不覆盖，
        一直保留到玩家点下一张手牌，也不因 renderGame 重绘而丢掉「详情」入口。 */
     if (state.winPending) {
       setHint('时间线已排完 · 可以先翻看整条时间线，再点上面的「完成」', 'win');
     } else if (sel) {
-      setHint('已选中 <b>' + esc(sel.zh) + '</b> · 点一个金色插入位放进去', 'selected');
+      setHint('已选中 <b>' + esc(sel.zh) + '</b> · 点一个' +
+        (isPerson ? '金色圆点' : '金色插入位') + '放进去', 'selected');
     } else if (!hintIsResult() && state.hint.tone !== 'idle') {
       resetHint();
     }
@@ -638,8 +947,9 @@
     // 手牌：内容没变时不重建 DOM，避免重播发牌动画、打断鼠标悬浮「浮起」。
     // 选中态（.sel / .armed / 提示）统一交给 syncSelection() 处理。
     const hand = $('#hand');
+    const ph = peopleActive() ? state.people.hand : [];
     const handSig = state.sessionSeq + '#' + cfg.showCentury + '#' + cfg.showFaction +
-      '#' + g.hand.map(c => c.id).join('|');
+      '#' + g.hand.map(c => c.id).join('|') + '#' + ph.map(p => p.id).join('|');
     if (hand.dataset.sig !== handSig || hand.querySelector('.empty')) {
       hand.dataset.sig = handSig;
       hand.innerHTML = '';
@@ -647,6 +957,7 @@
         const el = document.createElement('div');
         el.className = 'hand-card ' + factionClass(c.faction) + (c.id === state.selectedId ? ' sel' : '');
         el.dataset.id = c.id;
+        el.dataset.kind = 'event';
         el.style.animationDelay = (n * 70) + 'ms';   // 错落发牌
         el.innerHTML = cardFace(c, {
           year: false,
@@ -657,16 +968,40 @@
           // 触屏已由 pointerup 处理过，这里只吞掉浏览器补发的合成 click。
           // 桌面 / JS 直接 .click() 的验收路径没有 pointer 事件，仍走 toggleHandSelect。
           if (touchClickSuppressed()) return;
-          toggleHandSelect(c.id);
+          toggleHandSelect(c.id, 'event');
         };
         hand.appendChild(el);
       });
-      if (!g.hand.length) hand.innerHTML = '<div class="empty">手牌已空</div>';
+      /* 第四幕：事件手牌之后空一段，再摆 2 张人物手牌 ——「卡 卡 卡　人 人」。
+         用户明确手牌之间不需要任何风格符号，所以只用 margin 留白；
+         金线 / 圆点是「放置位」，不进手牌区。 */
+      if (ph.length) {
+        hand.classList.add('with-people');
+        ph.forEach((p, n) => {
+          const el = document.createElement('div');
+          el.className = 'hand-card person-card' + (n === 0 ? ' person-first' : '') +
+            ' ' + factionClass(p.faction) + (p.id === state.selectedId ? ' sel' : '');
+          el.dataset.id = p.id;
+          el.dataset.kind = 'person';
+          el.style.animationDelay = ((g.hand.length + n) * 70) + 'ms';
+          el.innerHTML = personFace(p, { year: false });
+          el.onclick = () => {
+            if (touchClickSuppressed()) return;
+            toggleHandSelect(p.id, 'person');
+          };
+          hand.appendChild(el);
+        });
+      } else {
+        hand.classList.remove('with-people');
+      }
+      if (!g.hand.length && !ph.length) hand.innerHTML = '<div class="empty">手牌已空</div>';
     }
 
     syncSelection();
     renderEraBand();
     eraApplyLift();   // 时间线卡可能被重建，把悬停 / 点选 / 链上浮起按 id 续回去
+    applyPeopleAnchors();   // 先撑开上排的虚拟半卡位（会改变 slot 的横向几何）
+    renderPeopleLine();     // 再按新几何算下排头像与圆点坐标，两排对齐
   }
 
   /* ---------------- 两级纪元带（展示层 + 因果动画 + 悬停/点选浮起） ----------------
@@ -1197,6 +1532,8 @@
     const g = state.session;
     if (!g || state.locked) return;
     if (!state.selectedId) { toast('先点一张手牌'); return; }
+    // 第四幕两类手牌共用选中态：人物卡只能放进人物线的圆点，别误落到事件缝隙
+    if (state.selectedKind === 'person') { toast('这是人物卡，请点人物线上的金色圆点'); return; }
     // 放牌前先记一份「已达标的段」，用来判断这次放对是否让某段首次达标。
     // 账号级未解锁 / 本局未开放大小时间段 / 竖屏时 eraEnabled() 为假，直接不取、也不播动画。
     const eraPrev = (eraEnabled() && window.ERAS)
@@ -1366,9 +1703,11 @@
        Windows 玩家完全看不到「卡被退回来了」，只剩一行文字，与 Mac / 手机
        不一致。弹回是放错判定的核心反馈（与纪元带同理），全平台统一播完整
        动画；提示条脉冲、HUD 闪烁等装饰性动效仍按 reduce 降级。 */
-  function bounceBack(c, slot) {
+  function bounceBack(c, slot, faceHTML, fromEl) {
     $$('.flyback').forEach(el => el.remove());
-    const from = $('#timeline .slot[data-slot="' + slot + '"]');
+    /* 人物卡放错复用同一套弹回：起点换成人物线上的圆点、卡面换成人物卡面，
+       动画 / 时长 / 落点（手牌区）与事件卡完全一致。 */
+    const from = fromEl || $('#timeline .slot[data-slot="' + slot + '"]');
     const hand = $('#hand');
     if (!from || !hand) return;
     const a = from.getBoundingClientRect();
@@ -1376,7 +1715,7 @@
     const ghost = document.createElement('div');
     ghost.className = 'flyback shake ' + factionClass(c.faction) +
       (state.session && state.session.cfg.showFaction === false ? ' no-faction' : '');
-    ghost.innerHTML = cardFace(c, { year: false, showFaction: false });
+    ghost.innerHTML = faceHTML || cardFace(c, { year: false, showFaction: false });
     const mobile = portraitLayout();
     const w = mobile ? 180 : 96, h = mobile ? 74 : 140;
     ghost.style.left = (a.left + a.width / 2 - w / 2) + 'px';
@@ -1408,6 +1747,7 @@
   function showWinBar() {
     const g = state.session;
     if (!g || !g.isOver() || g.mistakesLeft <= 0) return;
+    if (peopleActive() && !peopleComplete()) return;   // 第四幕：人物线未归位不算通关
     clearTimeout(state.pendingFinish);
     state.winPending = true;
     state.locked = false;
@@ -1433,6 +1773,9 @@
   function scheduleFinish(g) {
     clearTimeout(state.pendingFinish);
     if (!g.isOver()) return;
+    /* 第四幕：事件线排完但人物线还没归位时，先不结算也不弹通关条；
+       onPeoplePlace() 每次放完人物都会再调到这里，届时自然收口。 */
+    if (peopleActive() && !peopleComplete()) return;
     // 放错用尽预算时，等弹回动画播完再结算，别把提示盖掉；放对沿用原 900ms
     const wait = (state.lastRes && !state.lastRes.ok) ? 1900 : 900;
     state.pendingFinish = setTimeout(() => {
@@ -1451,6 +1794,7 @@
     const g = state.session;
     if (!g) return;
     if (g.isOver()) {
+      if (peopleActive() && !peopleComplete()) { renderGame(); return; }
       if (g.mistakesLeft > 0) showWinBar();
       else finish();
       return;
@@ -1884,6 +2228,8 @@
       save(ZOOM_KEY, { tl: zoomCfg.tl, hand: zoomCfg.hand, custom: zoomCfg.custom });
     syncZoomUI();
     updateTlNav();
+    // 缩放会改变 slot 的横向几何；第四幕的人物头像与圆点要按新坐标重摆一次
+    if (state.view === 'game' && peopleActive()) { applyPeopleAnchors(); renderPeopleLine(); }
   }
 
   function syncZoomUI() {
@@ -1995,7 +2341,11 @@
       '5. 放错：扣 1 格失误预算，游戏会告诉你它应该在哪，并把这张卡送回牌堆——本局还会再见到它。<br>' +
       '6. 失误预算用尽，本幕提前结算；答错的卡进入错题本，可在复习模式里重排。<br>' +
       '7. 任一卡放对一次，就永久解锁进卡册，可看大图、讲解、书中原文与原声。<br>' +
-      '8. 规则随关卡推进：<b>第一幕「抄录」</b>每次放置弹出完整讲解；' +
+      '8. <b>第四幕「立传」起，人物线登场</b>：时间线下方多一排圆头像，按<b>出生年份</b>排序。' +
+      '手牌区在事件卡之外另有 2 张人物卡，选中后点人物线上亮起的<b>金色圆点</b>放置；' +
+      '放错与事件卡一样会弹回并扣 1 格失误预算。每个人物在上排占一个「虚拟半卡位」，' +
+      '金色虚线把它挂到对应的年代位置，点头像可看他的生平。<br>' +
+      '9. 规则随关卡推进：<b>第一幕「抄录」</b>每次放置弹出完整讲解；' +
       '<b>第二幕起、终章与复习局</b>为快节奏：放对只给一句鼓励，' +
       '放错则红色提示 + 卡牌弹回手牌摇一摇，失误预算也会闪一下，都不打断操作。' +
       '想看讲解，点提示上的「详情」即可展开。' +
@@ -2013,13 +2363,27 @@
   go('home');
   eraBindInteractions();   // 纪元带悬停 / 点选委托（只绑一次）
   bindTouchSelection();    // 触屏点手牌浮起后的还原（再点一次 / 点空白）
+  /* 第四幕：人物线与事件时间线共用同一个横向滚动位置，拖动 / 翻页时
+     下排头像与圆点跟着走，金色虚线不会和上排虚拟卡位错开。 */
+  (function () {
+    const tl = $('#timeline');
+    if (!tl) return;
+    tl.addEventListener('scroll', () => {
+      const pl = $('#people-line');
+      if (pl && !pl.hidden) pl.scrollLeft = tl.scrollLeft;
+    }, { passive: true });
+  })();
   // 旋转 / 改窗口：横竖屏切换会改变 eraEnabled()，跟着重算显隐。
   // 飞签用的是旧视口坐标，尺寸一变就作废 —— 收敛掉，按统计直接点亮，不残留错位标签。
   let eraLastOn = eraEnabled();
   window.addEventListener('resize', () => {
     const on = eraEnabled();
     if (on !== eraLastOn) { eraLastOn = on; eraSettle(); }
-    if (state.view === 'game') renderEraBand();
+    if (state.view === 'game') {
+      renderEraBand();
+      // 横竖屏切换会改变 slot 几何；重摆人物头像与圆点
+      if (peopleActive()) { applyPeopleAnchors(); renderPeopleLine(); }
+    }
   });
   window.__TL = {
     state: state, S: S, go: go, ALL_CARDS: ALL_CARDS, Engine: Engine,
@@ -2123,6 +2487,51 @@
         persist();
         renderHome();
         renderActs();
+      }
+    },
+    /* 第四幕人物线调试接口：以只读为主，另给验收脚本一个直达第四幕的入口。
+       全部走正常渲染链路，不绕过判定，也不写 localStorage。 */
+    people: {
+      active: peopleActive,
+      pool: () => PEOPLE_POOL.map(p => ({ id: p.id, zh: p.zh, born: p.born, died: p.died })),
+      rule: () => ({ halfCard: HALF_CARD, span: ACT4_SPAN, size: PEOPLE_POOL.length }),
+      state: () => state.people ? {
+        line: state.people.line.map(p => p.id),
+        hand: state.people.hand.map(p => p.id),
+        deck: state.people.deck.map(p => p.id),
+        complete: peopleComplete(),
+        selectedKind: state.selectedKind
+      } : null,
+      dom: () => ({
+        hidden: $('#people-line').hidden,
+        avatars: $$('#people-line .pl-person').map(el => el.dataset.id),
+        slots: $$('#people-line .people-slot').length,
+        armedSlots: $$('#people-line .people-slot.armed').length,
+        anchors: $$('#timeline .slot.people-anchor').map(el => ({
+          slot: +el.dataset.slot, gap: el.style.getPropertyValue('--pgap')
+        })),
+        eventArmed: $$('#timeline .slot.armed').length,
+        handPeople: $$('#hand .person-card').map(el => el.dataset.id),
+        handEvents: $$('#hand .hand-card:not(.person-card)').map(el => el.dataset.id),
+        handTwoKinds: $('#hand').classList.contains('with-people'),
+        scrollSync: Math.abs($('#people-line').scrollLeft - $('#timeline').scrollLeft) < 2
+      }),
+      play: () => startAct(4),
+      playAct: id => startAct(+id),   // 验收：逐幕确认「只有第四幕有的人物线」
+      place: idx => onPeoplePlace(idx),
+      select: id => toggleHandSelect(id, 'person'),
+      /* 把锚点 / 手牌置成确定顺序，避免随机洗牌让验收断言漂浮 */
+      force: (lineIds, handIds) => {
+        if (!state.people) return false;
+        const byId = id => PEOPLE_POOL.find(p => p.id === id);
+        const L = (lineIds || []).map(byId).filter(Boolean);
+        const H = (handIds || []).map(byId).filter(Boolean);
+        const used = {}; L.concat(H).forEach(p => { used[p.id] = 1; });
+        const D = PEOPLE_POOL.filter(p => !used[p.id]);
+        state.people.line = L; state.people.hand = H; state.people.deck = D;
+        state.selectedId = null; state.selectedKind = 'event';
+        renderGame();
+        return true;
       }
     }
   };

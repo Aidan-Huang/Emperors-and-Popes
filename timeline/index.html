@@ -150,10 +150,15 @@
       <button class="tl-nav tl-nav-l" id="tl-nav-l" type="button" aria-label="看更早的卡片" hidden>‹</button>
       <button class="tl-nav tl-nav-r" id="tl-nav-r" type="button" aria-label="看更晚的卡片" hidden>›</button>
       <div class="timeline" id="timeline"></div>
+      <!-- 第四幕人物线：与事件时间线平行的一排圆头像。每个人物以出生年为锚点，
+           在上排事件序列里占一个「虚拟半卡位」（不实际插入事件卡序列），由金色
+           虚线挂到事件线上；两个人物之间夹着事件卡时，两排会一起重新拉开间距。
+           只在第四幕启用，其余关卡零节点、零占位（hidden）。 -->
+      <div class="people-line" id="people-line" hidden></div>
     </div>
 
     <div class="hand-wrap">
-      <div class="hand-label">手牌 <small>（年份未知，点选后放入缝隙）</small></div>
+      <div class="hand-label" id="hand-label">手牌 <small>（年份未知，点选后放入缝隙）</small></div>
       <div class="hand" id="hand"></div>
     </div>
   </section>
@@ -227,6 +232,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="cards.js"></script>
+<script src="people-cards.js"></script>
 <script src="engine.js"></script>
 <script src="eras.js"></script>
 <script src="app.js"></script>

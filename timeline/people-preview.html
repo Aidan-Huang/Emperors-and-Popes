@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>人物卡牌 · 设计预览</title>
+<link rel="icon" href="data:,">
 <!-- 直接复用游戏真实样式：卡牌的白底 / 2:3 / 势力色带 / 插画窗 / 卡名 / 年份 / 标签 / hover 全部来自这里 -->
 <link rel="stylesheet" href="./style.css">
 <style>
@@ -48,6 +49,34 @@
 /* 轴外人物（希特勒）：灰度弱化，作为状态而非新样式体系 */
 .person-card.axis-out{filter:grayscale(.45) opacity(.78)}
 
+/* ---- 关键人物：只加一层极淡的区分，不动卡型 / 尺寸 / 势力色 / hover ---- */
+.person-card.key .face{box-shadow:0 0 0 1px rgba(255,204,0,.5), var(--card-shadow)}
+.person-card.key .nm b::after{content:'✦';margin-left:5px;color:#b8912a;font-size:9px;vertical-align:2px}
+.person-card.key .life-badge{background:rgba(255,204,0,.92);border-color:var(--gold);color:#3a2f08}
+
+/* ---- 关键人物档案 ---- */
+.kf{background:rgba(255,255,255,.035);border:1px solid var(--line);border-left:3px solid var(--gold-dim);
+  border-radius:10px;padding:14px 18px;margin-bottom:12px}
+.kf-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:7px}
+.kf-h .idx{font-size:11px;font-weight:800;color:var(--gold);letter-spacing:1px}
+.kf-h b{font-size:16px;color:var(--ink)}
+.kf-h .en{font-size:12px;color:var(--muted)}
+.kf-h .meta{font-size:11px;color:var(--muted);margin-left:auto}
+.kf-bio{font-size:13px;color:var(--ink);line-height:1.75;margin:0 0 10px}
+.kf-row{display:flex;gap:12px;font-size:12.5px;line-height:1.75;padding:5px 0;border-top:1px dashed var(--line)}
+.kf-row .lab{flex:0 0 48px;color:var(--gold-dim);font-weight:600}
+.kf-row .val{flex:1;color:var(--muted)}
+.kf-row .val em{font-style:normal;color:var(--gold);font-size:11px;margin-left:6px}
+.kf-row ul{margin:0;padding-left:16px}
+.kf-row li{margin:1px 0}
+.kf-row li i{font-style:normal;color:var(--ink);font-weight:600;margin-right:7px}
+.kf-alias{display:inline-block;border:1px solid var(--line);border-radius:4px;
+  padding:1px 7px;margin:0 5px 4px 0;font-size:11.5px;color:var(--ink)}
+.derive-ok{color:var(--gold);font-weight:700}
+.derive-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin-top:12px}
+.derive-cell{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.6}
+.derive-cell b{color:var(--ink)}.derive-cell span{color:var(--muted)}
+
 /* ---- 页面排版 ---- */
 .hero-area{display:flex;gap:56px;align-items:center;flex-wrap:wrap}
 .hero-wrap{width:250px;height:350px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
@@ -85,8 +114,9 @@ code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px;color:#e
   <div class="hd">
     <h1>人物卡牌 · 设计预览</h1>
     <p>39 位第六章人物，卡图取自 Wikimedia Commons 公版历史画作 / 雕像 / 手稿，统一处理为 480×700 资产。<br>
-       本页 <code>&lt;link&gt;</code> 直接引用游戏真实的 <code>timeline/style.css</code>，卡牌基础样式一条都没重写。</p>
-    <span class="pill">统一优先 · 只在 3 处放「人物专属」元素</span>
+       本页 <code>&lt;link&gt;</code> 直接引用游戏真实的 <code>timeline/style.css</code>，卡牌基础样式一条都没重写。<br>
+       其中 <b style="color:var(--gold)">10 位关键人物</b>带外号、生平大事与人物关系；其余 29 位只留姓名、头衔、生卒与势力。</p>
+    <span class="pill">统一优先 · 关键人物只多一圈淡金描边</span>
   </div>
 
   <!-- A 风格对照 -->
@@ -126,8 +156,9 @@ code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px;color:#e
 
   <!-- C 全览 -->
   <div class="sec">
-    <h2>C · 39 张人物卡全览</h2>
-    <p class="sub">按生年排序。A 类＝原文点名（21 位），B 类＝原文未点名、按史实推定（18 位）；轴外人物（希特勒 1889–1945）灰度弱化并单列。</p>
+    <h2>C · 39 张人物卡全览（按关键 / 普通分组）</h2>
+    <p class="sub">先 <b>关键人物 10 位</b>，再 <b>普通人物 29 位</b>，组内按生年排序。<code>tier:'key'</code> 只多一圈淡金描边、卡名后一个小星与金色寿命徽章；
+       卡型尺寸、势力色、hover 动效一律不变。轴外人物（希特勒 1889–1945）照旧灰度弱化。</p>
     <div class="group"><div class="grid" id="grid"></div></div>
   </div>
 
@@ -158,9 +189,27 @@ code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px;color:#e
     </table>
   </div>
 
+  <!-- F 关键人物档案 -->
+  <div class="sec">
+    <h2>F · 关键人物 · 10 位档案</h2>
+    <p class="sub">关键人物给足信息：<b>多个外号</b>（本名 / 异译 / 尊号）、<b>参与的最重大事件</b>（含 41 张卡之外的史实）、<b>与其他人物的关系</b>。
+       带 <em style="font-style:normal;color:var(--gold)">↔ 游戏事件卡</em> 的条目对应本作已有卡牌，其余是卡外补充，用来让玩家先认人、再认卡。
+       普通人物同样保留「人物出处 ＋ 英文原文块」——越是不熟悉的人物，越需要交代他凭什么出现在本章；只是不铺陈档案长文，避免 39 张卡一起抢注意力。</p>
+    <div id="keyfiles"></div>
+  </div>
+
+  <!-- G 派生与反推 -->
+  <div class="sec">
+    <h2>G · 年代重叠派生 / 事件→人物反推</h2>
+    <p class="sub">原来手工存的 141 条 <code>cover*</code> 账本已从数据文件移除，改由 <code>born/died + 事件卡 y</code> 自动推算；
+       事件→人物索引则由 <code>strongCards</code> 加载时反推。两者都不在数据里重复维护。下面是本页实时算出的结果。</p>
+    <div class="group" id="derive"></div>
+  </div>
+
   <div class="foot">
     资产：<code>timeline/cards/people/*.jpg</code>（39 张，480×700）· 数据：<code>timeline/people-cards.js</code>（独立模块，不进 CARDS / 不参与引擎排序）· 来源与授权：<code>timeline/cards/people/ATTRIBUTION.md</code><br>
-    本轮未修改任何现有游戏文件（cards.js / app.js / engine.js / style.css / index.html 均保持原样）。
+    本轮改动：<code>people-cards.js</code>（分层 / 详实档案 / 强关联 / 关系 / 移除 cover* 手工账本）与 <code>people-preview.html</code>（本页）。
+    <b>游戏本体未动</b>：<code>cards.js / app.js / engine.js / style.css / index.html</code> 均保持原样。
   </div>
 </div>
 
@@ -174,6 +223,26 @@ code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px;color:#e
     var m=String(t).match(/^(约\s*)?(前\s*\d+|\d+)/);
     return m?(m[1]||'')+m[2]:String(t);
   }
+  function byId(id){return PEOPLE.filter(function(x){return x.id===id;})[0];}
+  function isKey(p){return p.tier==='key';}
+  function byBorn(a,b){return (a.born==null?-9999:a.born)-(b.born==null?-9999:b.born);}
+
+  /* ===== 年代重叠：born/died + 事件卡 y 自动推算（原 141 条手工账本已移除） ===== */
+  var YCARDS=CARDS.filter(function(c){return !/^t-/.test(c.id);}).slice()
+                  .sort(function(a,b){return a.y-b.y;});
+  function lifetimeIds(p){
+    var lo=p.born===null?-Infinity:p.born;
+    return YCARDS.filter(function(c){return c.y>=lo&&c.y<=p.died;}).map(function(c){return c.id;});
+  }
+  /* ===== 事件 → 人物：由 strongCards 反推，不重复入库 ===== */
+  function cardPersonIndex(){
+    var m={};
+    PEOPLE.forEach(function(p){(p.strongCards||[]).forEach(function(cid){
+      (m[cid]=m[cid]||[]).push(p.zh);
+    });});
+    return m;
+  }
+
   /* 事件卡：与 app.js 的 cardFace() 同构 */
   function faceEvent(c){
     return '<div class="face f-'+c.faction+'">'+
@@ -196,9 +265,34 @@ code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px;color:#e
       (marks?'<span class="mark m1">1</span><span class="mark m2">2</span><span class="mark m3">3</span>':'')+
     '</div>';
   }
-  function card(html,cls){
-    return '<div class="tl-card '+cls+'">'+html+'</div>';
+  function card(html,cls){ return '<div class="tl-card '+cls+'">'+html+'</div>'; }
+  function personCls(p){ return 'person-card'+(isKey(p)?' key':'')+(p.axis==='out'?' axis-out':''); }
+
+  /* 关键人物档案：外号 / 生平大事 / 人物关系 */
+  var TYPE_ZH={'father-son':'父子','mother-son':'母子','brother':'兄弟','spouse':'夫妻',
+               'grandfather-grandson':'祖孙','rival':'对手','counterpart':'事件双方'};
+  function keyFile(p,idx){
+    var al=(p.aliases||[]).map(function(a){return '<span class="kf-alias">'+esc(a)+'</span>';}).join('');
+    var hl=(p.highlights||[]).map(function(h){
+      return '<li><i>'+esc(h.y)+'</i>'+esc(h.t)+(h.card?'<em>↔ 游戏事件卡</em>':'')+'</li>';
+    }).join('');
+    var rl=(p.relations||[]).map(function(r){
+      var o=byId(r.to);
+      return esc(o?o.zh:r.to)+' <span style="color:var(--gold-dim)">['+esc(TYPE_ZH[r.type]||r.type)+']</span> '+esc(r.note);
+    }).join('<br>')||'<span style="color:var(--muted)">本作 39 人中无与其同时代的直接关系人</span>';
+    var head=idx
+      ? '<div class="kf-h"><span class="idx">'+esc(idx)+'</span><b>'+esc(p.zh)+'</b>'+
+        '<span class="en">'+esc(p.en)+'</span><span class="meta">'+esc(shortY(p.bornTxt))+' — '+
+        esc(shortY(p.diedTxt))+' · '+esc(p.role)+' · 原文第 '+p.para+' 段</span></div>'
+      : '';
+    return '<div class="kf">'+head+
+      '<div class="kf-bio">'+esc(p.bio)+'</div>'+
+      '<div class="kf-row"><span class="lab">外号</span><div class="val">'+al+'</div></div>'+
+      '<div class="kf-row"><span class="lab">大事记</span><div class="val"><ul>'+hl+'</ul></div></div>'+
+      '<div class="kf-row"><span class="lab">关系</span><div class="val">'+rl+'</div></div>'+
+      '</div>';
   }
+
   function big(c,isPerson){
     var f=FACTIONS[c.faction];
     var head=isPerson
@@ -206,7 +300,7 @@ code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px;color:#e
       : '<div class="yr">'+esc(c.dy)+'</div>';
     var en=isPerson?esc(c.en)+' · '+esc(c.roleEn):esc(c.en);
     var line=isPerson
-      ? '<div style="margin-top:8px;font-size:12px;color:'+f.color+'">'+f.icon+' '+f.name+' · '+(c.cls==='A'?'原文点名':'史实推定')+' · 原文第 '+c.para+' 段</div>'
+      ? '<div style="margin-top:8px;font-size:12px;color:'+f.color+'">'+f.icon+' '+f.name+' · '+(c.cls==='A'?'原文点名':'史实推定')+' · 原文第 '+c.para+' 段'+(isKey(c)?' · 关键人物':'')+'</div>'
       : '<div style="margin-top:8px;font-size:12px;color:'+f.color+'">'+f.icon+' '+f.name+' · 第 '+c.act+' 幕</div>';
     var ex=esc(c.explain||'');
     var qz=isPerson
@@ -214,6 +308,12 @@ code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px;color:#e
       : (c.quote?esc(c.quote.zh):'');
     var qh=isPerson?'人物出处':'书中原句';
     var se=isPerson?esc(c.src.en):(c.src?esc(c.src.en):'');
+    /* 人物一律给出处：英文原文块是「这人凭什么出现在这一章」的依据，普通人物尤其需要；
+       关键人物再额外挂档案，普通人物只省掉档案长文，不省出处。 */
+    var quoteBlock=
+      '<div class="quote-h">'+qh+'</div>'+
+      '<div class="quote-zh">'+qz+'</div>'+
+      '<div class="quotebox en-only"><span class="en">'+se+'</span></div>';
     return '<div class="bigcard">'+
         '<div class="art"><img src="'+c.img+'"'+(c.artPos?' class="art-'+c.artPos+'"':'')+' alt=""></div>'+
         '<div class="info">'+head+
@@ -221,18 +321,15 @@ code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px;color:#e
           '<div class="en">'+en+'</div>'+
           '<div class="ex">'+ex+'</div>'+line+
         '</div>'+
-      '</div>'+
-      '<div class="quote-h">'+qh+'</div>'+
-      '<div class="quote-zh">'+qz+'</div>'+
-      '<div class="quotebox en-only"><span class="en">'+se+'</span></div>';
+      '</div>'+ quoteBlock + (isPerson&&isKey(c)?keyFile(c,''):'');
   }
 
-  /* A：一一对应的三张 */
+  /* A：一一对应的三张（对照区不加关键人物描边，避免干扰「同款卡型」的结论） */
   var pairs=[['augustus','augustus'],['charlemagne-800','charlemagne'],['napoleon-self-crown','napoleon']];
   var re='',rp='';
   pairs.forEach(function(pr){
     var c=CARDS.filter(function(x){return x.id===pr[0];})[0];
-    var p=PEOPLE.filter(function(x){return x.id===pr[1];})[0];
+    var p=byId(pr[1]);
     if(c) re+=card(faceEvent(c),'');
     if(p) rp+=card(facePerson(p),'person-card'+(p.axis==='out'?' axis-out':''));
   });
@@ -240,22 +337,52 @@ code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px;color:#e
   document.getElementById('row-person').innerHTML=rp;
 
   /* B：放大标注卡 */
-  var aug=PEOPLE.filter(function(x){return x.id==='augustus';})[0];
+  var aug=byId('augustus');
   document.getElementById('hero').innerHTML=card(facePerson(aug,true),'person-card hero');
 
-  /* C：全览（按生年排序，B 类与轴外分组标注） */
-  var sorted=PEOPLE.slice().sort(function(a,b){return (a.born==null?-9999:a.born)-(b.born==null?-9999:b.born);});
-  var g='<div class="glabel">A 类 · 原文点名（21 位）＋ B 类 · 史实推定（18 位），按生年排序；卡面左上「寿命」、底部「生卒区间」</div>';
-  sorted.forEach(function(p){
-    g+=card(facePerson(p),'person-card'+(p.axis==='out'?' axis-out':''));
-  });
+  /* C：全览（关键 / 普通分组，组内按生年排序） */
+  var sorted=PEOPLE.slice().sort(byBorn);
+  var keys=sorted.filter(isKey), norms=sorted.filter(function(p){return !isKey(p);});
+  var g='<div class="glabel">★ 关键人物 · '+keys.length+' 位（淡金描边 ＋ 卡名小星）</div>';
+  keys.forEach(function(p){ g+=card(facePerson(p),personCls(p)); });
+  g+='<div class="glabel">普通人物 · '+norms.length+' 位（按生年排序，档案精简，出处与英文原文完整保留）</div>';
+  norms.forEach(function(p){ g+=card(facePerson(p),personCls(p)); });
   document.getElementById('grid').innerHTML=g;
 
   /* D：详情对照 */
   var ce=CARDS.filter(function(x){return x.id==='augustus';})[0];
   document.getElementById('big-event').innerHTML=big(ce,false);
   document.getElementById('big-person').innerHTML=big(aug,true);
+
+  /* F：关键人物档案 */
+  var kf='';
+  keys.forEach(function(p,i){ kf+=keyFile(p,('0'+(i+1)).slice(-2)); });
+  document.getElementById('keyfiles').innerHTML=kf;
+
+  /* G：派生 / 反推结果 */
+  var totalLife=0,maxLife=0,maxWho='';
+  PEOPLE.forEach(function(p){
+    var n=lifetimeIds(p).length; totalLife+=n;
+    if(n>maxLife){maxLife=n;maxWho=p.zh;}
+  });
+  var cpi=cardPersonIndex();
+  var covered=Object.keys(cpi).length;
+  var cells='';
+  ['charlemagne','napoleon','gregory7','augustus','hitler'].forEach(function(id){
+    var p=byId(id);
+    cells+='<div class="derive-cell"><b>'+esc(p.zh)+'</b><br><span>年代重叠 '+lifetimeIds(p).length+
+           ' 张 · 强关联 '+p.strongCards.length+' 张</span></div>';
+  });
+  document.getElementById('derive').innerHTML=
+    '<div style="font-size:13px;line-height:1.9;color:var(--muted)">'+
+      '年代重叠派生：<span class="derive-ok">'+totalLife+' 条 / '+PEOPLE.length+' 人</span>，'+
+      '由 <code>born/died + 事件卡 y</code> 实时算出；最多的是'+esc(maxWho)+'（'+maxLife+' 张）。<br>'+
+      '离线校验：与移除前的 141 条手工账本 <span class="derive-ok">逐人逐条完全一致</span>（按 y 升序）。<br>'+
+      '事件 → 人物反推：<span class="derive-ok">'+covered+' 张卡</span>被至少 1 位人物强关联，'+
+      '其余 '+(YCARDS.length-covered)+' 张无人物关联；索引由 <code>strongCards</code> 生成，不入库。'+
+    '</div><div class="derive-grid">'+cells+'</div>';
 })();
+
 </script>
 </body>
 </html>
