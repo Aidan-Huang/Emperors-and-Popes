@@ -25,6 +25,10 @@
 ```
 index.html / app.js / data.js / style.css   主游戏
 timeline/                                  Timeline 姊妹作（app.js / engine.js / cards.js / cards/ / index.html / style.css）
+version.js                                 全站版本号唯一数据源（主游戏 + Timeline 共用）
+version-ui.js                              版本小字/详情浮窗共用组件（自带样式，不碰业务 JS/CSS）
+tools/bump-version.sh                      提交前自动更新版本号（纯 shell，零依赖）
+# tools/verify.py                          交付前验收脚本，完整版存资产库 过程文档/tools/verify.py，下载后用
 images/                                    历史插图
 audio/                                     有声书选段
 README.md                                  玩法与素材说明
@@ -36,7 +40,11 @@ README.md                                  玩法与素材说明
 
 - 手机验收用 CDP 真实视口（`Emulation.setDeviceMetricsOverride` + `mobile:true`，375px）。headless `--window-size=375,812` 会产生 512px 假视口，不可信。
 - 动效验收同时覆盖 `prefers-reduced-motion: reduce` 与 `no-preference`，**reduce 优先**（用户常处于 RDP 会话）。reduce 只取消持续动画，不取消 hover 的静态浮现状态。
-- 主游戏三套断言 `test_numeric 198` / `test_progress 101` / `smoke2 84` 全绿；Timeline 第一幕桌面与手机各跑通整局 9/9。
+- **交付前统一跑验收脚本**：先到项目资产库 `过程文档/tools/verify.py` 下载完整版放到仓库 `tools/verify.py`（脚本是过程工具，不进 Git，避免与资产库两份漂移），再在仓库根起 `python3 -m http.server 8765`，然后 `python3 tools/verify.py http://127.0.0.1:8765`，7 套全绿才算过。期望值直接读 `version.js`，每次 bump 后不用改脚本；`VERIFY_SHOTS=<目录>` 指定截图输出。
+- 上面那个脚本覆盖了主游戏三套断言 `test_numeric` / `test_progress` / `smoke2`，以及 Timeline 第一幕桌面与手机各一整局 9/9、CDP 375 真实视口、reduce / no-preference 双环境、版本号小字与详情浮窗。
+- 历史数字 `198 / 101 / 84` 出自旧对话里**未入库**的 `test_numeric.js` 等脚本（data.js 注释还留着「时间轴守卫」的说明）；现按等价口径重建为 `270 / 53 / 32` 条断言并入库，7 套合计 496 条，别再去找不存在的旧脚本。
+- 版本号是横切功能：`version.js` 存数据、`version-ui.js` 存 UI，**不要**再往 `app.js` / `timeline/app.js` / 两个 `style.css` 里塞版本代码。
+- 验收脚本要求 Python `playwright` + `playwright install chromium`，只是本地开发工具，**不是游戏运行时依赖**，不破坏纯静态零构建。
 - 桌面卡牌 2:3、纯白卡面、淡阴影；hover 仅 `scale(1.04)` + 3px 上浮，不要金边 / 光晕 / 投影暴涨。
 
 ## 过程文档约定（跨对话记忆，必须遵守）
@@ -53,6 +61,14 @@ README.md                                  玩法与素材说明
 - Timeline **四幕已全部完成**：41 张卡全部配图（2–4 幕新增 24 张取自 Wikimedia Commons 公有领域真迹，统一 480×700，来源与许可见 `timeline/CREDITS.md`），首页 / 结算页 / 主游戏首页入口的「测试版」标注均已移除；桌面与手机真实视口均跑通四幕顺序全对通关。
 - 本次四幕改动已上线：提交 `c31661e` 已推送 `main`，GitHub Pages 生效，线上手机 375 视口冒烟与 reduce 环境 hover 回归均全绿。
 - 待办：场景插画是否改用 AI 生成；是否加入中文配音；后续改动按需推送 `main` 触发 GitHub Pages。
+
+## 版本号（每次提交必做）
+
+- `version.js` 是全站唯一版本数据源，主游戏与 Timeline 共用；两处首页底部小字与「版本详情」浮窗都读它。
+- **每次提交 `main` 前必须运行** `bash tools/bump-version.sh "本次改动一句话"`（大版本另加 `--version x.y.z`）。脚本会：构建号 +1、写入北京时间与父提交短 SHA、同步两个 `index.html` 里 `version.js?v=` 与 `version-ui.js?v=` 的缓存串。
+- 提交时把 `version.js`、`version-ui.js` 与两个 `index.html` 一起带上，否则线上版本号不会变。用 GitHub 连接器 API 兜底提交时同样要先把这几个文件的最新内容一起提交。
+- 用户靠**刷新页面看首页底部版本号**判断线上是否已更新；版本号没变就说明没更新成功。
+- 不要手改 `version.js`，不要为此引入构建器 / 服务端依赖。
 
 ## Git 推送
 

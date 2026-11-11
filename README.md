@@ -20,6 +20,31 @@ Timeline 卡图取自 Wikimedia Commons 的公有领域 / CC0 历史画作、版
 - 🔊 每个抉择的引文旁可播放书中英文有声书对应选段（点击播放，翻页自动停止）
 - 📄 游戏中点右上角可随时查看当前场景在书中的原文段落
 
+## 版本号
+
+首页底部有一行小字（如 `v1.1.0 · 构建 2 · 2026-11-11 13:49`），点开可看构建时间、基于的提交与本次更新说明。**每次提交都会自动变化**，刷新页面看它就能确认线上是否已经更新到最新。
+
+版本号由根目录 `version.js` 提供，主游戏与 Timeline 共用。提交 `main` 前运行：
+
+```bash
+bash tools/bump-version.sh "本次改动一句话"
+```
+
+脚本会递增构建号、写入构建时间与父提交短 SHA，并同步两个 `index.html` 里 `version.js` / `version-ui.js` 的缓存串。纯静态、零构建依赖。
+
+`version-ui.js` 是两站共用的版本小字与详情浮窗组件，自带样式、只操作已有的浮窗容器，**不改动** `app.js`、`timeline/app.js` 和两个 `style.css`。主游戏首页会被反复重绘，组件用 `MutationObserver` 自动补挂小字。
+
+## 交付前验收
+
+验收脚本 `tools/verify.py` 是过程工具，完整版放在项目资产库 `过程文档/tools/verify.py`（不进 Git，避免两份漂移）。下载到仓库 `tools/` 后：
+
+```bash
+python3 -m http.server 8765                # 另一个终端，在仓库根目录
+python3 tools/verify.py http://127.0.0.1:8765
+```
+
+需要 Python 的 `playwright` 包与 `playwright install chromium`（仅本地开发工具，游戏本身零依赖）。脚本会跑数据层数值断言、主游戏整条线流程、版本号小字与详情浮窗、Timeline 第一幕桌面与 375px 手机各一整局 9/9，并同时覆盖 `prefers-reduced-motion` 的 reduce / no-preference。期望值直接读 `version.js`，所以每次 bump 版本后不用改脚本；设 `VERIFY_SHOTS=<目录>` 可导出验收截图。
+
 ## 技术与素材
 
 纯静态单页（HTML + CSS + 原生 JS），无构建依赖，手机端自适应。
