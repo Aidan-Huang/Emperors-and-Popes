@@ -5,8 +5,8 @@
    ============================================================ */
 window.APP_VERSION = {
   version: '1.1.0',
-  build: 3,
-  builtAt: '2026-11-11 15:56',
-  baseCommit: 'f5bb033',
-  note: 'Timeline 测试模式：卡册可禁用卡牌（仅第五幕生效）、1-5 幕生命无限'
+  build: 4,
+  builtAt: '2026-11-11 17:18',
+  baseCommit: '01b1cd9',
+  note: 'Timeline 测试模式：复习局生命无限、卡册批量多选禁用卡牌（仅第五幕生效）'
 };

@@ -65,7 +65,7 @@
     4: { diff: 'hard',   mistakes: 3, name: '立传', era: true  }
   };
   const FINALE_RULE = { diff: 'hard', mistakes: 8, name: '', era: true };   // 终章：全要素正式版，不挂难度名
-  const REVIEW_RULE = { diff: 'normal', mistakes: 3, name: '', era: true };  // 复习局：不属于任何一幕，固定 3 次失误
+  const REVIEW_RULE = { diff: 'normal', mistakes: 3, name: '', era: true };  // 复习局：不属于任何一幕，固定 3 次失误（测试模式例外：无限，见 startReview）
 
   /* 幕列表 / 对局标题要用的是产品规则，不受测试覆盖影响。 */
   function productRule(actId) {
@@ -136,6 +136,9 @@
     rule: null,            // 本局生效的关卡规则（失误 / 名称 / 大小时间段开关）
     testDifficulty: null,  // 仅验收脚本用的覆盖值，只存内存、不写存档、刷新即失效
     galleryTab: 'all',
+    /* 测试口子：卡册批量选择。只存内存、不写存档；退出批量或关掉测试模式即清空。 */
+    batchMode: false,
+    batchSel: [],
     locked: false,         // 判定反馈展示期间锁输入（仅简单模式 / 主动展开详情时）
     sessionSeq: 0,         // 每开一局 +1，用于手牌增量重绘时识别旧闭包
     lastRes: null,         // 最近一次判定结果，供轻量提示的「详情」按需展开
@@ -201,6 +204,51 @@
     const ids = disabledCards();
     return ALL_CARDS.filter(c => ids.indexOf(String(c.id)) >= 0).length;
   }
+
+  /* ---------------- 测试口子：卡册批量选择 ----------------
+     常见多选交互：工具条进入 -> 点缩略图勾选 -> 全选 / 全不选 / 反选 ->
+     底部操作条对选中集合一次禁用或恢复。选中集合只存内存，按 id 跨分幕标签
+     保留（切标签不丢），退出批量 / 关闭测试模式立即清空，不写 localStorage。 */
+  function batchActive() { return act5Test() && state.batchMode; }
+  function batchClear() { state.batchSel = []; }
+  function batchHas(id) { return state.batchSel.indexOf(String(id)) >= 0; }
+  function batchToggle(id) {
+    const k = String(id), i = state.batchSel.indexOf(k);
+    if (i >= 0) state.batchSel.splice(i, 1); else state.batchSel.push(k);
+  }
+  /* on=true 禁用选中；on=false 恢复选中。只改名单，不碰玩家存档。 */
+  function batchApply(on) {
+    if (!batchActive()) return 0;
+    const n = state.batchSel.length;
+    if (!n) return 0;
+    const have = {};
+    disabledCards().forEach(k => { have[k] = 1; });
+    state.batchSel.forEach(k => { if (on) have[k] = 1; else delete have[k]; });
+    setDisabledCards(Object.keys(have));
+    batchClear();
+    renderGallery();
+    renderActs();
+    toast(on ? ('已禁用 ' + n + ' 张 · 第五幕不再出现')
+             : ('已恢复 ' + n + ' 张 · 第五幕照常出现'));
+    return n;
+  }
+  /* 全选 / 全不选 / 反选只作用于当前标签下可见的卡。 */
+  function batchSelect(cards, how) {
+    const vis = cards.map(c => String(c.id));
+    if (how === 'none') {
+      batchClear();   // 「全不选」清空全部选中（含其它标签留下的），符合直觉
+    } else if (how === 'invert') {
+      const cur = {}; state.batchSel.forEach(k => { cur[k] = 1; });
+      const v = {}; vis.forEach(k => { v[k] = 1; });
+      const next = state.batchSel.filter(k => !v[k]);
+      vis.forEach(k => { if (!cur[k]) next.push(k); });
+      state.batchSel = next;
+    } else {
+      const cur = {}; state.batchSel.forEach(k => { cur[k] = 1; });
+      vis.forEach(k => { if (!cur[k]) state.batchSel.push(k); });
+    }
+  }
+  function batchCountText() { return '已选 ' + state.batchSel.length + ' 张'; }
 
   /* 简单模式保留弹窗式完整反馈；普通/困难走不打断节奏的轻量反馈 */
   function quietMode() {
@@ -866,12 +914,15 @@
     state.mode = 'review';
     initPeople(0);       // 复习局无幕概念，不出现人物线
     const pool = Engine.reviewPool(S.errors, S.collection, 8);
-    /* 复习局不属任何一幕：固定普通预设 + 3 次失误、era 规则为真；
+    /* 复习局不属任何一幕：普通预设 + 3 次失误（测试模式例外：无限）、era 规则为真；
        实际显不显示还要看账号级全局开关（没打到第三幕前复习局也不显示）。 */
     const r = state.testDifficulty ? ruleFor(0) : REVIEW_RULE;
     state.rule = r;
+    /* 测试口子：复习局同样放开无限生命（与 1~5 幕一致），方便反复试牌。
+       照样传 Infinity，HUD 复用 renderGame() 的 ∞ 特判，engine.js 零改动。 */
+    const mistakes = act5Test() ? Infinity : REVIEW_RULE.mistakes;
     state.session = new Engine.GameSession(pool,
-      { difficulty: r.diff, maxMistakes: REVIEW_RULE.mistakes });
+      { difficulty: r.diff, maxMistakes: mistakes });
     state.selectedId = null;
     unlock(state.session.anchor.id);
     afterStart({ name: '复习局', span: '错题优先 · 8 张' });
@@ -2155,35 +2206,87 @@
     $('#gallery-count').textContent = got + ' / ' + cards.length + ' 已解锁' +
       (testView ? ' · 测试模式：全部可见' : '');
 
-    /* 测试口子工具条：只在测试模式出现，说明禁用只对第五幕生效，并给一键清空。 */
+    /* 离开测试模式时无条件退出批量选择，避免残留勾选态与底部浮条。 */
+    if (!testView && (state.batchMode || state.batchSel.length)) {
+      state.batchMode = false;
+      batchClear();
+    }
+    const batch = batchActive();
+    const gv = $('#view-gallery');
+    if (gv) gv.classList.toggle('batch-on', batch);
+
+    /* 测试口子工具条：只在测试模式出现。普通态说明禁用范围 + 一键清空；
+       批量态改为全选 / 全不选 / 反选 / 退出批量。 */
     const bar = $('#gallery-testbar');
     if (bar) {
       bar.hidden = !testView;
       if (testView) {
         bar.innerHTML =
-          '<span><b>测试模式</b> · 点开卡片可设为「禁用」，只对第五幕生效</span>' +
+          '<span><b>测试模式</b> · ' +
+            (batch ? '点卡片勾选，可一次禁用多张' : '点开卡片可设为「禁用」，只对第五幕生效') +
+          '</span>' +
           '<span id="gallery-off-count">已禁用 ' + disabledCount() + ' 张</span>' +
-          '<button type="button" id="gallery-off-clear">清空禁用</button>';
+          '<span class="gbar-actions">' +
+            (batch
+              ? '<button type="button" data-batch="all">全选</button>' +
+                '<button type="button" data-batch="none">全不选</button>' +
+                '<button type="button" data-batch="invert">反选</button>' +
+                '<button type="button" data-batch="exit">退出批量</button>'
+              : '<button type="button" data-batch="enter">批量选择</button>') +
+            '<button type="button" id="gallery-off-clear">清空禁用</button>' +
+          '</span>';
         $('#gallery-off-clear').onclick = () => {
           setDisabledCards([]);
           renderGallery();
           renderActs();
           toast('已清空禁用名单');
         };
-      }
+        $$('#gallery-testbar [data-batch]').forEach(b => b.onclick = () => {
+          const k = b.dataset.batch;
+          if (k === 'enter') state.batchMode = true;
+          else if (k === 'exit') { state.batchMode = false; batchClear(); }
+          else batchSelect(cards, k);
+          renderGallery();
+        });
+      } else bar.innerHTML = '';   // 非测试模式：连 DOM 节点都不留
+    }
+
+    /* 底部批量操作条：仅批量模式可见，手机滚长列表时固定在视口底部。 */
+    const bb = $('#gallery-batchbar');
+    if (bb) {
+      bb.hidden = !batch;
+      if (batch) {
+        bb.innerHTML =
+          '<span id="batch-sel-count">' + batchCountText() + '</span>' +
+          '<span class="batch-hint">仅影响第五幕</span>' +
+          '<span class="batch-actions">' +
+            '<button type="button" id="batch-off">禁用选中</button>' +
+            '<button type="button" id="batch-on">恢复选中</button>' +
+            '<button type="button" id="batch-exit">退出</button>' +
+          '</span>';
+        $('#batch-off').onclick = () => batchApply(true);
+        $('#batch-on').onclick = () => batchApply(false);
+        /* 手机滚到列表底部时顶部工具条不可见，底部条自带退出入口。 */
+        $('#batch-exit').onclick = () => {
+          state.batchMode = false; batchClear(); renderGallery();
+        };
+      } else bb.innerHTML = '';   // 退出批量后清掉底部条节点
     }
 
     $('#gallery-grid').innerHTML = cards.map(c => {
       const has = testView || !!S.collection[c.id];
       const off = isCardDisabled(c.id);
+      const picked = batch && batchHas(c.id);
       return '<div class="gcard ' + factionClass(c.faction) + (has ? '' : ' locked') +
-        (off ? ' disabled' : '') + '" data-id="' + c.id + '">' +
+        (off ? ' disabled' : '') + (batch ? ' pick' : '') + (picked ? ' picked' : '') +
+        '" data-id="' + c.id + '">' +
         '<div class="fstrip"></div>' +
         '<div class="art">' + (has ? artHTML(c, true) : '<div class="crest">' + (c.icon || '❓') + '</div>') + '</div>' +
         '<div class="nm">' + (has ? esc(c.zh) : '未解锁') + '</div>' +
         '<div class="yr">' + (has ? esc(c.dy) : '?') + '</div>' +
         (has ? '' : '<div class="lockmark">🔒</div>') +
         (off ? '<div class="offmark">已禁用 · 第五幕不出现</div>' : '') +
+        (batch ? '<div class="pickbox"></div>' : '') +
         '</div>';
     }).join('');
 
@@ -2191,6 +2294,14 @@
       el.onclick = () => {
         const c = cards.find(x => x.id === el.dataset.id);
         if (!c) return;
+        if (batch) {
+          /* 批量态：点卡片只切换勾选，不打开详情；局部更新避免整页重绘闪图。 */
+          batchToggle(c.id);
+          el.classList.toggle('picked', batchHas(c.id));
+          const cnt = $('#batch-sel-count');
+          if (cnt) cnt.textContent = batchCountText();
+          return;
+        }
         if (testView || S.collection[c.id]) openCard(c);
         else toast('在游戏中把它放对一次，即可解锁这张卡');
       };
@@ -2231,7 +2342,7 @@
         '<button class="primary" id="dc-ok">关闭</button>' +
       '</div>' +
       (act5Test()
-        ? '<div class="dc-test-note">测试模式专用 · 禁用只影响第五幕（终章）卡池，1~4 幕与复习局照常。</div>'
+        ? '<div class="dc-test-note">测试模式专用 · 禁用只影响第五幕（终章）卡池，1~4 幕与复习局的卡池照常。</div>'
         : '')
     );
     const a = $('#dc-audio');
@@ -2691,6 +2802,8 @@
       clearDisabled: () => { setDisabledCards([]); renderGallery(); renderActs(); return []; },
       effectivePool: () => poolForAct(FINALE_ID),
       lives: () => state.session ? state.session.maxMistakes : null,
+      /* 批量选择只读状态，供验收脚本断言 */
+      batch: () => ({ active: batchActive(), selected: state.batchSel.slice() }),
       markFourCleared: () => {
         MAIN_ACTS.forEach(a => {
           const p = S.progress[a.id] || { plays: 0, cleared: false, best: null, bestCombo: 0 };
