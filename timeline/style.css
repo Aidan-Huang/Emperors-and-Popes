@@ -1415,15 +1415,10 @@ small{font-size:.78em;opacity:.85}
 
 /* ============================================================
    终章人物线（39 人）+ 人物册关系图
-   - 终章人物线走独立紧凑轨道：不撑宽事件时间线，自己横向滚动
+   - 终章与第四幕共用联动人物线：上排撑虚拟半卡位、下排按上排几何
+     逐像素对齐、金色虚线挂接、两排共用宽度与滚动位置，无独立轨道
    - 关系图由 relations.js 生成 SVG，这里只给静态样式与状态色
    ============================================================ */
-
-/* 终章紧凑轨道：与上排事件线解耦，golden 虚线没有锚点就不画 */
-.people-line.compact{overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
-.people-line.compact::-webkit-scrollbar{display:none}
-.people-line.compact .pl-stem{display:none}
-.people-line.compact .pl-track{border-top:1px dashed rgba(255,204,0,.16)}
 
 /* 首页「人物册 · 全部人物」入口：沿用 .mode 卡片，只用淡金描边区分 */
 .mode.people{background:linear-gradient(100deg,#242d4c,#1e2740);border-color:rgba(255,204,0,.42)}
@@ -1541,8 +1536,9 @@ small{font-size:.78em;opacity:.85}
   .rel-pick select{flex:1;max-width:none;font-size:13px;padding:6px 10px}
   .lg-ctr{margin-left:0;width:100%}
   .rel-note,.rel-rules{font-size:12px;padding:10px 12px}
-  /* 39 人横排时 flex 居中会把左端裁掉，改从左排起 */
-  .people-line.compact .pl-track{justify-content:flex-start}
+  /* 人物多（终章 39 人）时竖屏横排会超出容器，从左排起才不裁掉左端；
+       第四幕 5 人维持居中，画面零变化。 */
+  .people-line.many .pl-track{justify-content:flex-start}
 }
 
 /* 减少动态效果：只去掉过渡，不改变 .on / .lit / .dim 的静态浮现状态 */

@@ -20,14 +20,17 @@
   const DISABLED_KEY = 'tl_ch6_disabled_cards';
 
   /* ---------------- 人物线：数据池（第四幕 5 人 / 终章 39 人） ----------------
-     只在第四幕出现。池 = 10 位关键人物 ∩ 与第四幕事件年代有交集：
+     第四幕池 = 10 位关键人物 ∩ 与第四幕事件年代有交集：
        严格按「strongCards 命中第四幕事件」只有 3 位（拿破仑 / 马丁·路德 /
        庇护七世），刚好是「1 个锚点 + 2 张人物手牌」的下限，一局放完就没了；
        按生卒区间与第四幕（1066–1870）相交可得 5 位，多出的格里高利七世、
        亨利四世正是 1066 威廉征服同代、也是「双雄相争的遗产」的由来。
      5 张既满足 4~5 张以上的游戏性，又不把无关朝代的关键人物硬拉进来。
-     终章「全部人物」已接入：池扩到全部 39 位，与 41 张事件卡同局共 80 个逐一尝试；
-     人物线改走独立紧凑轨道，不再给事件时间线的 slot 加宽。 */
+     终章「全部人物」：池扩到全部 39 位，与 41 张事件卡同局共 80 个逐一尝试。
+     ★ 第四幕与终章共用同一条联动链路（唯一实现，不再分叉）：人物按 born
+       锚进事件时间线的插入缝隙，上排撑开虚拟半卡位，下排头像按上排几何
+       逐像素对齐，两排共用宽度与滚动位置。曾短暂把终章改成「独立紧凑轨道」
+       解耦过，那会毁掉「同一条历史时间轴」的玩法核心，已撤销。 */
   const PEOPLE_ALL = (typeof PEOPLE !== 'undefined' && Array.isArray(PEOPLE)) ? PEOPLE : [];
   /* 虚拟卡位宽度：原为半个事件卡（70px），后随 88px 圆头像放大到 96px。
      本轮再放宽到 112px = 头像 88px + 24px 间隙 —— 中间那个金色圆点落在
@@ -53,11 +56,11 @@
 
   /* 终章「全部人物」：39 位全员上场，与 41 张事件卡同局 = 80 个逐一尝试。
      不把人物塞进事件卡池（Engine 的排序 / totalCards 口径一行都不动），
-     只复用第四幕那条平行人物线，把池从 5 位扩到 39 位。 */
+     只复用第四幕那条平行人物线，把池从 5 位扩到 39 位。
+     宽度是渐进的：开局事件线只有 1 张锚点卡、人物线只有 1 个锚点人，
+     --pgap 只有 1×HALF_CARD；随两条线交替推进才慢慢摊开。41 张事件卡
+     本身就是 5740px 的长卷，「可左右翻看」是既有设计，无需另造轨道。 */
   const PEOPLE_POOL_FINALE = PEOPLE_ALL.slice().sort(peopleOrder);
-  /* 终章紧凑轨道：39 人若仍按 born 去撑事件时间线的虚拟半卡位，41 张事件卡
-     会被横向拉到近八千像素。改为人物线自走一条等距轨道（与上排解耦、独立横滚）。 */
-  const COMPACT_GAP = 104, COMPACT_START = 72;
   /* 生年不详（圣彼得 born:null）统一显示「不详–66」，界面上不出现 null。 */
   function personYears(p) {
     const b = (typeof p.born === 'number') ? String(p.born) : (p.bornTxt || '不详');
@@ -77,7 +80,7 @@
      失误预算 5 / 4 / 3 / 3 / 8；大小时间段是账号级全局开关：第一次打到第三幕
      才解锁，解锁后也只有 rule.era 为真的关卡（第三幕起、终章、复习局）显示，
      手机竖屏一律按空间隐藏。第四幕人物线已接入（5 位与第四幕年代相交的
-     关键人物）；终章已接入全部 39 位人物（独立紧凑轨道，与 41 张事件卡同局）。 */
+     关键人物）；终章已接入全部 39 位人物（与第四幕共用联动时间线）。 */
   const ACT_RULES = {
     1: { diff: 'easy',   mistakes: 5, name: '抄录', era: false },
     2: { diff: 'normal', mistakes: 4, name: '考据', era: false },
@@ -152,7 +155,7 @@
     session: null,
     selectedId: null,
     selectedKind: 'event', // event | person：第四幕两类手牌共用选中态，靠它区分点亮哪排插入位
-    people: null,          // 人物线状态 { pool, line, hand, deck, compact }；第四幕 5 人 / 终章 39 人，其余关卡恒为 null
+    people: null,          // 人物线状态 { pool, line, hand, deck }；第四幕 5 人 / 终章 39 人，其余关卡恒为 null
     relReturn: null,       // 从哪个视图打开「全部人物 · 关系图」，关闭时原路返回
     rule: null,            // 本局生效的关卡规则（失误 / 名称 / 大小时间段开关）
     testDifficulty: null,  // 仅验收脚本用的覆盖值，只存内存、不写存档、刷新即失效
@@ -596,7 +599,6 @@
     }
     const st = {
       pool: pool.slice(),
-      compact: !!(FINALE_ID && actId === FINALE_ID),  // 终章 39 人走独立紧凑轨道
       line: [deck.shift()],   // 开局人物线随机落 1 人作锚点
       deck: deck,
       hand: []
@@ -609,7 +611,11 @@
      与 #timeline .slot[data-slot=idx] 一一对应。 */
   function personTimelineSlot(person) {
     const g = state.session;
-    if (!g || typeof person.born !== 'number') return 0;
+    if (!g) return 0;
+    /* 生年不详（圣彼得 born:null）在 peopleOrder 里按 Infinity 排到最末，
+       这里也必须归到最右的缝隙，否则下排头像按 x 排序后与「人物线插入位
+       索引 / checkPeoplePlacement 判定」错位，玩家点最左圆点会判成放错。 */
+    if (typeof person.born !== 'number') return g.timeline.length;
     for (let i = 0; i < g.timeline.length; i++) {
       if (person.born < g.timeline[i].y) return i;
     }
@@ -640,9 +646,10 @@
       '<div class="yr">' + (opts.year ? esc(personYears(p)) : '？') + '</div>';
   }
 
-  /* 上排：给挂了人物的 .slot 加宽 n 个半卡位。
+  /* 上排：给挂了人物的 .slot 加宽 n 个半卡位。第四幕与终章同一套机制。
      只加 class + CSS 变量，不往 #timeline 里插任何节点 —— 插入位数量、
-     卡牌数量、判定链路、既有回归断言全部保持原样。 */
+     卡牌数量、判定链路、既有回归断言全部保持原样。
+     终章 39 人一样适用：只有已归位人物才计进 cnt，撑宽随放牌渐进。 */
   function applyPeopleAnchors() {
     $$('#timeline .slot').forEach(s => {
       s.classList.remove('people-anchor');
@@ -650,9 +657,6 @@
     });
     // 手机竖屏时间线是纵向的，上排不撑高度；人物线单独横排，逐像素对齐无意义。
     if (!peopleActive() || portraitLayout()) return;
-    /* 终章 39 人走独立紧凑轨道，不给事件时间线的 slot 加宽 —— 否则
-       41 张事件卡会被撑到近八千像素，事件线的既有几何与回归全部作废。 */
-    if (state.people.compact) return;
     const cnt = {};
     state.people.line.forEach(person => {
       const i = personTimelineSlot(person);
@@ -698,7 +702,7 @@
     if (!peopleActive()) {
       wrap.hidden = true;
       wrap.classList.remove('on');
-      wrap.classList.remove('compact');
+      wrap.classList.remove('many');
       wrap.innerHTML = '';
       return;
     }
@@ -707,17 +711,20 @@
     wrap.hidden = false;
     wrap.classList.add('on');
 
-    const compact = !!p.compact;
-    wrap.classList.toggle('compact', compact);
+    /* 竖屏 39 人横排会超出容器，加 .many 让 flex 从左排起（第四幕 5 人不受影响） */
+    wrap.classList.toggle('many', p.line.length > 8);
     const xs = {};
-    if (compact) {
-      /* 终章：不按出生年去撑事件时间线的虚拟卡位，人物线自己走一条等距紧凑
-         轨道，按当前已归位顺序一字排开、独立横向滚动。事件时间线的几何、
-         插入位数量与判定链路完全不变。 */
-      p.line.forEach((person, i) => {
-        xs[person.id] = COMPACT_START + i * COMPACT_GAP;
-      });
+    if (portraitLayout()) {
+      /* 竖屏时间线是纵向的，所有 .slot 的 offsetLeft 几乎相同，拿它算横向
+         坐标会让不同缝隙的人物撞到同一个 x，sort 之后 DOM 顺序就与 p.line
+         （放置判定所依据的顺序）错开，玩家点圆点会放错人。竖屏本就不做
+         逐像素对齐（CSS 把头像降级成 flex 横排），这里只给一个严格单调的
+         排序键，保证下排头像顺序恒等于人物线顺序。 */
+      p.line.forEach((person, i) => { xs[person.id] = i * HALF_CARD; });
     } else {
+      /* 第四幕与终章唯一实现：人物按 born 找到事件时间线上的插入缝隙，
+         依次落进 applyPeopleAnchors() 撑开的半卡位中心，下排头像与金色虚线
+         因此与上排事件卡逐像素对齐；放下一张事件卡后整排会自然重排。 */
       const groups = {};
       p.line.forEach(person => {
         const i = personTimelineSlot(person);
@@ -791,15 +798,11 @@
     html += '</div>';
     wrap.innerHTML = html;
     const track = wrap.querySelector('.pl-track');
-    // 竖屏人物线降级成 flex 横排，宽度交给 max-content；桌面才按时间线宽度铺开
+    // 两排共用同一横向几何：宽度与滚动位置都取自事件时间线（第四幕 / 终章一致）
     if (track && !portraitLayout()) {
-      const w = compact
-        ? Math.max(tl.clientWidth, COMPACT_START + p.line.length * COMPACT_GAP + COMPACT_GAP)
-        : Math.max(tl.scrollWidth, tl.clientWidth);
-      track.style.width = w + 'px';
+      track.style.width = Math.max(tl.scrollWidth, tl.clientWidth) + 'px';
     }
-    // 终章紧凑轨道独立滚动，不跟事件时间线同步（否则 39 人会被拉回起点）
-    if (!portraitLayout() && !compact) wrap.scrollLeft = tl.scrollLeft;
+    if (!portraitLayout()) wrap.scrollLeft = tl.scrollLeft;
     $$('#people-line .people-slot').forEach(el => {
       el.onclick = () => onPeoplePlace(+el.dataset.pslot);
     });
@@ -1008,7 +1011,7 @@
     const hl = $('#hand-label');
     if (hl) hl.innerHTML = !peopleActive()
       ? '手牌 <small>（年份未知，点选后放入缝隙）</small>'
-      : (state.people.compact
+      : (FINALE_ID && state.actId === FINALE_ID
         ? '手牌 <small>（41 张事件卡 + 39 位人物 · 事件放金线，人物放金点）</small>'
         : '手牌 <small>（事件卡放金色细线 · 人物卡放金色圆点）</small>');
     eraReset();                    // 新开一局：撤掉上一局可能残留的飞签 / 定时器 / 浮起
@@ -2756,14 +2759,14 @@
   go('home');
   eraBindInteractions();   // 纪元带悬停 / 点选委托（只绑一次）
   bindTouchSelection();    // 触屏点手牌浮起后的还原（再点一次 / 点空白）
-  /* 第四幕：人物线与事件时间线共用同一个横向滚动位置，拖动 / 翻页时
+  /* 第四幕与终章：人物线与事件时间线共用同一个横向滚动位置，拖动 / 翻页时
      下排头像与圆点跟着走，金色虚线不会和上排虚拟卡位错开。 */
   (function () {
     const tl = $('#timeline');
     if (!tl) return;
     tl.addEventListener('scroll', () => {
       const pl = $('#people-line');
-      if (pl && !pl.hidden && !pl.classList.contains('compact')) pl.scrollLeft = tl.scrollLeft;
+      if (pl && !pl.hidden) pl.scrollLeft = tl.scrollLeft;
     }, { passive: true });
   })();
   // 旋转 / 改窗口：横竖屏切换会改变 eraEnabled()，跟着重算显隐。
@@ -2913,21 +2916,23 @@
       rule: () => ({ halfCard: HALF_CARD, dotEdge: DOT_EDGE, avatar: 88,
                      lifePxPerYear: LIFE_PX_PER_YEAR, span: ACT4_SPAN,
                      size: PEOPLE_POOL.length, finaleSize: PEOPLE_POOL_FINALE.length,
-                     compactGap: COMPACT_GAP, compactStart: COMPACT_START,
                      actId: state.actId,
-                     compact: !!(state.people && state.people.compact) }),
+                     /* 兼容既有断言的历史字段：终章已并入第四幕联动，恒 false */
+                     compact: false,
+                     linked: peopleActive() && !portraitLayout() }),
       state: () => state.people ? {
         line: state.people.line.map(p => p.id),
         hand: state.people.hand.map(p => p.id),
         deck: state.people.deck.map(p => p.id),
         pool: state.people.pool.length,
-        compact: !!state.people.compact,
+        compact: false,       // 历史字段，终章已并入联动
         complete: peopleComplete(),
         selectedKind: state.selectedKind
       } : null,
       dom: () => ({
         hidden: $('#people-line').hidden,
-        compact: $('#people-line').classList.contains('compact'),
+        compact: false,       // 历史字段，终章已并入联动
+        many: $('#people-line').classList.contains('many'),
         avatars: $$('#people-line .pl-person').map(el => el.dataset.id),
         slots: $$('#people-line .people-slot').length,
         armedSlots: $$('#people-line .people-slot.armed').length,
@@ -2938,7 +2943,16 @@
         handPeople: $$('#hand .person-card').map(el => el.dataset.id),
         handEvents: $$('#hand .hand-card:not(.person-card)').map(el => el.dataset.id),
         handTwoKinds: $('#hand').classList.contains('with-people'),
-        scrollSync: Math.abs($('#people-line').scrollLeft - $('#timeline').scrollLeft) < 2
+        scrollSync: Math.abs($('#people-line').scrollLeft - $('#timeline').scrollLeft) < 2,
+        /* 联动专项：金色虚线可见、两排等宽、头像 x 与上排撑宽缝隙对齐 */
+        stems: $$('#people-line .pl-stem').length,
+        stemVisible: (() => { const e = $('#people-line .pl-stem');
+          return !!e && getComputedStyle(e).display !== 'none'; })(),
+        trackWidth: (() => { const t = $('#people-line .pl-track');
+          return t ? Math.round(t.getBoundingClientRect().width) : 0; })(),
+        timelineScrollWidth: $('#timeline').scrollWidth,
+        avatarXs: $$('#people-line .pl-person').map(el => ({
+          id: el.dataset.id, x: parseFloat(el.style.left) }))
       }),
       play: () => startAct(4),
       playAct: id => startAct(+id),   // 验收：逐幕确认人物线只出现在第四幕与终章
