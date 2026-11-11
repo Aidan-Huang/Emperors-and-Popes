@@ -15,6 +15,9 @@
   const FINALE_ID = FINALE ? FINALE.id : 0;
   const MAIN_ACTS = ACTS.filter(a => !a.all);
   const ACT5_TEST_KEY = 'tl_ch6_act5_test';   // 测试口子开关：五幕全部直接可玩；独立于游戏进度，开关本身不写 S.progress
+  /* 卡册禁用名单（测试口子专用）：只影响第五幕卡池。与 ACT5_TEST_KEY 一样存在
+     localStorage，不写 S.progress / S.collection；关掉测试口子数据保留但完全不生效。 */
+  const DISABLED_KEY = 'tl_ch6_disabled_cards';
 
   /* ---------------- 第四幕人物线：数据池 ----------------
      只在第四幕出现。池 = 10 位关键人物 ∩ 与第四幕事件年代有交集：
@@ -166,6 +169,38 @@
     return MAIN_ACTS.every(a => S.progress[a.id] && S.progress[a.id].cleared);
   }
   function act5Unlocked() { return act5Test() || fourCleared(); }
+
+  /* ---------------- 测试口子：卡册禁用名单 ----------------
+     只允许在测试模式下设置与生效；名单独立持久化，不写玩家存档。
+     生效范围严格限定为第五幕（终章）卡池：1~4 幕 / 复习局 / 编辑器 /
+     卡册读取一律不受影响。 */
+  function disabledCards() {
+    try {
+      const v = JSON.parse(localStorage.getItem(DISABLED_KEY) || '[]');
+      return Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];
+    } catch (e) { return []; }
+  }
+  function setDisabledCards(ids) {
+    try { localStorage.setItem(DISABLED_KEY, JSON.stringify(ids)); } catch (e) {}
+  }
+  /* isCardDisabled 自带测试模式闸门：非测试模式恒为 false，名单再脏也不生效。 */
+  function isCardDisabled(id) {
+    return act5Test() && disabledCards().indexOf(String(id)) >= 0;
+  }
+  /* 切换禁用，返回切换后是否处于「已禁用」。 */
+  function toggleCardDisabled(id) {
+    const ids = disabledCards();
+    const k = String(id);
+    const i = ids.indexOf(k);
+    if (i >= 0) ids.splice(i, 1); else ids.push(k);
+    setDisabledCards(ids);
+    return i < 0;
+  }
+  /* 只数内置卡，自定义卡 / 脏 id 不计入展示用的「已禁用 N 张」。 */
+  function disabledCount() {
+    const ids = disabledCards();
+    return ALL_CARDS.filter(c => ids.indexOf(String(c.id)) >= 0).length;
+  }
 
   /* 简单模式保留弹窗式完整反馈；普通/困难走不打断节奏的轻量反馈 */
   function quietMode() {
@@ -355,7 +390,9 @@
   function renderActs() {
     const doneCount = MAIN_ACTS.filter(a => S.progress[a.id] && S.progress[a.id].cleared).length;
     const testing = act5Test();
-    $('#acts-progress').textContent = '通关 ' + doneCount + '/' + MAIN_ACTS.length + (testing ? ' · 测试已开' : '');
+    const offN = testing ? disabledCount() : 0;
+    $('#acts-progress').textContent = '通关 ' + doneCount + '/' + MAIN_ACTS.length +
+      (testing ? ' · 测试已开（无限生命）' : '');
 
     $('#act-list').innerHTML = ACTS.map(a => {
       const finale = !!(FINALE_ID && a.id === FINALE_ID);
@@ -380,7 +417,8 @@
         '<div class="no">' + (finale ? 'FINALE' : 'ACT ' + a.id) + diffTag + '</div>' +
         '<h3>' + a.name + '</h3>' +
         '<div class="span">' + a.span + ' · ' + cards.length + ' 张卡' +
-          (finale ? ' · 全卡池' : ' · ' + rule.mistakes + ' 次失误') + '</div>' +
+          (finale ? ' · 全卡池' : ' · ' + rule.mistakes + ' 次失误') +
+          (finale && offN ? ' · 已禁用 ' + offN + ' 张' : '') + '</div>' +
         '<div class="desc">' + a.desc + '</div>' +
         '<div class="meta"><span>' + got + '/' + cards.length + '</span>' +
         '<span class="mini-bar"><i style="width:' + (got / cards.length * 100) + '%"></i></span>' +
@@ -772,6 +810,25 @@
         ? S.custom
         : S.custom.filter(c => +c.act === actId));
     }
+    /* 测试口子：卡册里禁用的卡只在第五幕（终章）生效，且只在测试模式下。
+       1~4 幕、复习局、编辑器与卡册读取一律不受影响。 */
+    if (FINALE_ID && actId === FINALE_ID && act5Test()) {
+      const off = disabledCards();
+      if (off.length) {
+        const kept = pool.filter(c => off.indexOf(String(c.id)) < 0);
+        /* 保底至少 2 张：锚点 + 1 张手牌，否则 GameSession 开局即被判结束。
+           不够时按年份从全卡池补齐（忽略禁用），保证测试仍能开局。 */
+        if (kept.length >= 2) pool = kept;
+        else {
+          const have = {};
+          kept.forEach(c => { have[String(c.id)] = 1; });
+          const extra = Engine.actCards(FINALE_ID)
+            .filter(c => !have[String(c.id)])
+            .slice(0, 2 - kept.length);
+          pool = kept.concat(extra);
+        }
+      }
+    }
     return pool;
   }
 
@@ -794,6 +851,11 @@
     let mistakes = r.mistakes;
     /* 测试覆盖模式复现旧终章「难度预算 +6」；玩家路径下终章固定 8 次。 */
     if (r.test && FINALE_ID && actId === FINALE_ID) mistakes += 6;
+    /* 测试口子：1~5 幕生命（失误预算）无限，方便反复试牌。
+       传 Infinity 给 Engine.GameSession：mistakesLeft-- 仍是 Infinity，
+       isOver() / showWinBar() / finish() 里的 >0 判断自然成立，纯逻辑引擎零改动。
+       HUD 见 renderGame()：无限时只显示一个 ∞，不画一长串心。 */
+    if (act5Test()) mistakes = Infinity;
     state.session = new Engine.GameSession(pool, { difficulty: r.diff, maxMistakes: mistakes });
     state.selectedId = null;
     unlock(state.session.anchor.id);   // 锚点卡开局即在场，算已见过
@@ -1002,10 +1064,15 @@
     // 让 CSS 一并去掉手牌卡外圈的势力色带（否则颜色仍会泄露势力）。
     $('#view-game').classList.toggle('hide-faction', !cfg.showFaction);
 
-    // HUD
+    // HUD：测试口子下生命无限，显示 ∞ 而不是画一串心
+    const infinite = !isFinite(g.maxMistakes);
     let hearts = '';
-    for (let i = 0; i < g.maxMistakes; i++) hearts += (i < g.mistakesLeft ? '●' : '○');
-    $('#hud-mistakes').textContent = hearts;
+    if (infinite) hearts = '∞';
+    else for (let i = 0; i < g.maxMistakes; i++) hearts += (i < g.mistakesLeft ? '●' : '○');
+    const hm = $('#hud-mistakes');
+    hm.textContent = hearts;
+    hm.classList.toggle('inf', infinite);
+    if (hm.parentNode) hm.parentNode.title = infinite ? '测试模式 · 生命无限' : '失误预算';
     $('#hud-combo').textContent = '🔥 ' + g.combo;
     $('#hud-progress').textContent = g.timeline.length + '/' + g.totalCards();
 
@@ -2088,14 +2155,35 @@
     $('#gallery-count').textContent = got + ' / ' + cards.length + ' 已解锁' +
       (testView ? ' · 测试模式：全部可见' : '');
 
+    /* 测试口子工具条：只在测试模式出现，说明禁用只对第五幕生效，并给一键清空。 */
+    const bar = $('#gallery-testbar');
+    if (bar) {
+      bar.hidden = !testView;
+      if (testView) {
+        bar.innerHTML =
+          '<span><b>测试模式</b> · 点开卡片可设为「禁用」，只对第五幕生效</span>' +
+          '<span id="gallery-off-count">已禁用 ' + disabledCount() + ' 张</span>' +
+          '<button type="button" id="gallery-off-clear">清空禁用</button>';
+        $('#gallery-off-clear').onclick = () => {
+          setDisabledCards([]);
+          renderGallery();
+          renderActs();
+          toast('已清空禁用名单');
+        };
+      }
+    }
+
     $('#gallery-grid').innerHTML = cards.map(c => {
       const has = testView || !!S.collection[c.id];
-      return '<div class="gcard ' + factionClass(c.faction) + (has ? '' : ' locked') + '" data-id="' + c.id + '">' +
+      const off = isCardDisabled(c.id);
+      return '<div class="gcard ' + factionClass(c.faction) + (has ? '' : ' locked') +
+        (off ? ' disabled' : '') + '" data-id="' + c.id + '">' +
         '<div class="fstrip"></div>' +
         '<div class="art">' + (has ? artHTML(c, true) : '<div class="crest">' + (c.icon || '❓') + '</div>') + '</div>' +
         '<div class="nm">' + (has ? esc(c.zh) : '未解锁') + '</div>' +
         '<div class="yr">' + (has ? esc(c.dy) : '?') + '</div>' +
         (has ? '' : '<div class="lockmark">🔒</div>') +
+        (off ? '<div class="offmark">已禁用 · 第五幕不出现</div>' : '') +
         '</div>';
     }).join('');
 
@@ -2133,12 +2221,30 @@
       (has && c.src ? '<div class="quotebox en-only"><span class="en">' + esc(c.src.en) + '</span></div>' : '') +
       (!has ? '<div class="detail-sec"><div class="zh">在游戏中把它放对一次，即可解锁这张卡。</div></div>' : '') +
       '<div class="modal-actions">' +
+        /* 测试口子：卡册大卡详情里设禁用。按钮只在测试模式出现，
+           名单只在第五幕卡池生效（见 poolForAct）。 */
+        (act5Test()
+          ? '<button id="dc-disable" class="' + (isCardDisabled(c.id) ? 'warn' : '') + '">' +
+              (isCardDisabled(c.id) ? '取消禁用（恢复第五幕）' : '禁用此卡（仅第五幕）') + '</button>'
+          : '') +
         (has && c.audio ? '<button id="dc-audio">🔊 原声</button>' : '') +
         '<button class="primary" id="dc-ok">关闭</button>' +
-      '</div>'
+      '</div>' +
+      (act5Test()
+        ? '<div class="dc-test-note">测试模式专用 · 禁用只影响第五幕（终章）卡池，1~4 幕与复习局照常。</div>'
+        : '')
     );
     const a = $('#dc-audio');
     if (a) a.onclick = () => playAudio(c.audio, a);
+    const d = $('#dc-disable');
+    if (d) d.onclick = () => {
+      const on = toggleCardDisabled(c.id);
+      d.textContent = on ? '取消禁用（恢复第五幕）' : '禁用此卡（仅第五幕）';
+      d.classList.toggle('warn', on);
+      renderGallery();   // 刷新缩略图角标与工具条计数
+      renderActs();      // 刷新幕列表终章的「已禁用 N 张」
+      toast(on ? '已禁用 · 第五幕不再出现这张卡' : '已恢复 · 第五幕照常出现');
+    };
     $('#dc-ok').onclick = closeModal;
   }
 
@@ -2569,6 +2675,22 @@
       clear: () => setAct5Test(false),
       open: () => { setAct5Test(true); go('acts'); },
       play: () => { setAct5Test(true); startAct(FINALE_ID); },
+      /* 卡册禁用名单：只读 / 设置 / 清空 / 第五幕实际生效卡池，供验收与控制台用 */
+      disabled: disabledCards,
+      disabledCount: disabledCount,
+      isDisabled: isCardDisabled,
+      setDisabled: (id, on) => {
+        const ids = disabledCards(), k = String(id), i = ids.indexOf(k);
+        if (on && i < 0) ids.push(k);
+        if (!on && i >= 0) ids.splice(i, 1);
+        setDisabledCards(ids);
+        renderGallery();
+        renderActs();
+        return disabledCards();
+      },
+      clearDisabled: () => { setDisabledCards([]); renderGallery(); renderActs(); return []; },
+      effectivePool: () => poolForAct(FINALE_ID),
+      lives: () => state.session ? state.session.maxMistakes : null,
       markFourCleared: () => {
         MAIN_ACTS.forEach(a => {
           const p = S.progress[a.id] || { plays: 0, cleared: false, best: null, bestCombo: 0 };

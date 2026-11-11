@@ -643,6 +643,30 @@ small{font-size:.78em;opacity:.85}
 .gcard .lockmark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:32px;color:rgba(255,255,255,.85)}
 .gcard .seen{position:absolute;top:6px;right:6px;font-size:10px;background:rgba(0,0,0,.5);color:#fff;border-radius:6px;padding:1px 5px}
 
+/* ---------- 测试口子：卡册禁用 + 无限生命 HUD ----------
+   只在测试模式（act5Test）下由 app.js 渲染；非测试模式零节点、零视觉变化。 */
+#hud-mistakes.inf{color:var(--gold);letter-spacing:0;font-size:14px}
+.gallery-testbar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:0 0 10px;padding:8px 10px;border:1px dashed var(--gold-dim);
+  border-radius:10px;background:#1b2138;font-size:12px;color:var(--muted);line-height:1.5;
+}
+.gallery-testbar[hidden]{display:none}
+.gallery-testbar b{color:var(--gold);font-weight:600}
+.gallery-testbar #gallery-off-count{color:#ffb3ae}
+.gallery-testbar button{
+  margin-left:auto;background:#2a3450;border:1px solid var(--line);border-radius:8px;
+  padding:5px 10px;font-size:11.5px;color:var(--ink);cursor:pointer;
+}
+.gcard.disabled{outline:2px solid var(--bad);outline-offset:-2px}
+.gcard .offmark{
+  position:absolute;left:0;right:0;bottom:0;z-index:3;
+  background:rgba(150,42,38,.94);color:#fff;font-size:10px;
+  text-align:center;padding:3px 2px;letter-spacing:.2px;
+}
+.modal-actions button.warn{border-color:var(--bad);color:#ffb3ae}
+.dc-test-note{margin-top:8px;font-size:11.5px;color:var(--muted);line-height:1.6}
+
 /* ---------- 弹窗 ---------- */
 .modal{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:16px}
 .modal.show{display:flex}
