@@ -58,3 +58,5 @@ README.md                                  玩法与素材说明
 
 代理端口每次会话会变：`env | grep -i proxy` 取当前值，然后
 `git -c http.proxy="$P" -c https.proxy="$P" push origin main`，不要改全局配置。
+
+**推送失败时先看项目资产库 `过程文档/GitHub推送排障与成功经验.md`**（含已验证的 API 兜底通道与完整实战记录）；每次推送成功或踩到新坑，都要回去追加一条经验，避免重复试错。
