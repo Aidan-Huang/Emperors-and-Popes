@@ -19,14 +19,15 @@
      localStorage，不写 S.progress / S.collection；关掉测试口子数据保留但完全不生效。 */
   const DISABLED_KEY = 'tl_ch6_disabled_cards';
 
-  /* ---------------- 第四幕人物线：数据池 ----------------
+  /* ---------------- 人物线：数据池（第四幕 5 人 / 终章 39 人） ----------------
      只在第四幕出现。池 = 10 位关键人物 ∩ 与第四幕事件年代有交集：
        严格按「strongCards 命中第四幕事件」只有 3 位（拿破仑 / 马丁·路德 /
        庇护七世），刚好是「1 个锚点 + 2 张人物手牌」的下限，一局放完就没了；
        按生卒区间与第四幕（1066–1870）相交可得 5 位，多出的格里高利七世、
        亨利四世正是 1066 威廉征服同代、也是「双雄相争的遗产」的由来。
      5 张既满足 4~5 张以上的游戏性，又不把无关朝代的关键人物硬拉进来。
-     终章「全部人物」是后续规划，本轮不接入。 */
+     终章「全部人物」已接入：池扩到全部 39 位，与 41 张事件卡同局共 80 个逐一尝试；
+     人物线改走独立紧凑轨道，不再给事件时间线的 slot 加宽。 */
   const PEOPLE_ALL = (typeof PEOPLE !== 'undefined' && Array.isArray(PEOPLE)) ? PEOPLE : [];
   /* 虚拟卡位宽度：原为半个事件卡（70px），后随 88px 圆头像放大到 96px。
      本轮再放宽到 112px = 头像 88px + 24px 间隙 —— 中间那个金色圆点落在
@@ -50,6 +51,25 @@
     p.born <= ACT4_SPAN.max && p.died >= ACT4_SPAN.min
   ).slice().sort(peopleOrder);
 
+  /* 终章「全部人物」：39 位全员上场，与 41 张事件卡同局 = 80 个逐一尝试。
+     不把人物塞进事件卡池（Engine 的排序 / totalCards 口径一行都不动），
+     只复用第四幕那条平行人物线，把池从 5 位扩到 39 位。 */
+  const PEOPLE_POOL_FINALE = PEOPLE_ALL.slice().sort(peopleOrder);
+  /* 终章紧凑轨道：39 人若仍按 born 去撑事件时间线的虚拟半卡位，41 张事件卡
+     会被横向拉到近八千像素。改为人物线自走一条等距轨道（与上排解耦、独立横滚）。 */
+  const COMPACT_GAP = 104, COMPACT_START = 72;
+  /* 生年不详（圣彼得 born:null）统一显示「不详–66」，界面上不出现 null。 */
+  function personYears(p) {
+    const b = (typeof p.born === 'number') ? String(p.born) : (p.bornTxt || '不详');
+    const d = (typeof p.died === 'number') ? String(p.died) : (p.diedTxt || '不详');
+    return b + '–' + d;
+  }
+  function peoplePoolFor(actId) {
+    if (actId === 4) return PEOPLE_POOL;
+    if (FINALE_ID && actId === FINALE_ID) return PEOPLE_POOL_FINALE;
+    return [];
+  }
+
   /* ---------------- 难度：绑定到关卡 ----------------
      玩家不再在首页挑难度，每一幕自带一套规则。底层仍复用 Engine.DIFFICULTY
      三档预设（决定锚点、年代提示、势力显隐、反馈形态），每幕只覆盖
@@ -57,7 +77,7 @@
      失误预算 5 / 4 / 3 / 3 / 8；大小时间段是账号级全局开关：第一次打到第三幕
      才解锁，解锁后也只有 rule.era 为真的关卡（第三幕起、终章、复习局）显示，
      手机竖屏一律按空间隐藏。第四幕人物线已接入（5 位与第四幕年代相交的
-     关键人物）；终章「全部人物」仍是后续规划，本轮未接入。 */
+     关键人物）；终章已接入全部 39 位人物（独立紧凑轨道，与 41 张事件卡同局）。 */
   const ACT_RULES = {
     1: { diff: 'easy',   mistakes: 5, name: '抄录', era: false },
     2: { diff: 'normal', mistakes: 4, name: '考据', era: false },
@@ -132,7 +152,8 @@
     session: null,
     selectedId: null,
     selectedKind: 'event', // event | person：第四幕两类手牌共用选中态，靠它区分点亮哪排插入位
-    people: null,          // 第四幕人物线状态 { pool, line, hand, deck }，其它关卡恒为 null
+    people: null,          // 人物线状态 { pool, line, hand, deck, compact }；第四幕 5 人 / 终章 39 人，其余关卡恒为 null
+    relReturn: null,       // 从哪个视图打开「全部人物 · 关系图」，关闭时原路返回
     rule: null,            // 本局生效的关卡规则（失误 / 名称 / 大小时间段开关）
     testDifficulty: null,  // 仅验收脚本用的覆盖值，只存内存、不写存档、刷新即失效
     galleryTab: 'all',
@@ -335,6 +356,24 @@
     if (v === 'review') renderReview();
     if (v === 'gallery') renderGallery();
     if (v === 'editor') renderEditor();
+    if (v === 'relations') renderRelations();
+  }
+
+  /* ---------------- 人物关系图视图 ----------------
+     独立 SVG 模块 relations.js 只负责画图和交互；这里只管挂载、模式复位
+     与「从哪来就回哪去」，不碰对局状态。挂载只做一次，重进不重建 DOM。 */
+  function renderRelations() {
+    const root = $('#relations-root');
+    if (!root || !window.Relations) return;
+    if (root.dataset.mounted !== '1') {
+      window.Relations.mount(root);
+      root.dataset.mounted = '1';
+    }
+    window.Relations.setMode('default');
+  }
+  function openRelations() {
+    state.relReturn = state.view;
+    go('relations');
   }
 
   /* ---------------- 卡牌渲染 ---------------- */
@@ -412,8 +451,8 @@
       fb.classList.toggle('test-on', isTest);
       const hint = $('#home-finale-hint');
       if (hint) hint.textContent = isTest
-        ? '🧪 测试口子 · 全部 41 张卡一局，不用通关四幕'
-        : '四幕已通关 · 全部 41 张卡，一条完整时间线';
+        ? '🧪 测试口子 · 41 张事件卡 + 39 位人物一局，不用通关四幕'
+        : '四幕已通关 · 41 张事件卡 + 39 位人物，一条完整时间线';
     }
 
   }
@@ -533,7 +572,10 @@
   }
 
   function peopleActive() {
-    return !!(state.mode === 'act' && state.actId === 4 &&
+    /* 第四幕 5 位关键人物、终章全部 39 位人物；其余关卡恒为 false。
+       testDifficulty 是验收用的难度覆盖通道，两条人物线都不介入。 */
+    const actOk = state.actId === 4 || (FINALE_ID && state.actId === FINALE_ID);
+    return !!(state.mode === 'act' && actOk &&
       !state.testDifficulty && state.people && state.people.pool.length >= 3);
   }
 
@@ -545,14 +587,16 @@
   function initPeople(actId) {
     state.people = null;
     state.selectedKind = 'event';
-    if (!(actId === 4 && !state.testDifficulty && PEOPLE_POOL.length >= 3)) return;
-    const deck = PEOPLE_POOL.slice();
+    const pool = peoplePoolFor(actId);
+    if (state.testDifficulty || pool.length < 3) return;
+    const deck = pool.slice();
     for (let i = deck.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       const t = deck[i]; deck[i] = deck[j]; deck[j] = t;
     }
     const st = {
-      pool: PEOPLE_POOL.slice(),
+      pool: pool.slice(),
+      compact: !!(FINALE_ID && actId === FINALE_ID),  // 终章 39 人走独立紧凑轨道
       line: [deck.shift()],   // 开局人物线随机落 1 人作锚点
       deck: deck,
       hand: []
@@ -593,7 +637,7 @@
     return '<div class="fstrip"></div>' +
       '<div class="art">' + art + '</div>' +
       '<div class="nm">' + esc(p.zh) + '</div>' +
-      '<div class="yr">' + (opts.year ? esc(p.born + '–' + p.died) : '？') + '</div>';
+      '<div class="yr">' + (opts.year ? esc(personYears(p)) : '？') + '</div>';
   }
 
   /* 上排：给挂了人物的 .slot 加宽 n 个半卡位。
@@ -606,6 +650,9 @@
     });
     // 手机竖屏时间线是纵向的，上排不撑高度；人物线单独横排，逐像素对齐无意义。
     if (!peopleActive() || portraitLayout()) return;
+    /* 终章 39 人走独立紧凑轨道，不给事件时间线的 slot 加宽 —— 否则
+       41 张事件卡会被撑到近八千像素，事件线的既有几何与回归全部作废。 */
+    if (state.people.compact) return;
     const cnt = {};
     state.people.line.forEach(person => {
       const i = personTimelineSlot(person);
@@ -651,6 +698,7 @@
     if (!peopleActive()) {
       wrap.hidden = true;
       wrap.classList.remove('on');
+      wrap.classList.remove('compact');
       wrap.innerHTML = '';
       return;
     }
@@ -659,26 +707,37 @@
     wrap.hidden = false;
     wrap.classList.add('on');
 
-    const groups = {};
-    p.line.forEach(person => {
-      const i = personTimelineSlot(person);
-      (groups[i] = groups[i] || []).push(person);
-    });
+    const compact = !!p.compact;
+    wrap.classList.toggle('compact', compact);
     const xs = {};
-    const slots = $$('#timeline .slot');
-    Object.keys(groups).forEach(k => {
-      const slot = slots[+k];
-      if (!slot) return;
-      const n = groups[k].length;
-      /* slot 已被 applyPeopleAnchors() 撑宽 n 个半卡位，offsetWidth 里含加宽量。
-         先减掉它得到原缝宽，再让第 j 个人落在第 j 个半卡的中心 —— 与上排
-         .slot.people-anchor 留白的位置逐像素对齐。 */
-      const baseW = Math.max(6, slot.offsetWidth - n * HALF_CARD);
-      const base = slot.offsetLeft + baseW + HALF_CARD / 2;
-      groups[k].slice().sort(peopleOrder).forEach((person, j) => {
-        xs[person.id] = base + j * HALF_CARD;
+    if (compact) {
+      /* 终章：不按出生年去撑事件时间线的虚拟卡位，人物线自己走一条等距紧凑
+         轨道，按当前已归位顺序一字排开、独立横向滚动。事件时间线的几何、
+         插入位数量与判定链路完全不变。 */
+      p.line.forEach((person, i) => {
+        xs[person.id] = COMPACT_START + i * COMPACT_GAP;
       });
-    });
+    } else {
+      const groups = {};
+      p.line.forEach(person => {
+        const i = personTimelineSlot(person);
+        (groups[i] = groups[i] || []).push(person);
+      });
+      const slots = $$('#timeline .slot');
+      Object.keys(groups).forEach(k => {
+        const slot = slots[+k];
+        if (!slot) return;
+        const n = groups[k].length;
+        /* slot 已被 applyPeopleAnchors() 撑宽 n 个半卡位，offsetWidth 里含加宽量。
+           先减掉它得到原缝宽，再让第 j 个人落在第 j 个半卡的中心 —— 与上排
+           .slot.people-anchor 留白的位置逐像素对齐。 */
+        const baseW = Math.max(6, slot.offsetWidth - n * HALF_CARD);
+        const base = slot.offsetLeft + baseW + HALF_CARD / 2;
+        groups[k].slice().sort(peopleOrder).forEach((person, j) => {
+          xs[person.id] = base + j * HALF_CARD;
+        });
+      });
+    }
 
     const avatars = p.line.map(person => ({ person: person, x: xs[person.id] }))
       .filter(a => typeof a.x === 'number').sort((a, b) => a.x - b.x);
@@ -706,7 +765,7 @@
         html += '<div class="pl-person' + (key ? ' is-key' : '') + '" data-id="' + esc(person.id) + '"' +
           ' data-tier="' + esc(person.tier || 'normal') + '"' +
           ' style="left:' + Math.round(avatars[i].x) + 'px" title="' +
-          esc(person.zh + ' · ' + person.born + '–' + person.died) + '">' +
+          esc(person.zh + ' · ' + personYears(person)) + '">' +
           '<div class="pl-stem"></div>' +
           (key ? '<span class="pl-star" aria-hidden="true">✦</span>' : '') +
           '<div class="pl-ava ' + factionClass(person.faction) + '">' +
@@ -714,7 +773,7 @@
           '</div>' +
           (alias ? '<div class="pl-alias">' + esc(alias) + '</div>' : '') +
           '<div class="pl-nm">' + esc(person.zh) + '</div>' +
-          '<div class="pl-life">' + esc(person.born + '–' + person.died) + '</div>' +
+          '<div class="pl-life">' + esc(personYears(person)) + '</div>' +
           '</div>';
       }
     }
@@ -733,8 +792,14 @@
     wrap.innerHTML = html;
     const track = wrap.querySelector('.pl-track');
     // 竖屏人物线降级成 flex 横排，宽度交给 max-content；桌面才按时间线宽度铺开
-    if (track && !portraitLayout()) track.style.width = Math.max(tl.scrollWidth, tl.clientWidth) + 'px';
-    if (!portraitLayout()) wrap.scrollLeft = tl.scrollLeft;
+    if (track && !portraitLayout()) {
+      const w = compact
+        ? Math.max(tl.clientWidth, COMPACT_START + p.line.length * COMPACT_GAP + COMPACT_GAP)
+        : Math.max(tl.scrollWidth, tl.clientWidth);
+      track.style.width = w + 'px';
+    }
+    // 终章紧凑轨道独立滚动，不跟事件时间线同步（否则 39 人会被拉回起点）
+    if (!portraitLayout() && !compact) wrap.scrollLeft = tl.scrollLeft;
     $$('#people-line .people-slot').forEach(el => {
       el.onclick = () => onPeoplePlace(+el.dataset.pslot);
     });
@@ -797,7 +862,7 @@
       '<div class="bigcard ' + factionClass(p.faction) + '">' +
         '<div class="art">' + pic + '</div>' +
         '<div class="info">' +
-          '<div class="yr">' + esc(p.born + '–' + p.died) + ' · ' + esc(p.life || '') + '</div>' +
+          '<div class="yr">' + esc(personYears(p)) + ' · ' + esc(p.life || '') + '</div>' +
           '<div class="zh">' + esc(p.zh) + '</div>' +
           '<div class="en">' + esc(p.role || '') + '</div>' +
           '<div class="ex">' + esc(p.explain || '') + '</div>' +
@@ -831,7 +896,7 @@
       g.correct++; g.combo++;
       if (g.combo > g.maxCombo) g.maxCombo = g.combo;
       state.lastRes = null;      // 人物卡没有事件卡那套「详情」，别让入口指向旧结果
-      setHint('<b>✓ 放对了</b> · ' + esc(card.born + '–' + card.died) + ' · ' + esc(card.zh), 'ok');
+      setHint('<b>✓ 放对了</b> · ' + esc(personYears(card)) + ' · ' + esc(card.zh), 'ok');
     } else {
       g.wrong++; g.combo = 0; g.mistakesLeft--;
       p.deck.push(card);         // 回到人物牌堆尾，本局还会再见到他
@@ -886,7 +951,7 @@
     const pool = poolForAct(actId);
     const r = ruleFor(actId);
     state.rule = r;
-    initPeople(actId);   // 只有第四幕会建人物线，其余关卡恒为 null
+    initPeople(actId);   // 第四幕 5 位 / 终章 39 位建人物线，其余关卡恒为 null
     /* 大小时间段是账号级开关：第一次打到第三幕（以及之后任何开放 era 的关卡）
        才永久解锁。解锁之前连复习局都不该看到纪元带；解锁后仍由本局
        rule.era 决定哪些关卡能看。测试覆盖 / 测试口子属于后台通道，只走
@@ -941,9 +1006,11 @@
     if (pl) { pl.hidden = true; pl.classList.remove('on'); pl.innerHTML = ''; pl.scrollLeft = 0; }
     const hw = $('#hand'); if (hw) hw.classList.remove('with-people');
     const hl = $('#hand-label');
-    if (hl) hl.innerHTML = peopleActive()
-      ? '手牌 <small>（事件卡放金色细线 · 人物卡放金色圆点）</small>'
-      : '手牌 <small>（年份未知，点选后放入缝隙）</small>';
+    if (hl) hl.innerHTML = !peopleActive()
+      ? '手牌 <small>（年份未知，点选后放入缝隙）</small>'
+      : (state.people.compact
+        ? '手牌 <small>（41 张事件卡 + 39 位人物 · 事件放金线，人物放金点）</small>'
+        : '手牌 <small>（事件卡放金色细线 · 人物卡放金色圆点）</small>');
     eraReset();                    // 新开一局：撤掉上一局可能残留的飞签 / 定时器 / 浮起
     hideWinBar();                  // 新开一局，撤掉上一局可能残留的待确认条
     clearTimeout(state.pendingFinish);
@@ -1110,6 +1177,10 @@
     const g = state.session;
     if (!g) return;
     const cfg = Engine.DIFFICULTY[g.difficulty];
+
+    // 「全部人物 · 关系图」入口：只在带人物线的关卡（第四幕 / 终章）出现
+    const gr = $('#game-relations');
+    if (gr) gr.hidden = !peopleActive();
 
     // 困难模式「隐势力」：文字标签已不生成，这里再标记对局页，
     // 让 CSS 一并去掉手牌卡外圈的势力色带（否则颜色仍会泄露势力）。
@@ -1955,7 +2026,7 @@
   function showWinBar() {
     const g = state.session;
     if (!g || !g.isOver() || g.mistakesLeft <= 0) return;
-    if (peopleActive() && !peopleComplete()) return;   // 第四幕：人物线未归位不算通关
+    if (peopleActive() && !peopleComplete()) return;   // 带人物线的关卡：人物线未归位不算通关
     clearTimeout(state.pendingFinish);
     state.winPending = true;
     state.locked = false;
@@ -1981,7 +2052,7 @@
   function scheduleFinish(g) {
     clearTimeout(state.pendingFinish);
     if (!g.isOver()) return;
-    /* 第四幕：事件线排完但人物线还没归位时，先不结算也不弹通关条；
+    /* 带人物线的关卡：事件线排完但人物线还没归位时，先不结算也不弹通关条；
        onPeoplePlace() 每次放完人物都会再调到这里，届时自然收口。 */
     if (peopleActive() && !peopleComplete()) return;
     // 放错用尽预算时，等弹回动画播完再结算，别把提示盖掉；放对沿用原 900ms
@@ -2628,6 +2699,19 @@
 
   $$('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
 
+  const homeRel = $('#home-relations');
+  if (homeRel) homeRel.onclick = openRelations;
+  const gameRel = $('#game-relations');
+  if (gameRel) gameRel.onclick = openRelations;
+  const relBack = $('#rel-back');
+  if (relBack) relBack.onclick = () => {
+    const back = state.relReturn || 'home';
+    state.relReturn = null;
+    go(back);
+    // 从对局页来回一趟：era 飞签已被 go() 清掉，这里重绘一次恢复人物线几何
+    if (back === 'game' && state.session) renderGame();
+  };
+
   const homeFinale = $('#home-finale');
   if (homeFinale) homeFinale.onclick = () => { if (act5Unlocked()) startAct(FINALE_ID); };
 
@@ -2652,6 +2736,8 @@
       '手牌区在事件卡之外另有 2 张人物卡，选中后点人物线上亮起的<b>金色圆点</b>放置；' +
       '放错与事件卡一样会弹回并扣 1 格失误预算。每个人物在上排占一个「虚拟半卡位」，' +
       '金色虚线把它挂到对应的年代位置，点头像可看他的生平。<br>' +
+      '<b>终章「全部人物」</b>把这条人物线扩到全部 39 位，与 41 张事件卡同局；' +
+      '首页「人物册 · 全部人物」可看 39 人 / 26 条真实关系构成的双中心关系图。<br>' +
       '9. 规则随关卡推进：<b>第一幕「抄录」</b>每次放置弹出完整讲解；' +
       '<b>第二幕起、终章与复习局</b>为快节奏：放对只给一句鼓励，' +
       '放错则红色提示 + 卡牌弹回手牌摇一摇，失误预算也会闪一下，都不打断操作。' +
@@ -2677,7 +2763,7 @@
     if (!tl) return;
     tl.addEventListener('scroll', () => {
       const pl = $('#people-line');
-      if (pl && !pl.hidden) pl.scrollLeft = tl.scrollLeft;
+      if (pl && !pl.hidden && !pl.classList.contains('compact')) pl.scrollLeft = tl.scrollLeft;
     }, { passive: true });
   })();
   // 旋转 / 改窗口：横竖屏切换会改变 eraEnabled()，跟着重算显隐。
@@ -2814,23 +2900,34 @@
         renderActs();
       }
     },
-    /* 第四幕人物线调试接口：以只读为主，另给验收脚本一个直达第四幕的入口。
+    /* 人物线调试接口：以只读为主，另给验收脚本一个直达任意幕的入口。
        全部走正常渲染链路，不绕过判定，也不写 localStorage。 */
     people: {
       active: peopleActive,
+      /* 兼容既有断言：pool() 恒为第四幕那 5 位；activePool()/finalePool()
+         给终章扩线后的验收用。 */
       pool: () => PEOPLE_POOL.map(p => ({ id: p.id, zh: p.zh, born: p.born, died: p.died })),
+      activePool: () => (state.people ? state.people.pool : peoplePoolFor(state.actId))
+        .map(p => ({ id: p.id, zh: p.zh, born: p.born, died: p.died })),
+      finalePool: () => PEOPLE_POOL_FINALE.map(p => ({ id: p.id, zh: p.zh, born: p.born, died: p.died })),
       rule: () => ({ halfCard: HALF_CARD, dotEdge: DOT_EDGE, avatar: 88,
                      lifePxPerYear: LIFE_PX_PER_YEAR, span: ACT4_SPAN,
-                     size: PEOPLE_POOL.length }),
+                     size: PEOPLE_POOL.length, finaleSize: PEOPLE_POOL_FINALE.length,
+                     compactGap: COMPACT_GAP, compactStart: COMPACT_START,
+                     actId: state.actId,
+                     compact: !!(state.people && state.people.compact) }),
       state: () => state.people ? {
         line: state.people.line.map(p => p.id),
         hand: state.people.hand.map(p => p.id),
         deck: state.people.deck.map(p => p.id),
+        pool: state.people.pool.length,
+        compact: !!state.people.compact,
         complete: peopleComplete(),
         selectedKind: state.selectedKind
       } : null,
       dom: () => ({
         hidden: $('#people-line').hidden,
+        compact: $('#people-line').classList.contains('compact'),
         avatars: $$('#people-line .pl-person').map(el => el.dataset.id),
         slots: $$('#people-line .people-slot').length,
         armedSlots: $$('#people-line .people-slot.armed').length,
@@ -2844,22 +2941,35 @@
         scrollSync: Math.abs($('#people-line').scrollLeft - $('#timeline').scrollLeft) < 2
       }),
       play: () => startAct(4),
-      playAct: id => startAct(+id),   // 验收：逐幕确认「只有第四幕有的人物线」
+      playAct: id => startAct(+id),   // 验收：逐幕确认人物线只出现在第四幕与终章
       place: idx => onPeoplePlace(idx),
       select: id => toggleHandSelect(id, 'person'),
       /* 把锚点 / 手牌置成确定顺序，避免随机洗牌让验收断言漂浮 */
       force: (lineIds, handIds) => {
         if (!state.people) return false;
-        const byId = id => PEOPLE_POOL.find(p => p.id === id);
+        const pool = state.people.pool;
+        const byId = id => pool.find(p => p.id === id);
         const L = (lineIds || []).map(byId).filter(Boolean);
         const H = (handIds || []).map(byId).filter(Boolean);
         const used = {}; L.concat(H).forEach(p => { used[p.id] = 1; });
-        const D = PEOPLE_POOL.filter(p => !used[p.id]);
+        const D = pool.filter(p => !used[p.id]);
         state.people.line = L; state.people.hand = H; state.people.deck = D;
         state.selectedId = null; state.selectedKind = 'event';
         renderGame();
         return true;
       }
+    },
+    /* 人物关系图：只读统计 + 模式切换，供验收断言 39/26/52/双中心/三种交互态 */
+    relations: {
+      stats: () => window.Relations ? window.Relations.stats() : null,
+      nodes: () => window.Relations ? window.Relations.nodes() : [],
+      edges: () => window.Relations ? window.Relations.edges() : [],
+      setMode: (m, arg) => window.Relations ? window.Relations.setMode(m, arg) : null,
+      visible: () => window.Relations ? window.Relations.visible() : 0,
+      open: openRelations,
+      go: () => go('relations'),
+      visibleNodes: () => $$('#rel-svg .rnode:not(.dim)').length,
+      visibleLines: () => $$('#rel-svg .redge.on').length
     }
   };
 

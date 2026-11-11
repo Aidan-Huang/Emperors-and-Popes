@@ -51,6 +51,12 @@
         <span class="mode-txt"><b>卡册</b><small id="gallery-hint">翻翻这套 41 张纪念卡</small></span>
         <span class="mode-arrow">›</span>
       </button>
+      <!-- 人物册：39 位人物 / 26 条真实关系的双中心关系图（独立 SVG 模块 relations.js） -->
+      <button class="mode people" id="home-relations">
+        <span class="mode-icon">👥</span>
+        <span class="mode-txt"><b>人物册 · 全部人物</b><small>39 位人物 · 26 条真实关系 · 双中心关系图</small></span>
+        <span class="mode-arrow">›</span>
+      </button>
     </div>
 
     <!-- 难度选择已移除：失误预算、大小时间段、势力显隐等规则直接绑定在
@@ -114,6 +120,8 @@
         <small id="game-act-span"></small>
       </div>
       <div class="hud">
+        <!-- 只在带人物线的关卡（第四幕 / 终章）出现，由 renderGame() 控制显隐 -->
+        <button type="button" class="hud-rel" id="game-relations" hidden>人物关系图 ›</button>
         <div class="hud-item" title="失误预算"><span id="hud-mistakes"></span></div>
         <div class="hud-item" id="hud-combo-box" title="连击"><span id="hud-combo">🔥 0</span></div>
         <div class="hud-item" title="进度"><span id="hud-progress">0/0</span></div>
@@ -152,10 +160,11 @@
       <button class="tl-nav tl-nav-l" id="tl-nav-l" type="button" aria-label="看更早的卡片" hidden>‹</button>
       <button class="tl-nav tl-nav-r" id="tl-nav-r" type="button" aria-label="看更晚的卡片" hidden>›</button>
       <div class="timeline" id="timeline"></div>
-      <!-- 第四幕人物线：与事件时间线平行的一排圆头像。每个人物以出生年为锚点，
-           在上排事件序列里占一个「虚拟半卡位」（不实际插入事件卡序列），由金色
-           虚线挂到事件线上；两个人物之间夹着事件卡时，两排会一起重新拉开间距。
-           只在第四幕启用，其余关卡零节点、零占位（hidden）。 -->
+      <!-- 人物线：与事件时间线平行的一排圆头像。
+           第四幕（5 位）：每个人物以出生年为锚点，在上排事件序列里占一个
+           「虚拟半卡位」（不实际插入事件卡序列），由金色虚线挂到事件线上。
+           终章（39 位）：改走独立紧凑轨道，自己横向滚动，不撑宽事件时间线。
+           其余关卡零节点、零占位（hidden）。 -->
       <div class="people-line" id="people-line" hidden></div>
     </div>
 
@@ -193,6 +202,18 @@
     <div class="gallery-grid" id="gallery-grid"></div>
     <!-- 测试口子：批量选择底部操作条，仅批量模式下由 renderGallery() 填充并显示 -->
     <div class="gallery-batchbar" id="gallery-batchbar" hidden></div>
+  </section>
+
+  <!-- ============ 视图：全部人物 · 关系图 ============
+       独立 SVG 模块 relations.js 负责构图与交互，app.js 只做挂载 / 模式复位；
+       首页「人物册 · 全部人物」与带人物线的对局页 HUD 都能进，返回时原路退回。 -->
+  <section class="view" id="view-relations">
+    <div class="topbar">
+      <button class="back" id="rel-back">‹ 返回</button>
+      <h2>全部人物 · 关系图</h2>
+      <span class="topbar-right" id="rel-count"></span>
+    </div>
+    <div class="rel-wrap" id="relations-root"></div>
   </section>
 
   <!-- ============ 视图：卡牌编辑器（隐藏入口） ============ -->
@@ -237,12 +258,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="../version.js?v=4"></script>
+<script src="../version.js?v=5"></script>
 <script src="cards.js"></script>
 <script src="people-cards.js"></script>
+<script src="relations.js"></script>
 <script src="engine.js"></script>
 <script src="eras.js"></script>
 <script src="app.js"></script>
-<script src="../version-ui.js?v=4"></script>
+<script src="../version-ui.js?v=5"></script>
 </body>
 </html>
