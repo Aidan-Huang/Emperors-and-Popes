@@ -48,13 +48,7 @@
       </button>
       <button class="mode" data-go="gallery">
         <span class="mode-icon">🗂</span>
-        <span class="mode-txt"><b>卡册</b><small id="gallery-hint">翻翻这套 41 张纪念卡</small></span>
-        <span class="mode-arrow">›</span>
-      </button>
-      <!-- 人物册：39 位人物 / 26 条真实关系的双中心关系图（独立 SVG 模块 relations.js） -->
-      <button class="mode people" id="home-relations">
-        <span class="mode-icon">👥</span>
-        <span class="mode-txt"><b>人物册 · 全部人物</b><small>39 位人物 · 26 条真实关系 · 双中心关系图</small></span>
+        <span class="mode-txt"><b>卡册</b><small id="gallery-hint">事件卡与人物卡 · 逐一收集</small></span>
         <span class="mode-arrow">›</span>
       </button>
     </div>
@@ -189,31 +183,43 @@
     <div class="review-body" id="review-body"></div>
   </section>
 
-  <!-- ============ 视图：卡册 ============ -->
+  <!-- ============ 视图：卡册（事件卡 / 人物卡 两类合一） ============
+       顶层分类切换 #gallery-kind：事件卡沿用原来的网格，人物卡直接就是
+       精简后的环状关系图（头像即卡片）。人物卡分类在第四幕解锁后才出现。
+       禁用工具条 / 批量操作条两类共用，由 renderGallery() 按当前分类填充。 -->
   <section class="view" id="view-gallery">
     <div class="topbar">
       <button class="back" data-go="home">‹ 返回</button>
       <h2>卡册</h2>
       <span class="topbar-right" id="gallery-count"></span>
     </div>
-    <div class="gallery-tabs" id="gallery-tabs"></div>
-    <!-- 测试口子：卡册禁用工具条，仅测试模式下由 renderGallery() 填充并显示 -->
-    <div class="gallery-testbar" id="gallery-testbar" hidden></div>
-    <div class="gallery-grid" id="gallery-grid"></div>
-    <!-- 测试口子：批量选择底部操作条，仅批量模式下由 renderGallery() 填充并显示 -->
-    <div class="gallery-batchbar" id="gallery-batchbar" hidden></div>
-  </section>
 
-  <!-- ============ 视图：全部人物 · 关系图 ============
-       独立 SVG 模块 relations.js 负责构图与交互，app.js 只做挂载 / 模式复位；
-       首页「人物册 · 全部人物」与带人物线的对局页 HUD 都能进，返回时原路退回。 -->
-  <section class="view" id="view-relations">
-    <div class="topbar">
-      <button class="back" id="rel-back">‹ 返回</button>
-      <h2>全部人物 · 关系图</h2>
-      <span class="topbar-right" id="rel-count"></span>
+    <!-- 顶层分类：事件卡 / 人物卡 -->
+    <div class="gallery-kind" id="gallery-kind"></div>
+    <!-- 禁用工具条：两类共用，正式解锁第五幕后（或测试模式）由 renderGallery() 显示 -->
+    <div class="gallery-testbar" id="gallery-testbar" hidden></div>
+
+    <!-- 事件卡页：原有分幕标签 + 网格 -->
+    <div id="gallery-event">
+      <div class="gallery-tabs" id="gallery-tabs"></div>
+      <div class="gallery-grid" id="gallery-grid"></div>
     </div>
-    <div class="rel-wrap" id="relations-root"></div>
+
+    <!-- 人物卡页：环状关系图（去课件化，只留图形 + 一条关系筛选） -->
+    <div id="gallery-person" hidden>
+      <!-- 触屏专属：点按行为开关（看关系 / 看详情）。有鼠标的设备不显示 -->
+      <div class="rel-tapbar" id="rel-tapbar" hidden>
+        <span class="rel-tapbar-label">点按头像</span>
+        <div class="seg" id="rel-tapmode">
+          <button type="button" data-tap="detail" class="on">看详情</button>
+          <button type="button" data-tap="relation">看关系</button>
+        </div>
+      </div>
+      <div class="rel-wrap" id="relations-root"></div>
+    </div>
+
+    <!-- 批量选择底部操作条：两类共用，仅批量模式下由 renderGallery() 填充并显示 -->
+    <div class="gallery-batchbar" id="gallery-batchbar" hidden></div>
   </section>
 
   <!-- ============ 视图：卡牌编辑器（隐藏入口） ============ -->
@@ -258,13 +264,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="../version.js?v=6"></script>
+<script src="../version.js?v=7"></script>
 <script src="cards.js"></script>
 <script src="people-cards.js"></script>
 <script src="relations.js"></script>
 <script src="engine.js"></script>
 <script src="eras.js"></script>
 <script src="app.js"></script>
-<script src="../version-ui.js?v=6"></script>
+<script src="../version-ui.js?v=7"></script>
 </body>
 </html>

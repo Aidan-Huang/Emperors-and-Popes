@@ -15,9 +15,12 @@
   const FINALE_ID = FINALE ? FINALE.id : 0;
   const MAIN_ACTS = ACTS.filter(a => !a.all);
   const ACT5_TEST_KEY = 'tl_ch6_act5_test';   // 测试口子开关：五幕全部直接可玩；独立于游戏进度，开关本身不写 S.progress
-  /* 卡册禁用名单（测试口子专用）：只影响第五幕卡池。与 ACT5_TEST_KEY 一样存在
-     localStorage，不写 S.progress / S.collection；关掉测试口子数据保留但完全不生效。 */
+  /* 卡册禁用名单：正式解锁第五幕（或测试口子）后对所有关卡 / 复习局 / 人物线生效。
+     独立存 localStorage，不写 S.progress / S.collection / S.peopleSeen。
+     ★ 事件卡 id 与人物 id 有重叠（augustus / clovis / pepin …），两套名单必须
+       物理隔离，否则禁用事件卡会误禁同名人物、放对人物会误翻事件卡。 */
   const DISABLED_KEY = 'tl_ch6_disabled_cards';
+  const DISABLED_PEOPLE_KEY = 'tl_ch6_disabled_people';
 
   /* ---------------- 人物线：数据池（第四幕 5 人 / 终章 39 人） ----------------
      第四幕池 = 10 位关键人物 ∩ 与第四幕事件年代有交集：
@@ -68,9 +71,16 @@
     return b + '–' + d;
   }
   function peoplePoolFor(actId) {
-    if (actId === 4) return PEOPLE_POOL;
-    if (FINALE_ID && actId === FINALE_ID) return PEOPLE_POOL_FINALE;
-    return [];
+    let pool;
+    if (actId === 4) pool = PEOPLE_POOL;
+    else if (FINALE_ID && actId === FINALE_ID) pool = PEOPLE_POOL_FINALE;
+    else return [];
+    /* 禁用的人物对所有带人物线的关卡都生效；保底 3 人，否则人物线无法成型。 */
+    if (!disableEnabled()) return pool;
+    const off = disabledPeople();
+    if (!off.length) return pool;
+    const kept = pool.filter(p => off.indexOf(String(p.id)) < 0);
+    return kept.length >= 3 ? kept : pool;
   }
 
   /* ---------------- 难度：绑定到关卡 ----------------
@@ -114,7 +124,10 @@
     collection: 'tl_ch6_collection',
     errors: 'tl_ch6_errors',
     settings: 'tl_ch6_settings',
-    custom: 'tl_ch6_custom_cards'
+    custom: 'tl_ch6_custom_cards',
+    /* 人物收集存档，与事件卡 collection 物理隔离：两类卡的 id 有重叠
+       （augustus / clovis / pepin …），共用一个 map 会互相串数据。 */
+    peopleSeen: 'tl_ch6_people_seen'
   };
 
   function load(k, def) {
@@ -136,7 +149,8 @@
        eraUnlocked 是大小时间段的账号级开关：第一次打到第三幕时置真，
        之前连复习局都不显示纪元带（见 eraGloballyUnlocked）。 */
     settings: load(KEY.settings, { useCustom: false, eraUnlocked: false }),
-    custom: load(KEY.custom, [])
+    custom: load(KEY.custom, []),
+    peopleSeen: load(KEY.peopleSeen, {})   // { personId: { at } }
   };
   function persist() {
     save(KEY.progress, S.progress);
@@ -144,6 +158,7 @@
     save(KEY.errors, S.errors);
     save(KEY.settings, S.settings);
     save(KEY.custom, S.custom);
+    save(KEY.peopleSeen, S.peopleSeen);
   }
 
   /* ---------------- 状态 ---------------- */
@@ -160,6 +175,9 @@
     rule: null,            // 本局生效的关卡规则（失误 / 名称 / 大小时间段开关）
     testDifficulty: null,  // 仅验收脚本用的覆盖值，只存内存、不写存档、刷新即失效
     galleryTab: 'all',
+    galleryKind: 'event',  // 卡册顶层分类：event | person
+    tapMode: 'detail',     // 无鼠标设备点按人物头像：detail=看详情 | relation=看关系
+    deviceOverride: null,  // 验收脚本可强制 'mouse' | 'touch'，null=按真实 matchMedia
     /* 测试口子：卡册批量选择。只存内存、不写存档；退出批量或关掉测试模式即清空。 */
     batchMode: false,
     batchSel: [],
@@ -196,64 +214,93 @@
     return MAIN_ACTS.every(a => S.progress[a.id] && S.progress[a.id].cleared);
   }
   function act5Unlocked() { return act5Test() || fourCleared(); }
-
-  /* ---------------- 测试口子：卡册禁用名单 ----------------
-     只允许在测试模式下设置与生效；名单独立持久化，不写玩家存档。
-     生效范围严格限定为第五幕（终章）卡池：1~4 幕 / 复习局 / 编辑器 /
-     卡册读取一律不受影响。 */
-  function disabledCards() {
+  /* 禁用功能开放条件：正式解锁第五幕（四幕通关）后即可用，不再限于测试口子。 */
+  function disableEnabled() { return act5Unlocked(); }
+  /* 人物卡册开放条件：人物卡在第四幕首次出现在游戏里，卡册查看同步在此时打开。 */
+  function peopleGalleryUnlocked() { return act5Test() || actUnlocked(4); }
+  /* 设备判断：判断的是「有无精确指针 + 悬停能力」，而非屏幕宽度。
+     手机 / 平板触屏 (hover:none)/(pointer:coarse) 走点按 + 开关；
+     台式 / 笔记本鼠标走 hover 浮出。触屏笔记本两者都具备时按 hover 处理，
+     用户仍可用界面上的开关切换点按语义。CDP 验收可经 deviceOverride 强制。 */
+  function hoverCapable() {
+    if (state.deviceOverride) return state.deviceOverride === 'mouse';
     try {
-      const v = JSON.parse(localStorage.getItem(DISABLED_KEY) || '[]');
+      return window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+    } catch (e) { return true; }
+  }
+
+  /* ---------------- 卡册禁用名单（事件卡 / 人物卡物理隔离） ----------------
+     两套名单各自独立持久化到 localStorage，不写玩家存档。
+     开放条件 disableEnabled()：正式解锁第五幕后（或测试口子）可用。
+     生效范围：所有关卡卡池 / 复习局 / 事件卡编辑预览之外一律过滤，
+     人物线同样过滤，卡册只标记、始终可见。 */
+  function readList(key) {
+    try {
+      const v = JSON.parse(localStorage.getItem(key) || '[]');
       return Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];
     } catch (e) { return []; }
   }
-  function setDisabledCards(ids) {
-    try { localStorage.setItem(DISABLED_KEY, JSON.stringify(ids)); } catch (e) {}
+  function writeList(key, ids) {
+    try { localStorage.setItem(key, JSON.stringify(ids)); } catch (e) {}
   }
-  /* isCardDisabled 自带测试模式闸门：非测试模式恒为 false，名单再脏也不生效。 */
-  function isCardDisabled(id) {
-    return act5Test() && disabledCards().indexOf(String(id)) >= 0;
-  }
-  /* 切换禁用，返回切换后是否处于「已禁用」。 */
-  function toggleCardDisabled(id) {
-    const ids = disabledCards();
-    const k = String(id);
-    const i = ids.indexOf(k);
+  function toggleInList(key, id) {
+    const ids = readList(key), k = String(id), i = ids.indexOf(k);
     if (i >= 0) ids.splice(i, 1); else ids.push(k);
-    setDisabledCards(ids);
+    writeList(key, ids);
     return i < 0;
   }
-  /* 只数内置卡，自定义卡 / 脏 id 不计入展示用的「已禁用 N 张」。 */
+  function disabledCards() { return readList(DISABLED_KEY); }
+  function setDisabledCards(ids) { writeList(DISABLED_KEY, ids); }
+  function disabledPeople() { return readList(DISABLED_PEOPLE_KEY); }
+  function setDisabledPeople(ids) { writeList(DISABLED_PEOPLE_KEY, ids); }
+  /* 闸门：未解锁第五幕时恒为 false，名单再脏也不生效。 */
+  function isCardDisabled(id) {
+    return disableEnabled() && disabledCards().indexOf(String(id)) >= 0;
+  }
+  function isPersonDisabled(id) {
+    return disableEnabled() && disabledPeople().indexOf(String(id)) >= 0;
+  }
+  function toggleCardDisabled(id) { return toggleInList(DISABLED_KEY, id); }
+  function togglePersonDisabled(id) { return toggleInList(DISABLED_PEOPLE_KEY, id); }
+  /* 只数内置卡 / 内置人物，脏 id 不计入展示用的「已禁用 N」。 */
   function disabledCount() {
     const ids = disabledCards();
     return ALL_CARDS.filter(c => ids.indexOf(String(c.id)) >= 0).length;
   }
+  function disabledPeopleCount() {
+    const ids = disabledPeople();
+    return PEOPLE_ALL.filter(p => ids.indexOf(String(p.id)) >= 0).length;
+  }
+  function disabledAllCount() { return disabledCount() + disabledPeopleCount(); }
 
   /* ---------------- 测试口子：卡册批量选择 ----------------
      常见多选交互：工具条进入 -> 点缩略图勾选 -> 全选 / 全不选 / 反选 ->
      底部操作条对选中集合一次禁用或恢复。选中集合只存内存，按 id 跨分幕标签
      保留（切标签不丢），退出批量 / 关闭测试模式立即清空，不写 localStorage。 */
-  function batchActive() { return act5Test() && state.batchMode; }
+  function batchActive() { return disableEnabled() && state.batchMode; }
   function batchClear() { state.batchSel = []; }
   function batchHas(id) { return state.batchSel.indexOf(String(id)) >= 0; }
   function batchToggle(id) {
     const k = String(id), i = state.batchSel.indexOf(k);
     if (i >= 0) state.batchSel.splice(i, 1); else state.batchSel.push(k);
   }
-  /* on=true 禁用选中；on=false 恢复选中。只改名单，不碰玩家存档。 */
+  /* on=true 禁用选中；on=false 恢复选中。按卡册当前分类写对应名单，
+     只改名单，不碰玩家存档。事件卡 / 人物卡互不串数据。 */
   function batchApply(on) {
     if (!batchActive()) return 0;
     const n = state.batchSel.length;
     if (!n) return 0;
+    const isPeople = state.galleryKind === 'person';
     const have = {};
-    disabledCards().forEach(k => { have[k] = 1; });
+    (isPeople ? disabledPeople() : disabledCards()).forEach(k => { have[k] = 1; });
     state.batchSel.forEach(k => { if (on) have[k] = 1; else delete have[k]; });
-    setDisabledCards(Object.keys(have));
+    const ids = Object.keys(have);
+    if (isPeople) setDisabledPeople(ids); else setDisabledCards(ids);
     batchClear();
     renderGallery();
     renderActs();
-    toast(on ? ('已禁用 ' + n + ' 张 · 第五幕不再出现')
-             : ('已恢复 ' + n + ' 张 · 第五幕照常出现'));
+    toast(on ? ('已禁用 ' + n + (isPeople ? ' 位人物' : ' 张卡') + ' · 所有关卡不再出现')
+             : ('已恢复 ' + n + (isPeople ? ' 位人物' : ' 张卡') + ' · 所有关卡照常出现'));
     return n;
   }
   /* 全选 / 全不选 / 反选只作用于当前标签下可见的卡。 */
@@ -272,7 +319,9 @@
       vis.forEach(k => { if (!cur[k]) state.batchSel.push(k); });
     }
   }
-  function batchCountText() { return '已选 ' + state.batchSel.length + ' 张'; }
+  function batchCountText() {
+    return '已选 ' + state.batchSel.length + (state.galleryKind === 'person' ? ' 位' : ' 张');
+  }
 
   /* 简单模式保留弹窗式完整反馈；普通/困难走不打断节奏的轻量反馈 */
   function quietMode() {
@@ -359,24 +408,49 @@
     if (v === 'review') renderReview();
     if (v === 'gallery') renderGallery();
     if (v === 'editor') renderEditor();
-    if (v === 'relations') renderRelations();
   }
 
   /* ---------------- 人物关系图视图 ----------------
      独立 SVG 模块 relations.js 只负责画图和交互；这里只管挂载、模式复位
      与「从哪来就回哪去」，不碰对局状态。挂载只做一次，重进不重建 DOM。 */
+  /* 关系图现在就是卡册「人物卡」页，不再是独立视图。 */
   function renderRelations() {
     const root = $('#relations-root');
     if (!root || !window.Relations) return;
+    const opts = {
+      hoverCapable: hoverCapable(),
+      isUnlocked: personVisible,
+      isDisabled: isPersonDisabled,
+      isBatch: batchActive,
+      isPicked: batchHas,
+      onPick: id => { batchToggle(id); renderGallery(); },
+      onNode: onPersonNode
+    };
     if (root.dataset.mounted !== '1') {
-      window.Relations.mount(root);
+      window.Relations.mount(root, opts);
       root.dataset.mounted = '1';
+    } else {
+      window.Relations.setOptions(opts);
+      window.Relations.refresh();
     }
+    window.Relations.setTapMode(state.tapMode);
     window.Relations.setMode('default');
   }
-  function openRelations() {
+  /* 点人物头像：已解锁 → 大卡详情（主功能）；未解锁 → 提示怎么解锁。 */
+  function onPersonNode(id) {
+    const p = PEOPLE_ALL.find(x => x.id === id);
+    if (!p) return;
+    if (!personVisible(id)) {
+      toast('在第四幕或终章把他放对一次，即可翻开这张人物卡');
+      return;
+    }
+    openPerson(p, true);
+  }
+  /* 从对局 HUD 进入卡册人物卡页；返回时原路回对局。 */
+  function openPeopleGallery() {
     state.relReturn = state.view;
-    go('relations');
+    state.galleryKind = 'person';
+    go('gallery');
   }
 
   /* ---------------- 卡牌渲染 ---------------- */
@@ -444,7 +518,8 @@
 
     const wrongCount = Object.keys(S.errors).length;
     $('#review-hint').textContent = wrongCount ? ('错题 ' + wrongCount + ' 张 · 优先重排') : '还没有错题 · 随时可来热手';
-    $('#gallery-hint').textContent = '已解锁 ' + collected + ' / ' + TOTAL + ' 张';
+    $('#gallery-hint').textContent = '已解锁 ' + collected + ' / ' + TOTAL + ' 张' +
+      (peopleGalleryUnlocked() ? ' · 含人物卡' : '');
 
     // 终章入口：通关四幕（或打开测试口子）后，首页直接多一个一键开局按钮
     const fb = $('#home-finale');
@@ -480,7 +555,7 @@
   function renderActs() {
     const doneCount = MAIN_ACTS.filter(a => S.progress[a.id] && S.progress[a.id].cleared).length;
     const testing = act5Test();
-    const offN = testing ? disabledCount() : 0;
+    const offN = disableEnabled() ? disabledAllCount() : 0;
     $('#acts-progress').textContent = '通关 ' + doneCount + '/' + MAIN_ACTS.length +
       (testing ? ' · 测试已开（无限生命）' : '');
 
@@ -508,7 +583,7 @@
         '<h3>' + a.name + '</h3>' +
         '<div class="span">' + a.span + ' · ' + cards.length + ' 张卡' +
           (finale ? ' · 全卡池' : ' · ' + rule.mistakes + ' 次失误') +
-          (finale && offN ? ' · 已禁用 ' + offN + ' 张' : '') + '</div>' +
+          (finale && offN ? ' · 已禁用 ' + offN + ' 张 / 位' : '') + '</div>' +
         '<div class="desc">' + a.desc + '</div>' +
         '<div class="meta"><span>' + got + '/' + cards.length + '</span>' +
         '<span class="mini-bar"><i style="width:' + (got / cards.length * 100) + '%"></i></span>' +
@@ -605,6 +680,7 @@
     };
     while (st.hand.length < 2 && st.deck.length) st.hand.push(st.deck.shift());
     state.people = st;
+    unlockPerson(st.line[0].id);   // 开局锚点人物算「已出现过」，翻正面
   }
 
   /* 人物 born 落在当前事件时间线的第几个插入缝隙（0..N），
@@ -854,27 +930,48 @@
       '</div>';
   }
 
-  function openPerson(p) {
-    const pic = p.img
-      ? '<img src="' + esc(p.img) + '" class="art-top" alt="">'
-      : '<div class="crest">👤</div>';
+  function openPerson(p, fromGallery) {
+    /* 卡册里未解锁的人物只显示卡背；对局中点人物头像不看收集态。 */
+    const visible = !fromGallery || personVisible(p.id);
+    const pic = !visible
+      ? '<div class="crest">?</div>'
+      : (p.img ? '<img src="' + esc(p.img) + '" class="art-top" alt="">' : '<div class="crest">👤</div>');
     const key = p.tier === 'key';
+    const canDisable = !!fromGallery && disableEnabled();
+    const off = isPersonDisabled(p.id);
     openModal(
-      '<h3>' + esc(p.zh) + ' <small style="color:var(--muted);font-weight:400">' + esc(p.en || '') + '</small>' +
-        (key ? '<span class="pf-key">✦ 关键人物</span>' : '') + '</h3>' +
-      '<div class="bigcard ' + factionClass(p.faction) + '">' +
+      '<h3>' + esc(visible ? p.zh : '未解锁') +
+        (visible ? ' <small style="color:var(--muted);font-weight:400">' + esc(p.en || '') + '</small>' : '') +
+        (visible && key ? '<span class="pf-key">✦ 关键人物</span>' : '') + '</h3>' +
+      '<div class="bigcard ' + factionClass(p.faction) + (visible ? '' : ' locked') + '">' +
         '<div class="art">' + pic + '</div>' +
         '<div class="info">' +
-          '<div class="yr">' + esc(personYears(p)) + ' · ' + esc(p.life || '') + '</div>' +
-          '<div class="zh">' + esc(p.zh) + '</div>' +
-          '<div class="en">' + esc(p.role || '') + '</div>' +
-          '<div class="ex">' + esc(p.explain || '') + '</div>' +
+          '<div class="yr">' + (visible ? esc(personYears(p)) + ' · ' + esc(p.life || '') : '？') + '</div>' +
+          '<div class="zh">' + (visible ? esc(p.zh) : '未解锁') + '</div>' +
+          '<div class="en">' + (visible ? esc(p.role || '') : '') + '</div>' +
+          '<div class="ex">' + (visible ? esc(p.explain || '')
+            : '在第四幕或终章把他放对一次，即可翻开这张人物卡，查看详细信息。') + '</div>' +
         '</div>' +
       '</div>' +
-      (p.src ? '<div class="quotebox en-only"><span class="en">' + esc(p.src.en || '') + '</span></div>' : '') +
-      personFile(p) +
-      '<div class="modal-actions"><button class="primary" id="pp-ok">关闭</button></div>'
+      (visible && p.src ? '<div class="quotebox en-only"><span class="en">' + esc(p.src.en || '') + '</span></div>' : '') +
+      (visible ? personFile(p) : '') +
+      '<div class="modal-actions">' +
+        (canDisable
+          ? '<button id="pp-disable" class="' + (off ? 'warn' : '') + '">' +
+              (off ? '取消禁用（恢复所有关卡）' : '禁用此人物（所有关卡）') + '</button>'
+          : '') +
+        '<button class="primary" id="pp-ok">关闭</button>' +
+      '</div>' +
+      (canDisable ? '<div class="dc-test-note">禁用后，这位人物在第四幕与终章的人物线都不再出现。</div>' : '')
     );
+    const pd = $('#pp-disable');
+    if (pd) pd.onclick = () => {
+      const on = togglePersonDisabled(p.id);
+      pd.textContent = on ? '取消禁用（恢复所有关卡）' : '禁用此人物（所有关卡）';
+      pd.classList.toggle('warn', on);
+      renderGallery(); renderActs();
+      toast(on ? '已禁用 · 人物线不再出现这位人物' : '已恢复 · 人物线照常出现');
+    };
     $('#pp-ok').onclick = closeModal;
   }
 
@@ -896,6 +993,7 @@
 
     if (ok) {
       p.line.splice(idx, 0, card);
+      unlockPerson(card.id);        // 放对一次 → 永久解锁这张人物卡
       g.correct++; g.combo++;
       if (g.combo > g.maxCombo) g.maxCombo = g.combo;
       state.lastRes = null;      // 人物卡没有事件卡那套「详情」，别让入口指向旧结果
@@ -926,19 +1024,18 @@
         ? S.custom
         : S.custom.filter(c => +c.act === actId));
     }
-    /* 测试口子：卡册里禁用的卡只在第五幕（终章）生效，且只在测试模式下。
-       1~4 幕、复习局、编辑器与卡册读取一律不受影响。 */
-    if (FINALE_ID && actId === FINALE_ID && act5Test()) {
+    /* 禁用对所有关卡生效（正式解锁第五幕后或测试口子）。
+       保底至少 2 张：锚点 + 1 张手牌，否则 GameSession 开局即被判结束；
+       不够时从该幕全卡池按年份补齐（忽略禁用），保证仍能开局。 */
+    if (disableEnabled()) {
       const off = disabledCards();
       if (off.length) {
         const kept = pool.filter(c => off.indexOf(String(c.id)) < 0);
-        /* 保底至少 2 张：锚点 + 1 张手牌，否则 GameSession 开局即被判结束。
-           不够时按年份从全卡池补齐（忽略禁用），保证测试仍能开局。 */
         if (kept.length >= 2) pool = kept;
         else {
           const have = {};
           kept.forEach(c => { have[String(c.id)] = 1; });
-          const extra = Engine.actCards(FINALE_ID)
+          const extra = Engine.actCards(actId)
             .filter(c => !have[String(c.id)])
             .slice(0, 2 - kept.length);
           pool = kept.concat(extra);
@@ -981,7 +1078,19 @@
   function startReview() {
     state.mode = 'review';
     initPeople(0);       // 复习局无幕概念，不出现人物线
-    const pool = Engine.reviewPool(S.errors, S.collection, 8);
+    let pool = Engine.reviewPool(S.errors, S.collection, 8);
+    if (disableEnabled()) {
+      const off = disabledCards();
+      if (off.length) {
+        const kept = pool.filter(c => off.indexOf(String(c.id)) < 0);
+        if (kept.length >= 2) pool = kept;
+        else {
+          const have = {}; kept.forEach(c => { have[String(c.id)] = 1; });
+          pool = kept.concat(ALL_CARDS.filter(c => !have[String(c.id)])
+            .slice(0, 2 - kept.length));
+        }
+      }
+    }
     /* 复习局不属任何一幕：普通预设 + 3 次失误（测试模式例外：无限）、era 规则为真；
        实际显不显示还要看账号级全局开关（没打到第三幕前复习局也不显示）。 */
     const r = state.testDifficulty ? ruleFor(0) : REVIEW_RULE;
@@ -2113,6 +2222,14 @@
   function unlock(id) {
     if (!S.collection[id]) { S.collection[id] = { at: Date.now() }; persist(); }
   }
+  /* 人物卡收集：独立存档。人物在人物线里「放对一次」或作为开局锚点出现在
+     线上，即永久翻正面、可在卡册查看详细信息。测试口子下全部可见。 */
+  function unlockPerson(id) {
+    if (!S.peopleSeen[id]) { S.peopleSeen[id] = { at: Date.now() }; persist(); }
+  }
+  function personSeen(id) { return !!S.peopleSeen[id]; }
+  function personVisible(id) { return act5Test() || personSeen(id); }
+  function personSeenCount() { return PEOPLE_ALL.filter(p => personSeen(p.id)).length; }
 
   /* ---------------- 结算 ---------------- */
 
@@ -2260,8 +2377,34 @@
 
   /* ---------------- 卡册 ---------------- */
 
+  /* ---------------- 卡册：事件卡 / 人物卡 两类合一 ----------------
+     人物卡页直接就是精简后的环状关系图（头像即卡片），第四幕解锁后才出现
+     人物卡分类；游戏中没出现过的人物只显示卡背。
+     禁用工具条 / 批量条两类共用，按 state.galleryKind 各写各的名单：
+     事件卡 id 与人物 id 有重叠（augustus / clovis / pepin …），必须物理隔离。 */
   function renderGallery() {
-    // 终章用的是全卡池，和「全部」标签重复，不单列分幕 tab
+    const unlocked = peopleGalleryUnlocked();
+    if (state.galleryKind === 'person' && !unlocked) state.galleryKind = 'event';
+    const kind = state.galleryKind;
+
+    /* 顶层分类：事件卡常开，人物卡在第四幕解锁后才出现 */
+    const kinds = [{ k: 'event', n: '事件卡' }].concat(
+      unlocked ? [{ k: 'person', n: '人物卡' }] : []);
+    const kindBox = $('#gallery-kind');
+    kindBox.innerHTML = kinds.map(t =>
+      '<button type="button" data-kind="' + t.k + '" class="' + (kind === t.k ? 'on' : '') + '">' + t.n + '</button>').join('');
+    $$('#gallery-kind button').forEach(b => b.onclick = () => {
+      state.galleryKind = b.dataset.kind;
+      state.batchMode = false;
+      batchClear();
+      renderGallery();
+    });
+
+    const ev = $('#gallery-event'), pe = $('#gallery-person');
+    ev.hidden = kind !== 'event';
+    pe.hidden = kind !== 'person';
+
+    /* 事件卡分幕标签（人物卡页不画网格，但数据仍算好给批量全选用） */
     const tabs = [{ k: 'all', n: '全部' }].concat(MAIN_ACTS.map(a => ({ k: 'a' + a.id, n: '第' + a.id + '幕' })));
     if (S.custom.length) tabs.push({ k: 'custom', n: '自定义' });
     $('#gallery-tabs').innerHTML = tabs.map(t =>
@@ -2273,15 +2416,17 @@
     else if (state.galleryTab === 'all') cards = ALL_CARDS.slice().sort((a, b) => a.y - b.y);
     else cards = Engine.actCards(+state.galleryTab.slice(1));
 
-    const got = cards.filter(c => S.collection[c.id]).length;
-    /* 测试模式：卡册全部卡按「可见」渲染（详情可看），但不写入 collection，
-       关掉测试口子即恢复原锁定状态。 */
+    /* 测试模式：卡册全部按「可见」渲染（详情可看），但不写 collection / peopleSeen */
     const testView = act5Test();
-    $('#gallery-count').textContent = got + ' / ' + cards.length + ' 已解锁' +
-      (testView ? ' · 测试模式：全部可见' : '');
+    $('#gallery-count').textContent = kind === 'person'
+      ? (personSeenCount() + ' / ' + PEOPLE_ALL.length + ' 已翻开' +
+         (testView ? ' · 测试模式：全部可见' : ''))
+      : (cards.filter(c => S.collection[c.id]).length + ' / ' + cards.length + ' 已解锁' +
+         (testView ? ' · 测试模式：全部可见' : ''));
 
-    /* 离开测试模式时无条件退出批量选择，避免残留勾选态与底部浮条。 */
-    if (!testView && (state.batchMode || state.batchSel.length)) {
+    /* 禁用闸门：正式解锁第五幕后可用；离开闸门时无条件退出批量 */
+    const canDisable = disableEnabled();
+    if (!canDisable && (state.batchMode || state.batchSel.length)) {
       state.batchMode = false;
       batchClear();
     }
@@ -2289,17 +2434,21 @@
     const gv = $('#view-gallery');
     if (gv) gv.classList.toggle('batch-on', batch);
 
-    /* 测试口子工具条：只在测试模式出现。普通态说明禁用范围 + 一键清空；
-       批量态改为全选 / 全不选 / 反选 / 退出批量。 */
+    const batchObjs = kind === 'person' ? PEOPLE_ALL : cards;
+    const offN = kind === 'person' ? disabledPeopleCount() : disabledCount();
+    const unit = kind === 'person' ? ' 位' : ' 张';
+
+    /* 共用禁用工具条：按当前分类写对应名单 */
     const bar = $('#gallery-testbar');
     if (bar) {
-      bar.hidden = !testView;
-      if (testView) {
+      bar.hidden = !canDisable;
+      if (canDisable) {
         bar.innerHTML =
-          '<span><b>测试模式</b> · ' +
-            (batch ? '点卡片勾选，可一次禁用多张' : '点开卡片可设为「禁用」，只对第五幕生效') +
+          '<span><b>卡牌设置</b> · ' +
+            (batch ? '点' + (kind === 'person' ? '头像' : '卡片') + '勾选，可一次禁用多个'
+                   : '点开' + (kind === 'person' ? '人物' : '卡片') + '可设为「禁用」，所有关卡生效') +
           '</span>' +
-          '<span id="gallery-off-count">已禁用 ' + disabledCount() + ' 张</span>' +
+          '<span id="gallery-off-count">已禁用 ' + offN + unit + '</span>' +
           '<span class="gbar-actions">' +
             (batch
               ? '<button type="button" data-batch="all">全选</button>' +
@@ -2310,29 +2459,28 @@
             '<button type="button" id="gallery-off-clear">清空禁用</button>' +
           '</span>';
         $('#gallery-off-clear').onclick = () => {
-          setDisabledCards([]);
-          renderGallery();
-          renderActs();
-          toast('已清空禁用名单');
+          if (kind === 'person') setDisabledPeople([]); else setDisabledCards([]);
+          renderGallery(); renderActs();
+          toast('已清空' + (kind === 'person' ? '人物' : '事件卡') + '禁用名单');
         };
         $$('#gallery-testbar [data-batch]').forEach(b => b.onclick = () => {
           const k = b.dataset.batch;
           if (k === 'enter') state.batchMode = true;
           else if (k === 'exit') { state.batchMode = false; batchClear(); }
-          else batchSelect(cards, k);
+          else batchSelect(batchObjs, k);
           renderGallery();
         });
-      } else bar.innerHTML = '';   // 非测试模式：连 DOM 节点都不留
+      } else bar.innerHTML = '';   // 未解锁：连 DOM 节点都不留
     }
 
-    /* 底部批量操作条：仅批量模式可见，手机滚长列表时固定在视口底部。 */
+    /* 底部批量操作条：仅批量模式可见，手机滚长列表时固定在视口底部 */
     const bb = $('#gallery-batchbar');
     if (bb) {
       bb.hidden = !batch;
       if (batch) {
         bb.innerHTML =
           '<span id="batch-sel-count">' + batchCountText() + '</span>' +
-          '<span class="batch-hint">仅影响第五幕</span>' +
+          '<span class="batch-hint">所有关卡生效</span>' +
           '<span class="batch-actions">' +
             '<button type="button" id="batch-off">禁用选中</button>' +
             '<button type="button" id="batch-on">恢复选中</button>' +
@@ -2340,13 +2488,28 @@
           '</span>';
         $('#batch-off').onclick = () => batchApply(true);
         $('#batch-on').onclick = () => batchApply(false);
-        /* 手机滚到列表底部时顶部工具条不可见，底部条自带退出入口。 */
         $('#batch-exit').onclick = () => {
           state.batchMode = false; batchClear(); renderGallery();
         };
-      } else bb.innerHTML = '';   // 退出批量后清掉底部条节点
+      } else bb.innerHTML = '';
     }
 
+    /* 触屏点按开关：只在没有精确指针 / hover 的设备上出现。
+       电脑 hover 由 relations.js 承担「相关头像一起浮出 + 关系线显示」。 */
+    const tapbar = $('#rel-tapbar');
+    if (tapbar) {
+      tapbar.hidden = !(kind === 'person' && !hoverCapable());
+      $$('#rel-tapmode button').forEach(b => {
+        b.classList.toggle('on', b.dataset.tap === state.tapMode);
+        b.onclick = () => {
+          state.tapMode = b.dataset.tap;
+          $$('#rel-tapmode button').forEach(x => x.classList.toggle('on', x.dataset.tap === state.tapMode));
+          if (window.Relations) window.Relations.setTapMode(state.tapMode);
+        };
+      });
+    }
+
+    /* 事件卡网格 */
     $('#gallery-grid').innerHTML = cards.map(c => {
       const has = testView || !!S.collection[c.id];
       const off = isCardDisabled(c.id);
@@ -2359,7 +2522,7 @@
         '<div class="nm">' + (has ? esc(c.zh) : '未解锁') + '</div>' +
         '<div class="yr">' + (has ? esc(c.dy) : '?') + '</div>' +
         (has ? '' : '<div class="lockmark">🔒</div>') +
-        (off ? '<div class="offmark">已禁用 · 第五幕不出现</div>' : '') +
+        (off ? '<div class="offmark">已禁用 · 所有关卡不出现</div>' : '') +
         (batch ? '<div class="pickbox"></div>' : '') +
         '</div>';
     }).join('');
@@ -2369,7 +2532,6 @@
         const c = cards.find(x => x.id === el.dataset.id);
         if (!c) return;
         if (batch) {
-          /* 批量态：点卡片只切换勾选，不打开详情；局部更新避免整页重绘闪图。 */
           batchToggle(c.id);
           el.classList.toggle('picked', batchHas(c.id));
           const cnt = $('#batch-sel-count');
@@ -2380,12 +2542,26 @@
         else toast('在游戏中把它放对一次，即可解锁这张卡');
       };
     });
+
+    /* 人物卡页：关系图就是人物卡。每次进来都同步解锁 / 禁用 / 批量 /
+       点按模式，避免从对局 HUD 切回来时状态陈旧。 */
+    if (kind === 'person') renderRelations();
+
+    /* 从对局 HUD 进来时返回键原路回对局（独立关系图视图已并入卡册） */
+    const back = $('#view-gallery .back');
+    if (back) back.onclick = () => {
+      const to = state.relReturn;
+      state.relReturn = null;
+      if (to === 'game' && state.session) { go('game'); renderGame(); }
+      else go('home');
+    };
   }
 
   /* 大卡详情 */
   function openCard(c, fromReview) {
     /* 测试模式下未收集的卡也按「可见」展示（与卡册一致），但同样不写入 collection */
     const has = act5Test() || !!S.collection[c.id];
+    const canDisable = disableEnabled();
     const f = FACTIONS[c.faction];
     openModal(
       '<h3>' + esc(has ? c.dy : '？') + ' · ' + esc(c.zh) + '</h3>' +
@@ -2406,17 +2582,16 @@
       (has && c.src ? '<div class="quotebox en-only"><span class="en">' + esc(c.src.en) + '</span></div>' : '') +
       (!has ? '<div class="detail-sec"><div class="zh">在游戏中把它放对一次，即可解锁这张卡。</div></div>' : '') +
       '<div class="modal-actions">' +
-        /* 测试口子：卡册大卡详情里设禁用。按钮只在测试模式出现，
-           名单只在第五幕卡池生效（见 poolForAct）。 */
-        (act5Test()
+        /* 正式解锁第五幕后可用；禁用对所有关卡与复习局生效。 */
+        (canDisable
           ? '<button id="dc-disable" class="' + (isCardDisabled(c.id) ? 'warn' : '') + '">' +
-              (isCardDisabled(c.id) ? '取消禁用（恢复第五幕）' : '禁用此卡（仅第五幕）') + '</button>'
+              (isCardDisabled(c.id) ? '取消禁用（恢复所有关卡）' : '禁用此卡（所有关卡）') + '</button>'
           : '') +
         (has && c.audio ? '<button id="dc-audio">🔊 原声</button>' : '') +
         '<button class="primary" id="dc-ok">关闭</button>' +
       '</div>' +
-      (act5Test()
-        ? '<div class="dc-test-note">测试模式专用 · 禁用只影响第五幕（终章）卡池，1~4 幕与复习局的卡池照常。</div>'
+      (canDisable
+        ? '<div class="dc-test-note">禁用后，这张卡在所有关卡与复习局都不再出现；取消禁用即恢复。</div>'
         : '')
     );
     const a = $('#dc-audio');
@@ -2424,11 +2599,11 @@
     const d = $('#dc-disable');
     if (d) d.onclick = () => {
       const on = toggleCardDisabled(c.id);
-      d.textContent = on ? '取消禁用（恢复第五幕）' : '禁用此卡（仅第五幕）';
+      d.textContent = on ? '取消禁用（恢复所有关卡）' : '禁用此卡（所有关卡）';
       d.classList.toggle('warn', on);
       renderGallery();   // 刷新缩略图角标与工具条计数
-      renderActs();      // 刷新幕列表终章的「已禁用 N 张」
-      toast(on ? '已禁用 · 第五幕不再出现这张卡' : '已恢复 · 第五幕照常出现');
+      renderActs();
+      toast(on ? '已禁用 · 所有关卡不再出现这张卡' : '已恢复 · 所有关卡照常出现');
     };
     $('#dc-ok').onclick = closeModal;
   }
@@ -2702,18 +2877,12 @@
 
   $$('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
 
+  /* 独立人物册视图已并入卡册人物卡页：首页入口撤掉，对局 HUD 入口
+     与「人物关系图」调试接口都改跳卡册人物卡页；返回逻辑在 renderGallery()。 */
   const homeRel = $('#home-relations');
-  if (homeRel) homeRel.onclick = openRelations;
+  if (homeRel) homeRel.onclick = openPeopleGallery;
   const gameRel = $('#game-relations');
-  if (gameRel) gameRel.onclick = openRelations;
-  const relBack = $('#rel-back');
-  if (relBack) relBack.onclick = () => {
-    const back = state.relReturn || 'home';
-    state.relReturn = null;
-    go(back);
-    // 从对局页来回一趟：era 飞签已被 go() 清掉，这里重绘一次恢复人物线几何
-    if (back === 'game' && state.session) renderGame();
-  };
+  if (gameRel) gameRel.onclick = openPeopleGallery;
 
   const homeFinale = $('#home-finale');
   if (homeFinale) homeFinale.onclick = () => { if (act5Unlocked()) startAct(FINALE_ID); };
@@ -2783,6 +2952,40 @@
   });
   window.__TL = {
     state: state, S: S, go: go, ALL_CARDS: ALL_CARDS, Engine: Engine,
+    /* 卡册整体性调整：分类 / 解锁 / 禁用 / 设备分流的只读与设置入口。
+       供验收脚本在 CDP 里强制设备类型、注入收集态，不绕过正常渲染链路。 */
+    gallery: {
+      kind: () => state.galleryKind,
+      setKind: k => { state.galleryKind = k; renderGallery(); return state.galleryKind; },
+      kinds: () => $$('#gallery-kind button').map(el => el.dataset.kind),
+      unlocked: () => peopleGalleryUnlocked(),
+      disableEnabled: () => disableEnabled(),
+      hoverCapable: () => hoverCapable(),
+      setDevice: d => { state.deviceOverride = d; renderGallery(); return hoverCapable(); },
+      tapMode: () => state.tapMode,
+      setTapMode: m => { state.tapMode = m; renderGallery(); return state.tapMode; },
+      tapbarHidden: () => $('#rel-tapbar').hidden,
+      eventHidden: () => $('#gallery-event').hidden,
+      personHidden: () => $('#gallery-person').hidden,
+      seen: () => Object.keys(S.peopleSeen),
+      seenCount: () => personSeenCount(),
+      personVisible: id => personVisible(id),
+      clearSeen: () => { S.peopleSeen = {}; persist(); renderGallery(); },
+      disabledCards: () => disabledCards(),
+      disabledPeople: () => disabledPeople(),
+      setDisabledPeople: ids => { setDisabledPeople(ids); renderGallery(); renderActs(); },
+      clearDisabledPeople: () => { setDisabledPeople([]); renderGallery(); renderActs(); },
+      /* 供验收注入「第四幕解锁」：只写 progress，不伪造 collection */
+      unlockAct4: () => {
+        [1, 2, 3].forEach(i => {
+          const p = S.progress[i] || { plays: 0, cleared: false, best: null, bestCombo: 0 };
+          p.plays = Math.max(1, p.plays || 0);
+          S.progress[i] = p;
+        });
+        persist(); renderHome(); renderActs(); renderGallery();
+        return actUnlocked(4);
+      }
+    },
     /* 验收脚本专用：临时复现旧「全局难度」以回归底层三档预设。
        只存内存、不写存档、刷新即失效；玩家路径完全不经过这里，
        真实规则一律由 ACT_RULES / productRule() 决定。 */
@@ -2980,8 +3183,15 @@
       edges: () => window.Relations ? window.Relations.edges() : [],
       setMode: (m, arg) => window.Relations ? window.Relations.setMode(m, arg) : null,
       visible: () => window.Relations ? window.Relations.visible() : 0,
-      open: openRelations,
-      go: () => go('relations'),
+      open: openPeopleGallery,
+      go: () => openPeopleGallery(),
+      setTapMode: m => { state.tapMode = m; if (window.Relations) window.Relations.setTapMode(m); return state.tapMode; },
+      tapMode: () => state.tapMode,
+      hoverCapable: () => hoverCapable(),
+      setDevice: d => { state.deviceOverride = d; renderGallery(); return hoverCapable(); },
+      lockedNodes: () => $$('#rel-svg .rnode.locked').length,
+      pickedNodes: () => $$('#rel-svg .rnode.picked').length,
+      disabledNodes: () => $$('#rel-svg .rnode.off').length,
       visibleNodes: () => $$('#rel-svg .rnode:not(.dim)').length,
       visibleLines: () => $$('#rel-svg .redge.on').length
     }

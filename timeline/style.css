@@ -596,6 +596,24 @@ small{font-size:.78em;opacity:.85}
 .empty{text-align:center;color:var(--muted);font-size:13px;padding:26px 0}
 
 /* ---------- 卡册 ---------- */
+/* 顶层分类：事件卡 / 人物卡。比下面的分幕标签高一级，用下划线式选中态区分，
+   不用另一排圆角胶囊，免得两层 tab 看起来像同一种控件。 */
+.gallery-kind{
+  display:flex;gap:14px;padding:0 2px 10px;margin-bottom:10px;
+  border-bottom:1px solid var(--line);
+}
+.gallery-kind button{
+  flex:0 0 auto;background:none;border:0;border-bottom:2px solid transparent;
+  padding:5px 2px 8px;font-size:14px;color:var(--muted);letter-spacing:.3px;
+  transition:color .18s ease,border-color .18s ease;
+}
+.gallery-kind button.on{color:var(--gold);border-bottom-color:var(--gold);font-weight:600}
+/* 无鼠标设备：人物卡页的点按语义开关（看详情 / 看关系） */
+.rel-tapbar{display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:12px;color:var(--muted)}
+.rel-tapbar[hidden]{display:none}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg button{background:var(--panel);border:0;padding:5px 13px;font-size:12px;color:var(--muted)}
+.seg button.on{background:rgba(255,204,0,.14);color:var(--gold);font-weight:600}
 .gallery-tabs{display:flex;gap:6px;overflow-x:auto;padding:6px 0 10px}
 .gallery-tabs button{
   flex:0 0 auto;background:#182038;border:1px solid var(--line);border-radius:20px;
@@ -609,7 +627,7 @@ small{font-size:.78em;opacity:.85}
   transition:transform .2s ease,box-shadow .2s ease;
 }
 .gcard:hover{
-  transform:translateY(-3px) scale(1.035);
+  transform:translateY(-3px) scale(1.04);
   box-shadow:var(--card-shadow-hover);z-index:2;
 }
 .gcard .fstrip{height:3px;background:var(--local)}
@@ -643,8 +661,8 @@ small{font-size:.78em;opacity:.85}
 .gcard .lockmark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:32px;color:rgba(255,255,255,.85)}
 .gcard .seen{position:absolute;top:6px;right:6px;font-size:10px;background:rgba(0,0,0,.5);color:#fff;border-radius:6px;padding:1px 5px}
 
-/* ---------- 测试口子：卡册禁用 + 无限生命 HUD ----------
-   只在测试模式（act5Test）下由 app.js 渲染；非测试模式零节点、零视觉变化。 */
+/* ---------- 卡册禁用 + 无限生命 HUD ----------
+   工具条在正式解锁第五幕后（或测试口子）由 app.js 渲染；未解锁时零节点。 */
 #hud-mistakes.inf{color:var(--gold);letter-spacing:0;font-size:14px}
 .gallery-testbar{
   display:flex;align-items:center;gap:8px;flex-wrap:wrap;
@@ -1434,29 +1452,24 @@ small{font-size:.78em;opacity:.85}
 .hud-rel:hover{background:rgba(255,204,0,.12);border-color:var(--gold)}
 .hud-rel[hidden]{display:none}
 
-/* ---------- 关系图视图 ---------- */
-.rel-wrap{max-width:900px;margin:0 auto;padding:0 2px 40px}
-.rel-head{padding:4px 2px 10px}
-.rel-head h3{font-size:19px;color:var(--gold)}
-.rel-sub{margin:5px 0 0;font-size:12px;color:var(--muted);line-height:1.7}
-
-.rel-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:2px 0 10px}
-.rmode,.rtype{
+/* ---------- 人物卡页 · 环状关系图（游戏界面，无讲解文案） ----------
+   第九轮把「人物册 · 关系图」从信息课件收编成卡册的人物卡页：
+   图上下的标题 / 图例 / 构图说明 / 模式按钮全部去掉，只留一条关系下拉。
+   ★ 浮出一致性：这里复用全游戏手牌 / 时间线卡同一套手感 ——
+     translateY(-3px) scale(1.04) + 加深投影，不另起金边 / 光晕 / 投影暴涨。
+     SVG 用 <g class="rbody"> 的 transform attribute 承载（内层 g 的局部原点
+     就是头像中心），数值由 relations.js 的 LIFT 常量给出，与
+     .tl-card:hover / .hand-card:hover / .gcard:hover 完全一致。 */
+.rel-wrap{max-width:900px;margin:0 auto;padding:0 2px 28px}
+.rel-bar{display:flex;align-items:center;gap:9px;margin:0 2px 10px}
+.rel-sel-label{font-size:12px;color:var(--muted)}
+#rel-type-sel{
   background:var(--panel);border:1px solid var(--line);border-radius:999px;
-  padding:5px 12px;font-size:12.5px;color:var(--ink);
-  transition:background .18s ease,border-color .18s ease,color .18s ease;
+  padding:6px 12px;font-size:12.5px;color:var(--ink);min-width:126px;
+  transition:border-color .18s ease;
 }
-.rmode:hover,.rtype:hover{border-color:var(--gold-dim);background:var(--panel2)}
-.rmode.on,.rtype.on{background:rgba(255,204,0,.14);border-color:var(--gold);color:var(--gold)}
-.rel-tip{flex:1 1 220px;min-width:180px;font-size:11.5px;color:var(--muted)}
-/* 按姓名聚焦：手机上图缩得小、中文标签看不清，这条下拉是认人的主路径 */
-.rel-pick{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
-.rel-pick select{
-  background:var(--panel);border:1px solid var(--line);border-radius:999px;
-  padding:5px 10px;font-size:12.5px;color:var(--ink);max-width:190px;
-}
-.rel-pick select:hover{border-color:var(--gold-dim)}
-.rel-types{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}
+#rel-type-sel:hover,#rel-type-sel:focus{border-color:var(--gold-dim);outline:none}
+.rel-count{margin-left:auto;font-size:11.5px;color:var(--muted)}
 
 .rel-stage{
   width:100%;max-width:900px;margin:0 auto;overflow:hidden;
@@ -1464,17 +1477,17 @@ small{font-size:.78em;opacity:.85}
   background:radial-gradient(560px 560px at 50% 46%, #1d2742 0%, #141b30 72%);
 }
 #rel-svg{display:block;width:100%;height:auto}
-.rel-bg{fill:transparent}
+/* 背景矩形只负责承接径向渐变底，不能吞掉落在图形空白处的指针事件：
+   否则点节点边缘 / 标签外侧会被 rect 截住，头像既点不开也浮不起来。 */
+.rel-bg{fill:transparent;pointer-events:none}
 
 /* 关系线：默认全部收起，只由 .on 点亮（骨架 / 聚焦 / 类型 / 全显） */
-.redge{
-  fill:none;stroke:rgba(255,204,0,.62);stroke-width:1.8;opacity:0;
-  transition:opacity .22s ease;
-}
+.redge{fill:none;stroke:rgba(255,204,0,.62);stroke-width:1.8;opacity:0;transition:opacity .22s ease}
 .redge.on{opacity:.88}
-.rcenter-mark circle{fill:none;stroke:rgba(255,204,0,.20);stroke-width:1;stroke-dasharray:4 5}
-.rcenter-mark text{fill:rgba(255,204,0,.40);font-size:11px;letter-spacing:1px}
 
+/* 头像浮起：位移 / 缩放数值在 relations.js 的 LIFT，投影在这里 */
+.rbody{transition:transform .2s ease,filter .2s ease}
+.rnode.lift .rbody{filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
 .rnode{cursor:pointer;transition:opacity .22s ease}
 .rhalo{fill:none;stroke:rgba(255,204,0,0);stroke-width:2;transition:stroke .22s ease}
 .rnode.is-center .rhalo{stroke:rgba(255,204,0,.55)}
@@ -1482,6 +1495,19 @@ small{font-size:.78em;opacity:.85}
 .rctr-ring{fill:none;stroke:rgba(255,204,0,.34);stroke-width:1;stroke-dasharray:3 4}
 .rava{opacity:.93}
 .rava-empty{fill:#3a4463;stroke:rgba(255,204,0,.30);stroke-width:1}
+
+/* 卡背：游戏里没出现过的人物只显示背面，与事件卡锁态一致。
+   姓名标签保留但灰化 —— 卡册的主功能是点开看详情，玩家得知道点的是谁。 */
+.rava-back{fill:#2a3049;stroke:rgba(255,204,0,.28);stroke-width:1.5;display:none}
+.rback-mark{fill:rgba(255,204,0,.55);font-size:22px;font-weight:700;display:none}
+.rnode.locked .rava,.rnode.locked .rava-empty,.rnode.locked .rstar{display:none}
+.rnode.locked .rava-back,.rnode.locked .rback-mark{display:block}
+.rnode.locked .rlabel{fill:var(--muted)}
+.rlock,.roff,.rpickbox{display:none}
+.rnode.locked .rlock{display:block;fill:#141d3a;stroke:var(--gold-dim);stroke-width:1.5}
+.rnode.off .roff{display:block;fill:var(--bad)}
+.rnode.batch .rpickbox{display:block;fill:rgba(10,14,28,.6);stroke:#fff;stroke-width:2}
+.rnode.picked .rpickbox{display:block;fill:var(--gold);stroke:var(--gold)}
 .rstar{fill:var(--gold);stroke:#141d3a;stroke-width:1.5}
 .rlabel{
   fill:var(--ink);font-size:11px;paint-order:stroke;
@@ -1489,60 +1515,25 @@ small{font-size:.78em;opacity:.85}
 }
 .rnode.is-key .rlabel{font-size:12px}
 .rnode.is-center .rlabel{fill:var(--gold);font-size:14px;font-weight:700}
-.rhit{fill:transparent}
+.rhit{fill:transparent;pointer-events:all}
 .rnode.is-iso .rava{opacity:.36}
 .rnode.is-iso .rlabel{fill:var(--muted)}
 .rnode.dim{opacity:.15}
 .rnode.lit .rhalo{stroke:rgba(255,204,0,.85)}
 .rnode:hover .rhalo{stroke:var(--gold)}
 
-.rel-legend{
-  display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;
-  margin:12px 2px 0;font-size:11.5px;color:var(--muted);
-}
-.rel-legend i{
-  display:inline-block;width:9px;height:9px;border-radius:50%;
-  margin-right:5px;vertical-align:-1px;
-}
-.lg-key{background:var(--gold)}
-.lg-normal{background:#6c7aa6}
-.lg-iso{background:#3a4463;border:1px solid #6c7aa6}
-.lg-line{width:16px!important;height:2px!important;border-radius:0!important;background:rgba(255,204,0,.7)}
-.lg-ctr{margin-left:auto;color:var(--gold-dim)}
-
-.rel-note,.rel-rules{
-  margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;
-  background:rgba(33,42,68,.55);font-size:12.5px;line-height:1.85;color:#c9d0e6;
-}
-.rel-note h4,.rel-rules h4{margin:0 0 6px;font-size:13.5px;color:var(--gold)}
-.rel-note p,.rel-rules p{margin:0 0 6px}
-.rel-note p:last-child,.rel-rules p:last-child{margin-bottom:0}
-.rel-rules-foot{color:var(--muted);font-size:11.5px}
-
 @media (max-width:760px) and (orientation:portrait){
-  .rel-wrap{padding:0 0 30px}
-  .rel-head h3{font-size:17px}
-  .rel-sub{font-size:11.5px}
-  .rel-toolbar{gap:6px}
-  .rmode,.rtype{padding:4px 9px;font-size:11.5px}
-  .rel-tip{flex:1 1 100%;min-width:0;font-size:11px}
-  /* 整图自适应到屏宽，绝不裁掉外圈。SVG 内标签在 375px 下只是图形纹理，
-     认人靠「按姓名聚焦」下拉；字号略放大但保持不叠字。 */
+  .rel-wrap{padding:0 0 22px}
+  #rel-type-sel{font-size:13px;padding:7px 12px}
   .rel-stage{overflow:hidden;border-radius:10px}
   .rlabel{font-size:13px;stroke-width:3.5px}
   .rnode.is-key .rlabel{font-size:14px}
   .rnode.is-center .rlabel{font-size:17px}
-  .rel-pick{flex:1 1 100%}
-  .rel-pick select{flex:1;max-width:none;font-size:13px;padding:6px 10px}
-  .lg-ctr{margin-left:0;width:100%}
-  .rel-note,.rel-rules{font-size:12px;padding:10px 12px}
-  /* 人物多（终章 39 人）时竖屏横排会超出容器，从左排起才不裁掉左端；
-       第四幕 5 人维持居中，画面零变化。 */
+  /* 人物多（终章 39 人）时竖屏横排会超出容器，从左排起才不裁掉左端 */
   .people-line.many .pl-track{justify-content:flex-start}
 }
 
-/* 减少动态效果：只去掉过渡，不改变 .on / .lit / .dim 的静态浮现状态 */
+/* 减少动态效果：只取消持续动画，不取消 hover 的静态浮现状态 */
 @media (prefers-reduced-motion:reduce){
-  .redge,.rnode,.rhalo,.rmode,.rtype,.hud-rel{transition:none}
+  .redge,.rnode,.rhalo,.rbody,.hud-rel,.seg button,.gallery-kind button{transition:none}
 }
-
