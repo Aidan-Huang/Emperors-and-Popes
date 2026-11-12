@@ -43,8 +43,9 @@
        亨利四世正是 1066 威廉征服同代、也是「双雄相争的遗产」的由来。
      5 张既满足 4~5 张以上的游戏性，又不把无关朝代的关键人物硬拉进来。
      终章全人物池仍是 39 位（卡册 / 关系图 / 禁用名单用），但每局只随机抽 5 位上场。
-     ★ 第四幕与终章共用同一条联动链路（唯一实现，不再分叉）：人物按 born
-       锚进事件时间线的插入缝隙，上排撑开虚拟半卡位，下排头像按上排几何
+     ★ 第四幕与终章共用同一条联动链路（唯一实现，不再分叉）：人物按
+       personSortKey()（生年，不详则卒年）锚进事件时间线的插入缝隙，
+       上排撑开虚拟半卡位，下排头像按上排几何
        逐像素对齐，两排共用宽度与滚动位置。曾短暂把终章改成「独立紧凑轨道」
        解耦过，那会毁掉「同一条历史时间轴」的玩法核心，已撤销。 */
   const PEOPLE_ALL = (typeof PEOPLE !== 'undefined' && Array.isArray(PEOPLE)) ? PEOPLE : [];
@@ -70,7 +71,7 @@
     p.born <= ACT4_SPAN.max && p.died >= ACT4_SPAN.min
   ).slice().sort(peopleOrder);
 
-  /* 终章全人物池：39 位，按生年排序。这是「全池」，供卡册人物卡页、
+  /* 终章全人物池：39 位，按年代排序（生年，生年不详按卒年）。这是「全池」，供卡册人物卡页、
      关系图与禁用名单使用；第十一轮起每局由 startAct() 从中随机抽 5 位，
      与随机抽出的 10 张事件卡同局。联动几何、放置判定一行都没变。
      宽度仍是渐进的：开局事件线只有 1 张锚点卡、人物线只有 1 个锚点人，
@@ -617,19 +618,30 @@
   /* ============================================================
      第四幕人物线（独立子系统，不动 engine.js / CARDS / 事件卡序列）
      ------------------------------------------------------------
-     模型：1 个人物 = 1 个「虚拟半卡位」。以 born 找到它在事件卡序列里的
-     插入缝隙，不实际插进 g.timeline，只把对应的 .slot 加宽半张卡，
-     再用一条金色虚线把下排圆头像挂到上排。人物按 born 排序（同年按 died）。
+     模型：1 个人物 = 1 个「虚拟半卡位」。以 personSortKey() 找到它在事件卡
+     序列里的插入缝隙，不实际插进 g.timeline，只把对应的 .slot 加宽半张卡，
+     再用一条金色虚线把下排圆头像挂到上排。排序键 = 生年；生年不详用卒年；
+     同键再按 died、id 稳定排序（peopleOrder）。
      放置位与事件卡完全同逻辑：n+1 个，选中人物手牌后点亮成金色圆点。
      两个人物之间夹着事件卡时，上排虚拟卡位随事件序列自然拉开、下排头像
      跟着重新排布 —— 每次 renderGame() 都按当前时间线重算一次坐标。
      ============================================================ */
 
+  /* 人物在时间线上的定位年：生年优先；生年不详（圣彼得 born:null）用卒年。
+     第十二轮修：旧实现把 null 当 Infinity，公元 1 世纪殉道的圣彼得被排到
+     希特勒（1889）之后、挂到时间线最右端，玩家按历史常识放早期反而判错。
+     用卒年 66 定位，他落在奥古斯都（-63）与君士坦丁（272）之间 —— 既符合
+     史实，也不必编造一个生年。排序、放置判定、联动几何共用这一个键。 */
+  function personSortKey(p) {
+    if (typeof p.born === 'number') return p.born;
+    if (typeof p.died === 'number') return p.died;
+    return Infinity;
+  }
+
   function peopleOrder(a, b) {
-    const ab = (typeof a.born === 'number') ? a.born : Infinity;
-    const bb = (typeof b.born === 'number') ? b.born : Infinity;
+    const ab = personSortKey(a), bb = personSortKey(b);
     if (ab !== bb) return ab - bb;
-    // 同年出生按卒年（用户拍板）
+    // 同一定位年按卒年（用户拍板）
     const ad = (typeof a.died === 'number') ? a.died : Infinity;
     const bd = (typeof b.died === 'number') ? b.died : Infinity;
     if (ad !== bd) return ad - bd;
@@ -679,12 +691,13 @@
   function personTimelineSlot(person) {
     const g = state.session;
     if (!g) return 0;
-    /* 生年不详（圣彼得 born:null）在 peopleOrder 里按 Infinity 排到最末，
-       这里也必须归到最右的缝隙，否则下排头像按 x 排序后与「人物线插入位
-       索引 / checkPeoplePlacement 判定」错位，玩家点最左圆点会判成放错。 */
-    if (typeof person.born !== 'number') return g.timeline.length;
+    /* 第十二轮：与 peopleOrder / checkPeoplePlacement 共用 personSortKey()。
+       生年不详的人按卒年找缝隙，圣彼得（卒 66）落在 -27 与 312 之间；
+       旧实现直接 return 最右缝隙，把头像 x 与插入位索引一起推到末尾，
+       与玩家的历史常识完全相反。key 为 Infinity 时循环自然落到最右，安全。 */
+    const key = personSortKey(person);
     for (let i = 0; i < g.timeline.length; i++) {
-      if (person.born < g.timeline[i].y) return i;
+      if (key < g.timeline[i].y) return i;
     }
     return g.timeline.length;
   }
@@ -1000,7 +1013,12 @@
       g.wrong++; g.combo = 0; g.mistakesLeft--;
       p.deck.push(card);         // 回到人物牌堆尾，本局还会再见到他
       state.lastRes = { ok: false };   // scheduleFinish 据此等弹回动画播完
-      setHint('<b>✕ 放错了</b> · <span class="qf-note">已弹回手牌 · 换个圆点再试</span>', 'bad');
+      /* 生年不详的人物最容易让玩家反复猜位置：放错时直接把定位线索给他，
+         而不是重复一句「换个圆点再试」（项目要求反馈里解释术语 / 规则）。 */
+      const tip = (typeof card.born !== 'number' && typeof card.died === 'number')
+        ? '生年不详，按他去世的 ' + esc(String(card.died)) + ' 年找位置'
+        : '已弹回手牌 · 换个圆点再试';
+      setHint('<b>✕ 放错了</b> · <span class="qf-note">' + tip + '</span>', 'bad');
       const hint = $('#timeline-hint');
       hint.classList.remove('bad-pulse'); void hint.offsetWidth; hint.classList.add('bad-pulse');
       const ps = $$('#people-line .people-slot')[idx];
@@ -1232,7 +1250,7 @@
 
   /* 终章抽样：把「已按年代排好序」的全池均分成 n 段，每段随机取 1 个。
      仍是随机选取，但比纯随机更适合本作 —— 一局的年份覆盖整条千年长卷，
-     5 位人物的生年也分散开，按 born 挂得到事件时间线的不同缝隙，
+     5 位人物的定位年也分散开，按 personSortKey() 挂得到事件时间线的不同缝隙，
      双线联动（项目玩法核心）不会因为牌全挤在同一端而形同虚设。
      池不足 n 个时全取；返回顺序沿用原池顺序，保持 pool 的有序语义。 */
   function stratifiedPick(sortedArr, n) {
@@ -3149,7 +3167,8 @@
       '5. 放错：扣 1 格失误预算，游戏会告诉你它应该在哪，并把这张卡送回牌堆——本局还会再见到它。<br>' +
       '6. 失误预算用尽，本幕提前结算；答错的卡进入错题本，可在复习模式里重排。<br>' +
       '7. 任一卡放对一次，就永久解锁进卡册，可看大图、讲解、书中原文与原声。<br>' +
-      '8. <b>第四幕「立传」起，人物线登场</b>：时间线下方多一排圆头像，按<b>出生年份</b>排序。' +
+      '8. <b>第四幕「立传」起，人物线登场</b>：时间线下方多一排圆头像，按<b>出生年份</b>排序；' +
+      '生年不详的人物（如圣彼得）按他<b>去世的年份</b>定位。' +
       '手牌区在事件卡之外另有 2 张人物卡，选中后点人物线上亮起的<b>金色圆点</b>放置；' +
       '放错与事件卡一样会弹回并扣 1 格失误预算。每个人物在上排占一个「虚拟半卡位」，' +
       '金色虚线把它挂到对应的年代位置，点头像可看他的生平。<br>' +

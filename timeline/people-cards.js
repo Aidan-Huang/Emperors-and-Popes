@@ -9,7 +9,7 @@
      人物线）共同引用；只读数据源，不写任何 DOM / 布局 / 引擎逻辑。
    字段：
      kind      'person' 标记，与时间卡的 undefined 区分
-     born/died 生卒年（公元前为负 / 生年不详为 null）
+     born/died 生卒年（公元前为负 / 生年不详为 null，时间线排序时按 died 定位）
      bornTxt/diedTxt/bprec/dprec  显示文本与精度（day|year|approx|range|unknown）
      life     寿命（周岁或约年）
      faction  church|state|local|both —— 完全沿用现有 4 色（文士并入 local）

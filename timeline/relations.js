@@ -100,7 +100,13 @@
   centers.forEach(function (id) { centerSet[id] = 1; });
 
   /* ---------------- 几何：按生年排扇区，线条落在窄扇区不横穿 ---------------- */
-  function bornKey(p) { return (typeof p.born === 'number') ? p.born : Infinity; }
+  /* 第十二轮：与对局 peopleOrder 共用口径 —— 生年不详按卒年定位，
+     否则圣彼得会落到 19 世纪那一侧的关系图扇区，看起来像拿破仑同代人。 */
+  function bornKey(p) {
+    if (typeof p.born === 'number') return p.born;
+    if (typeof p.died === 'number') return p.died;
+    return Infinity;
+  }
 
   var ring = ALL.filter(function (p) { return !centerSet[p.id]; }).slice()
     .sort(function (a, b) {
