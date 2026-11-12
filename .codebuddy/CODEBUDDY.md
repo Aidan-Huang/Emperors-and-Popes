@@ -39,18 +39,19 @@ README.md                                  玩法与素材说明
 
 ## Timeline 整体性约定（第九轮，勿回退）
 
-- **卡册只有一个**：顶层分类 `event | person`。人物卡页直接就是精简后的环状关系图，首页独立「人物册」入口与 `view-relations` 独立视图已删除；对局 HUD 入口改跳卡册人物卡页并原路返回。
+- **卡册只有一个**：顶层分类 `event | person`。人物卡页直接就是精简后的环状关系图，首页独立「人物册」入口与 `view-relations` 独立视图已删除；**第十一轮起对局 HUD 的「人物关系图」按钮也删除**，卡册人物卡页是查看人物关系的唯一入口。
 - **人物卡是收集品，不是课件**：第四幕解锁后人物卡 tab 才出现；人物在人物线里放对一次（或作为开局锚点）才永久翻正面，没出现过的一律显示卡背；点击已解锁头像 = 看详情，和事件卡一致。关系图上下方不保留标题 / 图例 / 构图说明，只留一条关系类型下拉。
 - **设备能力按能力判断，不按宽度猜**：`matchMedia('(hover:hover) and (pointer:fine)')`。有鼠标：滑过头像 → 他本人与相关头像一起浮出、关系线点亮，点击 → 详情；手机 / Pad：界面上的开关决定点按是「看详情」还是「看关系」。关系图的鼠标事件要在运行时按当前设备能力过滤，不能只在挂载时绑一次。
 - **事件卡 id 与人物 id 有重叠**（`augustus` / `clovis` / `pepin` …）：收集存档 `tl_ch6_people_seen` 与禁用名单 `tl_ch6_disabled_people` 必须和事件卡的 `S.collection` / `tl_ch6_disabled_cards` 物理隔离，否则禁用事件卡会误禁同名人物。
 - **禁用**：正式解锁第五幕后（或测试口子）开放，对所有关卡 / 复习局 / 人物线生效，名单各自持久化；事件卡池保底 2 张、人物池保底 3 人，否则 `GameSession` 无法开局。
+- **终章每局分层随机抽样（第十一轮）**：一局排 41 事件卡 + 39 位人物太长，改为每次 `startAct(FINALE_ID)` 从全池**按年代分层随机抽 10 张事件卡 + 5 位人物**，重开一局就重抽。抽样发生在「禁用过滤之后」，禁用名单照旧生效；`poolForAct()` / `peoplePoolFor()` / `Engine.actCards()` 仍是 **41 / 39 的全池语义**（卡册收集、统计、调试接口都依赖它），**不要在全池函数里抽样**。分层而非纯随机，是为了让人物生年分散、挂得到事件时间线的不同缝隙，保住下面的双线联动。
 - **双线联动是玩法核心**：第四幕与终章的事件卡时间线、人物卡时间线共用同一条横向时间轴与滚动空间（`personTimelineSlot()` → `applyPeopleAnchors()` → `renderPeopleLine()`）。**不要**再给终章做独立紧凑轨道或单独横滚，那会破坏联动；竖屏按 `p.line` 顺序生成单调排序键，避免 `slot.offsetLeft` 撞车。
 
 ## 验收约定（交付前必须跑）
 
 - 手机验收用 CDP 真实视口（`Emulation.setDeviceMetricsOverride` + `mobile:true`，375px）。headless `--window-size=375,812` 会产生 512px 假视口，不可信。
 - 动效验收同时覆盖 `prefers-reduced-motion: reduce` 与 `no-preference`，**reduce 优先**（用户常处于 RDP 会话）。reduce 只取消持续动画，不取消 hover 的静态浮现状态。
-- **交付前统一跑验收脚本**：四份脚本完整版存资产库 `过程文档/tools/`，下载到仓库 `tools/`（过程工具，不进 Git，避免两份漂移）；仓库根起 `python3 -m http.server 8765`，依次跑 `verify.py`（7 套 / 496 条）、`verify_testmode.py`（3 套 / 447 条）、`verify_r7.py`（3 套 / 339 条）、`verify_r9.py`（4 套 / 310 条），**17 套全绿**才算过。期望值直接读 `version.js`，每次 bump 后不用改脚本；`VERIFY_SHOTS=<目录>` 指定截图输出。
+- **交付前统一跑验收脚本**：六份脚本完整版存资产库 `过程文档/tools/`，下载到仓库 `tools/`（过程工具，不进 Git，避免两份漂移）；仓库根起 `python3 -m http.server 8765`，依次跑 `verify.py`（7 套 / 496 条）、`verify_testmode.py`（3 套 / 456 条）、`verify_r7.py`（3 套 / 345 条）、`verify_r9.py`（4 套 / 314 条）、`verify_r10.py`（4 套 / 414 条）、`verify_r11.py`（4 套 / 434 条），**25 套 / 2459 条全绿**才算过。期望值直接读 `version.js`，每次 bump 后不用改脚本；`VERIFY_SHOTS=<目录>` 指定截图输出。
 - 上面那个脚本覆盖了主游戏三套断言 `test_numeric` / `test_progress` / `smoke2`，以及 Timeline 第一幕桌面与手机各一整局 9/9、CDP 375 真实视口、reduce / no-preference 双环境、版本号小字与详情浮窗。
 - 历史数字 `198 / 101 / 84` 出自旧对话里**未入库**的 `test_numeric.js` 等脚本（data.js 注释还留着「时间轴守卫」的说明）；现按等价口径重建为 `270 / 53 / 32` 条断言并入库，7 套合计 496 条，别再去找不存在的旧脚本。
 - 版本号是横切功能：`version.js` 存数据、`version-ui.js` 存 UI，**不要**再往 `app.js` / `timeline/app.js` / 两个 `style.css` 里塞版本代码。
@@ -68,7 +69,7 @@ README.md                                  玩法与素材说明
 ## 当前进度与遗留（以资产库索引为准）
 
 - **每轮进度、线上 commit、版本号、验收数字一律看资产库 `过程文档/00-工作索引.md` 的「当前状态 / 下一步」**；本文件只保留长期约定，不重复记进度，避免两处漂移。
-- 主游戏已上线并多轮打磨；Timeline 四幕 + 终章（41 张事件卡 + 39 位人物）已上线，事件线与人物线双线联动已恢复，卡册已整合事件卡 / 人物卡两类。
+- 主游戏已上线并多轮打磨；Timeline 四幕 + 终章已上线，事件线与人物线双线联动已恢复，卡册已整合事件卡 / 人物卡两类。终章全池仍是 41 张事件卡 / 39 位人物，但**每局只随机抽 10 + 5 上场**。
 - 后续改动按需推送 `main` 触发 GitHub Pages。
 
 ## 版本号（每次提交必做）
@@ -81,7 +82,13 @@ README.md                                  玩法与素材说明
 
 ## Git 推送
 
-代理端口每次会话会变：`env | grep -i proxy` 取当前值，然后
-`git -c http.proxy="$P" -c https.proxy="$P" push origin main`，不要改全局配置。
+代理端口每次会话会变：`env | grep -i proxy` 取当前值。但已多次验证 `github.com:443` 不通、
+**`git push` / `git fetch` 不可用**，不要每次从零试错，也不要改全局配置。
 
-**推送失败时先看项目资产库 `过程文档/GitHub推送排障与成功经验.md`**（含已验证的 API 兜底通道与完整实战记录）；每次推送成功或踩到新坑，都要回去追加一条经验，避免重复试错。
+**优先通道**：本地 OAuth token（`http://github.agent-gateway.auth-proxy.local/_internal/accesstoken`
+的 `data.access_token`）+ GitHub Git Data API 单 commit 直推：`GET /git/ref/heads/main` 取远端真实 SHA
+→ `GET /git/commits/<sha>` 取 `tree.sha` → 每个文件 `POST /git/blobs` → `POST /git/trees` 带 `base_tree`
+→ `POST /git/commits` → `PATCH /git/refs/heads/main`（`force:false`）。API 直推不更新本地 ref，
+本地 HEAD 落后远端属正常现象，以「raw / Pages 逐字节一致」判定是否上线成功。
+
+**推送失败时先看项目资产库 `过程文档/GitHub推送排障与成功经验.md`**（含完整实战记录）；每次推送成功或踩到新坑，都要回去追加一条经验，避免重复试错。

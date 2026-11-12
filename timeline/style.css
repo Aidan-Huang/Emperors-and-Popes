@@ -1421,14 +1421,7 @@ small{font-size:.78em;opacity:.85}
 .mode.people .mode-txt b{color:var(--gold)}
 .mode.people:hover,.mode.people:active{border-color:var(--gold);background:var(--panel2)}
 
-/* 对局页 HUD 里的关系图入口：与 .hud-item 同尺寸，只加淡金描边 */
-.hud-rel{
-  background:var(--panel);border:1px solid rgba(255,204,0,.42);border-radius:9px;
-  padding:5px 9px;font-size:12px;white-space:nowrap;color:var(--gold);
-  transition:background .18s ease,border-color .18s ease;
-}
-.hud-rel:hover{background:rgba(255,204,0,.12);border-color:var(--gold)}
-.hud-rel[hidden]{display:none}
+/* 第十一轮：对局 HUD 的「人物关系图」按钮已删除，卡册人物卡页是唯一入口。 */
 
 /* ---------- 人物卡页 · 环状关系图（游戏界面，无讲解文案） ----------
    第九轮把「人物册 · 关系图」从信息课件收编成卡册的人物卡页：
@@ -1513,7 +1506,7 @@ small{font-size:.78em;opacity:.85}
 
 /* 减少动态效果：只取消持续动画，不取消 hover 的静态浮现状态 */
 @media (prefers-reduced-motion:reduce){
-  .redge,.rnode,.rhalo,.rbody,.hud-rel,.seg button,.gallery-kind button{transition:none}
+  .redge,.rnode,.rhalo,.rbody,.seg button,.gallery-kind button{transition:none}
 }
 
 

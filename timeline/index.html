@@ -38,7 +38,7 @@
       <!-- 终章（第五幕）：通关全部四幕后才显示，由 renderHome() 控制 -->
       <button class="mode finale" id="home-finale" hidden>
         <span class="mode-icon">🏛</span>
-        <span class="mode-txt"><b>终章 · 全部卡牌</b><small id="home-finale-hint">四幕已通关 · 全部 41 张卡，一条完整时间线</small></span>
+        <span class="mode-txt"><b>终章 · 千年长卷</b><small id="home-finale-hint">四幕已通关 · 每局随机 10 张事件 + 5 位人物，常玩常新</small></span>
         <span class="mode-arrow">›</span>
       </button>
       <button class="mode" data-go="review">
@@ -111,8 +111,6 @@
         <small id="game-act-span"></small>
       </div>
       <div class="hud">
-        <!-- 只在带人物线的关卡（第四幕 / 终章）出现，由 renderGame() 控制显隐 -->
-        <button type="button" class="hud-rel" id="game-relations" hidden>人物关系图 ›</button>
         <div class="hud-item" title="失误预算"><span id="hud-mistakes"></span></div>
         <div class="hud-item" id="hud-combo-box" title="连击"><span id="hud-combo">🔥 0</span></div>
         <div class="hud-item" title="进度"><span id="hud-progress">0/0</span></div>
@@ -160,7 +158,7 @@
       <button class="tl-nav tl-nav-l" id="tl-nav-l" type="button" aria-label="看更早的卡片" hidden>‹</button>
       <button class="tl-nav tl-nav-r" id="tl-nav-r" type="button" aria-label="看更晚的卡片" hidden>›</button>
       <div class="timeline" id="timeline"></div>
-      <!-- 人物线：与事件时间线平行的一排圆头像。第四幕（5 位）与终章（39 位）
+      <!-- 人物线：与事件时间线平行的一排圆头像。第四幕（5 位）与终章（每局随机 5 位）
            共用同一套联动：每个人物以出生年为锚点，在上排事件序列里占一个
            「虚拟半卡位」（不实际插入事件卡序列），由金色虚线挂到事件线上；
            两排共用横向宽度与滚动位置，放下事件卡后人物线会自然重排。
@@ -282,13 +280,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="../version.js?v=8"></script>
+<script src="../version.js?v=9"></script>
 <script src="cards.js"></script>
 <script src="people-cards.js"></script>
 <script src="relations.js"></script>
 <script src="engine.js"></script>
 <script src="eras.js"></script>
 <script src="app.js"></script>
-<script src="../version-ui.js?v=8"></script>
+<script src="../version-ui.js?v=9"></script>
 </body>
 </html>

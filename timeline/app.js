@@ -9,11 +9,21 @@
   const $$ = s => Array.prototype.slice.call(document.querySelectorAll(s));
   const ALL_CARDS = CARDS.slice();
   const TOTAL = ALL_CARDS.length;
-  /* 终章（第五幕）：ACTS 里唯一带 all:true 的一幕，卡池为全部卡牌。
+  /* 终章（第五幕）：ACTS 里唯一带 all:true 的一幕，全池为 41 张事件卡。
+     ★ 第十一轮：一局要排 41 张事件卡 + 39 位人物实在太长，改为每次进终章
+       随机抽 FINALE_EVENT_PICK 张事件卡 + FINALE_PEOPLE_PICK 位人物，
+       重开一局就重抽，常玩常新。
+       all:true / Engine.actCards() / poolForAct() 仍是「全池」语义
+       （卡册收集统计、禁用名单、调试接口都依赖它），抽样只发生在
+       startAct() 建本局时，不污染任何全池数据。
      MAIN_ACTS 是参与「四幕进度 / 卡册分幕 / 编辑器归属」的主线四幕。 */
   const FINALE = ACTS.find(a => a.all) || null;
   const FINALE_ID = FINALE ? FINALE.id : 0;
   const MAIN_ACTS = ACTS.filter(a => !a.all);
+  /* 终章每局随机抽样数量。抽样在「禁用名单过滤之后」做，被禁用的卡不会混进来；
+     卡数不足时取全部（事件保底 2 张、人物保底 3 位由各自的全池函数保证）。 */
+  const FINALE_EVENT_PICK = 10;
+  const FINALE_PEOPLE_PICK = 5;
   const ACT5_TEST_KEY = 'tl_ch6_act5_test';   // 测试口子开关：五幕全部直接可玩；独立于游戏进度，开关本身不写 S.progress
   /* 卡册禁用名单：正式解锁第五幕（或测试口子）后对所有关卡 / 复习局 / 人物线生效。
      独立存 localStorage，不写 S.progress / S.collection / S.peopleSeen。
@@ -25,14 +35,14 @@
      id 序列与本局计数，供设置里的开关开启后一键保存、随时加载复现。 */
   const SCENE_KEY = 'tl_ch6_scene';
 
-  /* ---------------- 人物线：数据池（第四幕 5 人 / 终章 39 人） ----------------
+  /* ---------------- 人物线：数据池（第四幕 5 人 / 终章全池 39 人，每局抽 5 位） ----------------
      第四幕池 = 10 位关键人物 ∩ 与第四幕事件年代有交集：
        严格按「strongCards 命中第四幕事件」只有 3 位（拿破仑 / 马丁·路德 /
        庇护七世），刚好是「1 个锚点 + 2 张人物手牌」的下限，一局放完就没了；
        按生卒区间与第四幕（1066–1870）相交可得 5 位，多出的格里高利七世、
        亨利四世正是 1066 威廉征服同代、也是「双雄相争的遗产」的由来。
      5 张既满足 4~5 张以上的游戏性，又不把无关朝代的关键人物硬拉进来。
-     终章「全部人物」：池扩到全部 39 位，与 41 张事件卡同局共 80 个逐一尝试。
+     终章全人物池仍是 39 位（卡册 / 关系图 / 禁用名单用），但每局只随机抽 5 位上场。
      ★ 第四幕与终章共用同一条联动链路（唯一实现，不再分叉）：人物按 born
        锚进事件时间线的插入缝隙，上排撑开虚拟半卡位，下排头像按上排几何
        逐像素对齐，两排共用宽度与滚动位置。曾短暂把终章改成「独立紧凑轨道」
@@ -60,12 +70,12 @@
     p.born <= ACT4_SPAN.max && p.died >= ACT4_SPAN.min
   ).slice().sort(peopleOrder);
 
-  /* 终章「全部人物」：39 位全员上场，与 41 张事件卡同局 = 80 个逐一尝试。
-     不把人物塞进事件卡池（Engine 的排序 / totalCards 口径一行都不动），
-     只复用第四幕那条平行人物线，把池从 5 位扩到 39 位。
-     宽度是渐进的：开局事件线只有 1 张锚点卡、人物线只有 1 个锚点人，
-     --pgap 只有 1×HALF_CARD；随两条线交替推进才慢慢摊开。41 张事件卡
-     本身就是 5740px 的长卷，「可左右翻看」是既有设计，无需另造轨道。 */
+  /* 终章全人物池：39 位，按生年排序。这是「全池」，供卡册人物卡页、
+     关系图与禁用名单使用；第十一轮起每局由 startAct() 从中随机抽 5 位，
+     与随机抽出的 10 张事件卡同局。联动几何、放置判定一行都没变。
+     宽度仍是渐进的：开局事件线只有 1 张锚点卡、人物线只有 1 个锚点人，
+     --pgap 只有 1×HALF_CARD；随两条线交替推进才慢慢摊开。
+     两排始终共用同一横向时间轴，无需另造轨道。 */
   const PEOPLE_POOL_FINALE = PEOPLE_ALL.slice().sort(peopleOrder);
   /* 生年不详（圣彼得 born:null）统一显示「不详–66」，界面上不出现 null。 */
   function personYears(p) {
@@ -93,7 +103,7 @@
      失误预算 5 / 4 / 3 / 3 / 8；大小时间段是账号级全局开关：第一次打到第三幕
      才解锁，解锁后也只有 rule.era 为真的关卡（第三幕起、终章、复习局）显示，
      手机竖屏一律按空间隐藏。第四幕人物线已接入（5 位与第四幕年代相交的
-     关键人物）；终章已接入全部 39 位人物（与第四幕共用联动时间线）。 */
+     关键人物）；终章与第四幕共用联动时间线，人物从 39 位全池里每局随机抽 5 位。 */
   const ACT_RULES = {
     1: { diff: 'easy',   mistakes: 5, name: '抄录', era: false },
     2: { diff: 'normal', mistakes: 4, name: '考据', era: false },
@@ -173,7 +183,7 @@
     session: null,
     selectedId: null,
     selectedKind: 'event', // event | person：第四幕两类手牌共用选中态，靠它区分点亮哪排插入位
-    people: null,          // 人物线状态 { pool, line, hand, deck }；第四幕 5 人 / 终章 39 人，其余关卡恒为 null
+    people: null,          // 人物线状态 { pool, line, hand, deck }；第四幕 5 人 / 终章每局 5 人，其余关卡恒为 null
     relReturn: null,       // 从哪个视图打开「全部人物 · 关系图」，关闭时原路返回
     rule: null,            // 本局生效的关卡规则（失误 / 名称 / 大小时间段开关）
     testDifficulty: null,  // 仅验收脚本用的覆盖值，只存内存、不写存档、刷新即失效
@@ -452,7 +462,7 @@
     }
     openPerson(p, true);
   }
-  /* 从对局 HUD 进入卡册人物卡页；返回时原路回对局。 */
+  /* 进入卡册人物卡页；返回时原路回上一个视图（卡册标签 / 调试接口调用）。 */
   function openPeopleGallery() {
     state.relReturn = state.view;
     state.galleryKind = 'person';
@@ -532,7 +542,8 @@
     if (fb) {
       fb.hidden = !fourCleared();
       const hint = $('#home-finale-hint');
-      if (hint) hint.textContent = '四幕已通关 · 41 张事件卡 + 39 位人物，一条完整时间线';
+      if (hint) hint.textContent = '四幕已通关 · 每局随机 ' + FINALE_EVENT_PICK +
+        ' 张事件卡 + ' + FINALE_PEOPLE_PICK + ' 位人物，常玩常新';
     }
 
   }
@@ -579,8 +590,9 @@
         badge +
         '<div class="no">' + (finale ? 'FINALE' : 'ACT ' + a.id) + diffTag + '</div>' +
         '<h3>' + a.name + '</h3>' +
-        '<div class="span">' + a.span + ' · ' + cards.length + ' 张卡' +
-          (finale ? ' · 全卡池' : ' · ' + rule.mistakes + ' 次失误') +
+        '<div class="span">' + a.span + ' · ' +
+          (finale ? '每局 ' + FINALE_EVENT_PICK + ' 张事件 + ' + FINALE_PEOPLE_PICK + ' 位人物'
+                  : cards.length + ' 张卡 · ' + rule.mistakes + ' 次失误') +
           (finale && offN ? ' · 已禁用 ' + offN + ' 张 / 位' : '') + '</div>' +
         '<div class="desc">' + a.desc + '</div>' +
         '<div class="meta"><span>' + got + '/' + cards.length + '</span>' +
@@ -625,7 +637,7 @@
   }
 
   function peopleActive() {
-    /* 第四幕 5 位关键人物、终章全部 39 位人物；其余关卡恒为 false。
+    /* 第四幕 5 位关键人物、终章每局随机 5 位人物；其余关卡恒为 false。
        testDifficulty 是验收用的难度覆盖通道，两条人物线都不介入。 */
     const actOk = state.actId === 4 || (FINALE_ID && state.actId === FINALE_ID);
     return !!(state.mode === 'act' && actOk &&
@@ -637,10 +649,12 @@
     return !p || (!p.deck.length && !p.hand.length);
   }
 
-  function initPeople(actId) {
+  /* poolOverride：终章每局随机抽好的人物数组；不传则走该幕的完整人物池。
+     传进来的数组必须已按 peopleOrder 排好序（startAct 里排过）。 */
+  function initPeople(actId, poolOverride) {
     state.people = null;
     state.selectedKind = 'event';
-    const pool = peoplePoolFor(actId);
+    const pool = poolOverride || peoplePoolFor(actId);
     if (state.testDifficulty || pool.length < 3) return;
     const deck = pool.slice();
     for (let i = deck.length - 1; i > 0; i--) {
@@ -702,7 +716,7 @@
   /* 上排：给挂了人物的 .slot 加宽 n 个半卡位。第四幕与终章同一套机制。
      只加 class + CSS 变量，不往 #timeline 里插任何节点 —— 插入位数量、
      卡牌数量、判定链路、既有回归断言全部保持原样。
-     终章 39 人一样适用：只有已归位人物才计进 cnt，撑宽随放牌渐进。 */
+     终章同样适用：只有已归位人物才计进 cnt，撑宽随放牌渐进。 */
   function applyPeopleAnchors() {
     $$('#timeline .slot').forEach(s => {
       s.classList.remove('people-anchor');
@@ -764,7 +778,7 @@
     wrap.hidden = false;
     wrap.classList.add('on');
 
-    /* 竖屏 39 人横排会超出容器，加 .many 让 flex 从左排起（第四幕 5 人不受影响） */
+    /* 竖屏横排人数多时会超出容器，加 .many 让 flex 从左排起（第四幕 5 人不受影响） */
     wrap.classList.toggle('many', p.line.length > 8);
     const xs = {};
     if (portraitLayout()) {
@@ -1216,6 +1230,22 @@
 
   /* ---------------- 对局 ---------------- */
 
+  /* 终章抽样：把「已按年代排好序」的全池均分成 n 段，每段随机取 1 个。
+     仍是随机选取，但比纯随机更适合本作 —— 一局的年份覆盖整条千年长卷，
+     5 位人物的生年也分散开，按 born 挂得到事件时间线的不同缝隙，
+     双线联动（项目玩法核心）不会因为牌全挤在同一端而形同虚设。
+     池不足 n 个时全取；返回顺序沿用原池顺序，保持 pool 的有序语义。 */
+  function stratifiedPick(sortedArr, n) {
+    if (sortedArr.length <= n) return sortedArr.slice();
+    const out = [];
+    for (let k = 0; k < n; k++) {
+      const lo = Math.floor(k * sortedArr.length / n);
+      const hi = Math.max(lo + 1, Math.floor((k + 1) * sortedArr.length / n));
+      out.push(sortedArr[lo + Math.floor(Math.random() * (hi - lo))]);
+    }
+    return out;
+  }
+
   function poolForAct(actId) {
     let pool = Engine.actCards(actId);
     if (S.settings.useCustom && S.custom.length) {
@@ -1248,10 +1278,20 @@
   function startAct(actId) {
     state.mode = 'act';
     state.actId = actId;
-    const pool = poolForAct(actId);
+    const isFinale = !!(FINALE_ID && actId === FINALE_ID);
+    /* 第十一轮：终章每次进入都重抽一小副牌。抽样放在全池 / 禁用过滤之后，
+       所以禁用名单照旧生效；poolForAct() 本身不改，卡册与调试接口仍见全 41 张。 */
+    let pool = poolForAct(actId);
+    if (isFinale) {
+      pool = stratifiedPick(pool.slice().sort((a, b) => a.y - b.y), FINALE_EVENT_PICK);
+    }
     const r = ruleFor(actId);
     state.rule = r;
-    initPeople(actId);   // 第四幕 5 位 / 终章 39 位建人物线，其余关卡恒为 null
+    /* 人物线同样每局分层重抽，peoplePoolFor 已按 peopleOrder 排好序。 */
+    const peoplePool = isFinale
+      ? stratifiedPick(peoplePoolFor(actId), FINALE_PEOPLE_PICK)
+      : null;
+    initPeople(actId, peoplePool);   // 第四幕 5 位 / 终章每局随机 5 位，其余关卡恒为 null
     /* 大小时间段是账号级开关：第一次打到第三幕（以及之后任何开放 era 的关卡）
        才永久解锁。解锁之前连复习局都不该看到纪元带；解锁后仍由本局
        rule.era 决定哪些关卡能看。测试覆盖 / 测试口子属于后台通道，只走
@@ -1321,7 +1361,9 @@
     if (hl) hl.innerHTML = !peopleActive()
       ? '手牌 <small>（年份未知，点选后放入缝隙）</small>'
       : (FINALE_ID && state.actId === FINALE_ID
-        ? '手牌 <small>（41 张事件卡 + 39 位人物 · 事件放金线，人物放金点）</small>'
+        ? '手牌 <small>（' + (state.session ? state.session.pool.length : FINALE_EVENT_PICK) +
+          ' 张事件卡 + ' + (state.people ? state.people.pool.length : FINALE_PEOPLE_PICK) +
+          ' 位人物 · 事件放金线，人物放金点）</small>'
         : '手牌 <small>（事件卡放金色细线 · 人物卡放金色圆点）</small>');
     eraReset();                    // 新开一局：撤掉上一局可能残留的飞签 / 定时器 / 浮起
     hideWinBar();                  // 新开一局，撤掉上一局可能残留的待确认条
@@ -1490,9 +1532,7 @@
     if (!g) return;
     const cfg = Engine.DIFFICULTY[g.difficulty];
 
-    // 「全部人物 · 关系图」入口：只在带人物线的关卡（第四幕 / 终章）出现
-    const gr = $('#game-relations');
-    if (gr) gr.hidden = !peopleActive();
+    // 第十一轮起人物关系图只从卡册人物卡页进入，对局 HUD 不再放入口。
 
     // 困难模式「隐势力」：文字标签已不生成，这里再标记对局页，
     // 让 CSS 一并去掉手牌卡外圈的势力色带（否则颜色仍会泄露势力）。
@@ -2507,8 +2547,9 @@
       '</div>' +
       (state.mode === 'act'
         ? '<div class="result-beta">' + (isFinale
-            ? '终章完成 · 41 张卡的原文与讲解都在卡册里'
-            : '通关全部四幕，开启「终章 · 全部 41 张卡」') + '</div>'
+            ? '终章完成 · 全部卡牌的原文与讲解都在卡册里'
+            : '通关全部四幕，开启「终章 · 每局随机 ' + FINALE_EVENT_PICK +
+              ' 张事件 + ' + FINALE_PEOPLE_PICK + ' 位人物」') + '</div>'
         : '');
 
     go('result');
@@ -2526,7 +2567,7 @@
         if (n.all && !act5Unlocked()) { toast('先通关全部四幕，终章才会开启'); go('acts'); return; }
         startAct(n.id);
       } else {
-        toast(isFinale ? '终章完成 · 去卡册看看这 41 张卡' : '四幕已全部完成，去看卡册吧');
+        toast(isFinale ? '终章完成 · 去卡册看看全部卡牌' : '四幕已全部完成，去看卡册吧');
         go('gallery');
       }
     };
@@ -3084,12 +3125,9 @@
   if (sceneLoadBtn) sceneLoadBtn.onclick = () => loadScene();
   syncSettings();
 
-  /* 独立人物册视图已并入卡册人物卡页：首页入口撤掉，对局 HUD 入口
-     与「人物关系图」调试接口都改跳卡册人物卡页；返回逻辑在 renderGallery()。 */
-  const homeRel = $('#home-relations');
-  if (homeRel) homeRel.onclick = openPeopleGallery;
-  const gameRel = $('#game-relations');
-  if (gameRel) gameRel.onclick = openPeopleGallery;
+  /* 人物关系图只保留卡册人物卡页一个入口：首页独立人物册视图、对局 HUD
+     按钮都已删除；__TL.relations.open() 与卡册内「人物卡」标签是剩余通路，
+     返回逻辑在 renderGallery()。 */
 
   const homeFinale = $('#home-finale');
   if (homeFinale) homeFinale.onclick = () => { if (act5Unlocked()) startAct(FINALE_ID); };
@@ -3115,7 +3153,8 @@
       '手牌区在事件卡之外另有 2 张人物卡，选中后点人物线上亮起的<b>金色圆点</b>放置；' +
       '放错与事件卡一样会弹回并扣 1 格失误预算。每个人物在上排占一个「虚拟半卡位」，' +
       '金色虚线把它挂到对应的年代位置，点头像可看他的生平。<br>' +
-      '<b>终章「全部人物」</b>把这条人物线扩到全部 39 位，与 41 张事件卡同局；' +
+      '<b>终章</b>每局从全部卡牌里随机抽 ' + FINALE_EVENT_PICK + ' 张事件卡、' +
+      FINALE_PEOPLE_PICK + ' 位人物，重开一局就换一副，不必一次排完千年；' +
       '卡册的「人物卡」页可看 39 人 / 26 条真实关系构成的环状关系图。<br>' +
       '9. 规则随关卡推进：<b>第一幕「抄录」</b>每次放置弹出完整讲解；' +
       '<b>第二幕起、终章与复习局</b>为快节奏：放对只给一句鼓励，' +
@@ -3272,6 +3311,16 @@
         height: ($('#era-band') || { getBoundingClientRect: () => ({ height: 0 }) })
           .getBoundingClientRect().height
       })
+    },
+    /* 第十一轮：终章随机抽样只读接口，供验收断言「本局抽了哪些牌 / 全池有哪些牌」。 */
+    finale: {
+      picks: () => ({ events: FINALE_EVENT_PICK, people: FINALE_PEOPLE_PICK }),
+      active: () => !!(FINALE_ID && state.actId === FINALE_ID && state.mode === 'act'),
+      events: () => state.session ? state.session.pool.map(c => String(c.id)) : [],
+      people: () => state.people ? state.people.pool.map(p => String(p.id)) : [],
+      fullEvents: () => poolForAct(FINALE_ID).map(c => String(c.id)),
+      fullPeople: () => peoplePoolFor(FINALE_ID).map(p => String(p.id)),
+      hudButton: () => $('#game-relations') ? 1 : 0
     },
     /* 测试口子接口：控制台 / 自动化用，开关本身不改动正式进度 */
     act5: {
