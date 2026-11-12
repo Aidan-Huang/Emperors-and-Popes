@@ -21,6 +21,9 @@
        物理隔离，否则禁用事件卡会误禁同名人物、放对人物会误翻事件卡。 */
   const DISABLED_KEY = 'tl_ch6_disabled_cards';
   const DISABLED_PEOPLE_KEY = 'tl_ch6_disabled_people';
+  /* 场景快照：单份、独立于收集与禁用名单。存时间线 / 人物线 / 手牌 / 牌堆的
+     id 序列与本局计数，供设置里的开关开启后一键保存、随时加载复现。 */
+  const SCENE_KEY = 'tl_ch6_scene';
 
   /* ---------------- 人物线：数据池（第四幕 5 人 / 终章 39 人） ----------------
      第四幕池 = 10 位关键人物 ∩ 与第四幕事件年代有交集：
@@ -209,6 +212,8 @@
     renderHome();
     renderActs();
     renderGallery();
+    renderSceneBar();
+    if (state.view === 'game' && state.session) renderGame();
   }
   function fourCleared() {
     return MAIN_ACTS.every(a => S.progress[a.id] && S.progress[a.id].cleared);
@@ -408,6 +413,7 @@
     if (v === 'review') renderReview();
     if (v === 'gallery') renderGallery();
     if (v === 'editor') renderEditor();
+    renderSceneBar();
   }
 
   /* ---------------- 人物关系图视图 ----------------
@@ -521,16 +527,12 @@
     $('#gallery-hint').textContent = '已解锁 ' + collected + ' / ' + TOTAL + ' 张' +
       (peopleGalleryUnlocked() ? ' · 含人物卡' : '');
 
-    // 终章入口：通关四幕（或打开测试口子）后，首页直接多一个一键开局按钮
+    // 终章入口：只在正式通关四幕后出现在首页；设置里的开关不再额外放出这个入口
     const fb = $('#home-finale');
     if (fb) {
-      fb.hidden = !act5Unlocked();
-      const isTest = act5Test() && !fourCleared();
-      fb.classList.toggle('test-on', isTest);
+      fb.hidden = !fourCleared();
       const hint = $('#home-finale-hint');
-      if (hint) hint.textContent = isTest
-        ? '🧪 测试口子 · 41 张事件卡 + 39 位人物一局，不用通关四幕'
-        : '四幕已通关 · 41 张事件卡 + 39 位人物，一条完整时间线';
+      if (hint) hint.textContent = '四幕已通关 · 41 张事件卡 + 39 位人物，一条完整时间线';
     }
 
   }
@@ -554,10 +556,8 @@
 
   function renderActs() {
     const doneCount = MAIN_ACTS.filter(a => S.progress[a.id] && S.progress[a.id].cleared).length;
-    const testing = act5Test();
     const offN = disableEnabled() ? disabledAllCount() : 0;
-    $('#acts-progress').textContent = '通关 ' + doneCount + '/' + MAIN_ACTS.length +
-      (testing ? ' · 测试已开（无限生命）' : '');
+    $('#acts-progress').textContent = '通关 ' + doneCount + '/' + MAIN_ACTS.length;
 
     $('#act-list').innerHTML = ACTS.map(a => {
       const finale = !!(FINALE_ID && a.id === FINALE_ID);
@@ -568,9 +568,7 @@
       const got = cards.filter(c => S.collection[c.id]).length;
       const p = S.progress[a.id] || { plays: 0 };
       const unlocked = actUnlocked(a.id);
-      const badge = p.cleared ? '<span class="cleared">✔ 已通关</span>'
-        /* 测试口子临时放开的幕（含终章）标一下，关掉口子这些标记会随重绘消失 */
-        : (testing && !actNormallyUnlocked(a.id) ? '<span class="test-tag">🧪 测试</span>' : '');
+      const badge = p.cleared ? '<span class="cleared">✔ 已通关</span>' : '';
       /* 难度名与失误预算直接写在关卡上；终章是「全要素正式版」，不挂难度名、
          副标题也保持原样。这里用 productRule，不受验收脚本的测试覆盖影响。 */
       const rule = productRule(a.id);
@@ -602,29 +600,6 @@
       };
     });
 
-    // 测试口子打开时，幕列表底部给一个「一键直接开局」按钮（默认隐藏）
-    const tb = $('#act5-test-btn');
-    if (tb) {
-      tb.hidden = !testing;
-      tb.onclick = () => startAct(FINALE_ID);
-    }
-
-    /* 测试模式后台：39 张人物卡设计预览入口。
-       默认 DOM 里根本不存在这个节点，只有打开测试口子才动态插入、关掉立即移除。
-       不进卡池、不进对局、不碰收集/进度、不写存档 —— 游戏前台与逻辑零改动。 */
-    const pl = $('#people-test-link');
-    if (testing) {
-      if (!pl) {
-        const a = document.createElement('a');
-        a.id = 'people-test-link';
-        a.className = 'people-test-link';
-        a.href = 'people-preview.html';
-        a.textContent = '🧪 测试：查看 39 张人物卡（设计预览，不进游戏）';
-        (tb ? tb.parentNode : $('#view-acts')).appendChild(a);
-      }
-    } else if (pl) {
-      pl.remove();
-    }
   }
 
   /* ============================================================
@@ -676,8 +651,10 @@
       pool: pool.slice(),
       line: [deck.shift()],   // 开局人物线随机落 1 人作锚点
       deck: deck,
-      hand: []
+      hand: [],
+      anchorId: null          // 开局锚点人物 id：测试模式下此人不可撤回
     };
+    st.anchorId = st.line[0] ? st.line[0].id : null;
     while (st.hand.length < 2 && st.deck.length) st.hand.push(st.deck.shift());
     state.people = st;
     unlockPerson(st.line[0].id);   // 开局锚点人物算「已出现过」，翻正面
@@ -849,6 +826,10 @@
           ' data-tier="' + esc(person.tier || 'normal') + '"' +
           ' style="left:' + Math.round(avatars[i].x) + 'px" title="' +
           esc(person.zh + ' · ' + personYears(person)) + '">' +
+          (act5Test() && !isPersonAnchor(person.id)
+            ? '<button type="button" class="recall-x" data-recall="person" data-id="' +
+              esc(person.id) + '" title="放回手牌" aria-label="放回手牌">×</button>'
+            : '') +
           '<div class="pl-stem"></div>' +
           (key ? '<span class="pl-star" aria-hidden="true">✦</span>' : '') +
           '<div class="pl-ava ' + factionClass(person.faction) + '">' +
@@ -897,6 +878,9 @@
     });
     $$('#people-line .people-slot').forEach(el =>
       el.classList.toggle('armed', !!state.selectedId && state.selectedKind === 'person'));
+    $$('#people-line .recall-x').forEach(b => {
+      b.onclick = (e) => { e.stopPropagation(); recallPerson(b.dataset.id); };
+    });
   }
 
   const REL_ZH = {
@@ -1012,6 +996,222 @@
     while (p.hand.length < 2 && p.deck.length) p.hand.push(p.deck.shift());
     renderGame();
     scheduleFinish(g);
+  }
+
+  /* ============================================================
+     设置开关 UI / 场景工具条 / 撤回 / 场景保存与加载复现
+     —— 只在 act5Test()（设置里的开关）开启时生效；正常玩家零变化。
+     ============================================================ */
+
+  function syncSettings() {
+    const b = $('#set-testing');
+    if (!b) return;
+    const on = act5Test();
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+    const st = $('#set-testing-state');
+    if (st) st.textContent = on ? '开' : '关';
+  }
+
+  function renderSceneBar() {
+    const bar = $('#scene-bar');
+    if (!bar) return;
+    const on = act5Test() && state.view === 'game' && !!state.session;
+    bar.hidden = !on;
+    if (!on) return;
+    const s = load(SCENE_KEY, null);
+    const st = $('#scene-state');
+    if (st) {
+      if (s && s.at) {
+        const d = new Date(s.at);
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        st.textContent = '已存 ' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + hh + ':' + mm;
+      } else {
+        st.textContent = '尚未保存';
+      }
+    }
+    const lb = $('#scene-load');
+    if (lb) lb.disabled = !s;
+  }
+
+  /* 撤回：时间线 / 人物线上除首张（开局锚点）外的卡放回手牌区。
+     只改本局内存状态，不写存档、不撤销已翻开的收集；撤回后重绘，
+     双线联动（applyPeopleAnchors / renderPeopleLine）自然重算。
+     ★ 首张 = 开局就摆好的锚点，不是数组里此刻的第 0 项：放牌用
+       splice(idx,0,card)，玩家可以把卡插到最左，锚点会被挤到中间。 */
+  function isEventAnchor(id) {
+    const g = state.session;
+    return !!(g && g.anchor && String(g.anchor.id) === String(id));
+  }
+  function isPersonAnchor(id) {
+    const p = state.people;
+    if (!p) return false;
+    if (p.anchorId != null) return String(p.anchorId) === String(id);
+    return !!(p.line[0] && String(p.line[0].id) === String(id));
+  }
+  function afterRecall(zh) {
+    state.selectedId = null;
+    state.selectedKind = 'event';
+    state.lastRes = null;
+    state.winPending = false;
+    clearTimeout(state.pendingFinish);
+    hideWinBar();
+    resetHint();
+    $$('.flyback').forEach(el => el.remove());
+    setHint('已把「' + esc(zh) + '」放回手牌', 'idle');
+    renderGame();
+  }
+
+  function recallEvent(id) {
+    const g = state.session;
+    if (!act5Test() || !g || state.locked) return false;
+    if (isEventAnchor(id)) return false;           // 开局锚点不可撤
+    const i = g.timeline.findIndex(c => String(c.id) === String(id));
+    if (i < 0) return false;
+    const card = g.timeline.splice(i, 1)[0];
+    g.hand.push(card);
+    g.correct = Math.max(0, g.correct - 1);
+    g.combo = 0;
+    g.placedOk = g.placedOk.filter(x => x !== card.id);
+    g.over = false;
+    g.selected = null;
+    state.session.selected = null;
+    afterRecall(card.zh);
+    return true;
+  }
+
+  function recallPerson(id) {
+    const p = state.people, g = state.session;
+    if (!act5Test() || !p || !g || state.locked) return false;
+    if (isPersonAnchor(id)) return false;          // 开局锚点不可撤
+    const i = p.line.findIndex(x => String(x.id) === String(id));
+    if (i < 0) return false;
+    const person = p.line.splice(i, 1)[0];
+    p.hand.push(person);
+    g.correct = Math.max(0, g.correct - 1);
+    g.combo = 0;
+    g.over = false;
+    g.selected = null;
+    afterRecall(person.zh);
+    return true;
+  }
+
+  /* 场景快照：只存 id 序列与标量，加载时按 id 找回卡 / 人物对象。
+     Infinity（无限生命）JSON 会变 null，用 'INF' 占位往返还原。 */
+  function ser(v) { return v === Infinity ? 'INF' : (v === -Infinity ? '-INF' : v); }
+  function de(v) { return v === 'INF' ? Infinity : (v === '-INF' ? -Infinity : v); }
+  function findCard(id) {
+    return ALL_CARDS.find(c => String(c.id) === String(id)) ||
+      S.custom.find(c => String(c.id) === String(id));
+  }
+  function findPerson(id) { return PEOPLE_ALL.find(x => String(x.id) === String(id)); }
+  function idsToCards(a) { return (a || []).map(findCard).filter(Boolean); }
+  function idsToPeople(a) { return (a || []).map(findPerson).filter(Boolean); }
+
+  function sceneSnapshot() {
+    const g = state.session, p = state.people;
+    if (!g) return null;
+    return {
+      v: 1, at: Date.now(),
+      mode: state.mode, actId: state.actId,
+      actName: $('#game-act-name').textContent,
+      actSpan: $('#game-act-span').textContent,
+      rule: state.rule,
+      pool: g.pool.map(c => c.id),
+      timeline: g.timeline.map(c => c.id),
+      hand: g.hand.map(c => c.id),
+      deck: g.deck.map(c => c.id),
+      anchor: g.anchor ? g.anchor.id : null,
+      difficulty: g.difficulty, handSize: g.handSize,
+      maxMistakes: ser(g.maxMistakes), mistakesLeft: ser(g.mistakesLeft),
+      correct: g.correct, wrong: g.wrong, combo: g.combo, maxCombo: g.maxCombo,
+      placedOk: g.placedOk.slice(),
+      wrongCards: g.wrongCards.map(c => c.id),
+      over: !!g.over,
+      people: p ? {
+        pool: p.pool.map(x => x.id), line: p.line.map(x => x.id),
+        hand: p.hand.map(x => x.id), deck: p.deck.map(x => x.id),
+        anchorId: p.anchorId != null ? p.anchorId : (p.line[0] ? p.line[0].id : null)
+      } : null,
+      selectedId: state.selectedId, selectedKind: state.selectedKind
+    };
+  }
+
+  function saveScene() {
+    const s = sceneSnapshot();
+    if (!s) { toast('先进入一局再保存'); return false; }
+    save(SCENE_KEY, s);
+    renderSceneBar();
+    toast('场景已保存');
+    return true;
+  }
+
+  function loadScene() {
+    const s = load(SCENE_KEY, null);
+    if (!s || !Array.isArray(s.timeline) || !s.timeline.length) {
+      toast('还没有保存过场景');
+      return false;
+    }
+    const pool = idsToCards(s.pool);
+    if (!pool.length) { toast('场景数据已失效'); return false; }
+    const g = new Engine.GameSession(pool,
+      { difficulty: s.difficulty, maxMistakes: de(s.maxMistakes) });
+    g.timeline = idsToCards(s.timeline);
+    g.hand = idsToCards(s.hand);
+    g.deck = idsToCards(s.deck);
+    g.anchor = findCard(s.anchor) || g.timeline[0];
+    g.selected = null;
+    g.correct = s.correct || 0;
+    g.wrong = s.wrong || 0;
+    g.combo = s.combo || 0;
+    g.maxCombo = s.maxCombo || 0;
+    g.mistakesLeft = de(s.mistakesLeft);
+    g.placedOk = (s.placedOk || []).slice();
+    g.wrongCards = idsToCards(s.wrongCards);
+    g.over = !!s.over;
+    state.session = g;
+    state.mode = s.mode || 'act';
+    state.actId = s.actId || 1;
+    state.rule = s.rule || ruleFor(state.actId);
+    state.people = s.people ? {
+      pool: idsToPeople(s.people.pool),
+      line: idsToPeople(s.people.line),
+      hand: idsToPeople(s.people.hand),
+      deck: idsToPeople(s.people.deck),
+      selected: null,
+      anchorId: s.people.anchorId != null
+        ? s.people.anchorId
+        : (s.people.line[0] != null ? s.people.line[0] : null)
+    } : null;
+    /* 复用开局那套 UI 复位，但不重新洗牌、不重新 initPeople。 */
+    state.sessionSeq++;
+    state.locked = false;
+    state.settled = false;
+    state.lastRes = null;
+    state.selectedId = null;
+    state.selectedKind = 'event';
+    state.winPending = false;
+    clearTimeout(state.pendingFinish);
+    clearTimeout(state.hudHitTimer);
+    hideWinBar();
+    resetHint();
+    eraReset();
+    $$('.flyback').forEach(el => el.remove());
+    $('#feedback').classList.remove('show');
+    $('#hud-mistakes').classList.remove('hit');
+    $('#game-act-name').textContent = s.actName || '';
+    $('#game-act-span').textContent = s.actSpan || '';
+    const dn = $('#game-diff');
+    if (dn) {
+      const label = (state.rule && state.rule.name) || '';
+      dn.textContent = label;
+      dn.hidden = !label;
+    }
+    go('game');
+    renderGame();
+    toast('已载入保存的场景');
+    return true;
   }
 
   /* ---------------- 对局 ---------------- */
@@ -1306,7 +1506,7 @@
     const hm = $('#hud-mistakes');
     hm.textContent = hearts;
     hm.classList.toggle('inf', infinite);
-    if (hm.parentNode) hm.parentNode.title = infinite ? '测试模式 · 生命无限' : '失误预算';
+    if (hm.parentNode) hm.parentNode.title = infinite ? '生命无限' : '失误预算';
     $('#hud-combo').textContent = '🔥 ' + g.combo;
     $('#hud-progress').textContent = g.timeline.length + '/' + g.totalCards();
 
@@ -1314,7 +1514,8 @@
     // 只有真的放下一张卡（卡序变化）才重绘，并保留横向滚动位置防止视图乱跳。
     // 插入位虚线框、间隔尺寸、24px 收窄规则全部原样保留，这里一个样式都不动。
     const tl = $('#timeline');
-    const tlSig = state.sessionSeq + '#' + g.timeline.map(c => c.id).join('|');
+    const tlSig = state.sessionSeq + '#' + (act5Test() ? 'T' : 'N') + '#' +
+      g.timeline.map(c => c.id).join('|');
     const tlSlots = $$('#timeline .slot');
     const tlCards = $$('#timeline .tl-card:not(.ghost)');
     if (tl.dataset.sig === tlSig &&
@@ -1914,8 +2115,18 @@
     const el = document.createElement('div');
     el.className = 'tl-card ' + factionClass(c.faction);
     el.dataset.id = c.id;
-    el.innerHTML = cardFace(c, { year: true, showFaction: showFactionTag() });
-    el.onclick = () => openCard(c);
+    el.innerHTML = cardFace(c, { year: true, showFaction: showFactionTag() }) +
+      (act5Test() && !isEventAnchor(c.id)
+        ? '<button type="button" class="recall-x" data-recall="event" data-id="' + esc(c.id) +
+          '" title="放回手牌" aria-label="放回手牌">×</button>'
+        : '');
+    el.onclick = (e) => {
+      if (e.target && e.target.closest && e.target.closest('.recall-x')) {
+        recallEvent(c.id);
+        return;
+      }
+      openCard(c);
+    };
     return el;
   }
 
@@ -2420,9 +2631,9 @@
     const testView = act5Test();
     $('#gallery-count').textContent = kind === 'person'
       ? (personSeenCount() + ' / ' + PEOPLE_ALL.length + ' 已翻开' +
-         (testView ? ' · 测试模式：全部可见' : ''))
+         (testView ? ' · 全部可见' : ''))
       : (cards.filter(c => S.collection[c.id]).length + ' / ' + cards.length + ' 已解锁' +
-         (testView ? ' · 测试模式：全部可见' : ''));
+         (testView ? ' · 全部可见' : ''));
 
     /* 禁用闸门：正式解锁第五幕后可用；离开闸门时无条件退出批量 */
     const canDisable = disableEnabled();
@@ -2611,6 +2822,7 @@
   /* ---------------- 隐藏：卡牌编辑器 ---------------- */
 
   function renderEditor() {
+    syncSettings();
     $('#editor-count').textContent = S.custom.length + ' 张自定义卡';
     const list = S.custom.map(c =>
       '<div class="ed-item"><span class="y">' + esc(c.dy || c.y) + '</span><span class="t">' + esc(c.zh) +
@@ -2720,11 +2932,11 @@
     brandClicks++;
     clearTimeout(brandTimer);
     brandTimer = setTimeout(() => brandClicks = 0, 1600);
-    if (brandClicks >= 5) { brandClicks = 0; go('editor'); toast('已进入卡牌编辑器（隐藏）'); }
-    else if (brandClicks >= 3) toast('再点 ' + (5 - brandClicks) + ' 下进入编辑器');
+    if (brandClicks >= 5) { brandClicks = 0; go('editor'); toast('已打开设置'); }
+    else if (brandClicks >= 3) toast('再点 ' + (5 - brandClicks) + ' 下打开设置');
   };
   window.addEventListener('keydown', e => {
-    if (e.ctrlKey && e.shiftKey && (e.key === 'E' || e.key === 'e')) { go('editor'); toast('已进入卡牌编辑器'); }
+    if (e.ctrlKey && e.shiftKey && (e.key === 'E' || e.key === 'e')) { go('editor'); toast('已打开设置'); }
   });
   if (/[?&]edit=1/.test(location.search) || location.hash === '#editor') {
     window.addEventListener('DOMContentLoaded', () => go('editor'));
@@ -2855,27 +3067,22 @@
     else if (zoomTaps >= 3) toast('再点 ' + (5 - zoomTaps) + ' 下高亮显示比例滑条');
   };
 
-  /* 隐藏测试口子：连点幕列表标题「选择一幕」5 次，切换「五幕全开」的测试模式。
-     只写一个独立的 localStorage 开关，绝不伪造四幕通关记录，方便随时关掉。 */
-  let act5Taps = 0, act5TapAt = 0;
-  const actsTitle = $('#view-acts .topbar h2');
-  if (actsTitle) actsTitle.onclick = () => {
-    const now = Date.now();
-    act5Taps = (now - act5TapAt < 700) ? act5Taps + 1 : 1;
-    act5TapAt = now;
-    if (act5Taps >= 5) {
-      act5Taps = 0;
-      const on = !act5Test();
-      setAct5Test(on);
-      toast(on ? '🧪 测试口子已开：全部五幕可直接进入' : '已关闭测试口子');
-    } else if (act5Taps >= 3) {
-      toast('再点 ' + (5 - act5Taps) + ' 下切换测试口子');
-    }
-  };
-
   /* ---------------- 其它按钮 ---------------- */
 
   $$('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+
+  /* 设置：测试模式的唯一开关。切换后 setAct5Test() 会重绘首页 / 幕列表 / 卡册 /
+     场景工具条，并在对局页即时刷新撤回角标。 */
+  const setTestingBtn = $('#set-testing');
+  if (setTestingBtn) setTestingBtn.onclick = () => {
+    setAct5Test(!act5Test());
+    syncSettings();
+  };
+  const sceneSaveBtn = $('#scene-save');
+  if (sceneSaveBtn) sceneSaveBtn.onclick = () => saveScene();
+  const sceneLoadBtn = $('#scene-load');
+  if (sceneLoadBtn) sceneLoadBtn.onclick = () => loadScene();
+  syncSettings();
 
   /* 独立人物册视图已并入卡册人物卡页：首页入口撤掉，对局 HUD 入口
      与「人物关系图」调试接口都改跳卡册人物卡页；返回逻辑在 renderGallery()。 */
@@ -2909,7 +3116,7 @@
       '放错与事件卡一样会弹回并扣 1 格失误预算。每个人物在上排占一个「虚拟半卡位」，' +
       '金色虚线把它挂到对应的年代位置，点头像可看他的生平。<br>' +
       '<b>终章「全部人物」</b>把这条人物线扩到全部 39 位，与 41 张事件卡同局；' +
-      '首页「人物册 · 全部人物」可看 39 人 / 26 条真实关系构成的双中心关系图。<br>' +
+      '卡册的「人物卡」页可看 39 人 / 26 条真实关系构成的环状关系图。<br>' +
       '9. 规则随关卡推进：<b>第一幕「抄录」</b>每次放置弹出完整讲解；' +
       '<b>第二幕起、终章与复习局</b>为快节奏：放对只给一句鼓励，' +
       '放错则红色提示 + 卡牌弹回手牌摇一摇，失误预算也会闪一下，都不打断操作。' +
@@ -3106,6 +3313,37 @@
         renderActs();
       }
     },
+    /* 设置：唯一测试开关的只读与切换接口，供验收脚本用 */
+    settings: {
+      testing: act5Test,
+      toggle: () => { setAct5Test(!act5Test()); syncSettings(); return act5Test(); },
+      set: on => { setAct5Test(!!on); syncSettings(); return act5Test(); },
+      open: () => go('editor'),
+      switchOn: () => { const b = $('#set-testing'); return !!b && b.classList.contains('on'); },
+      view: () => state.view
+    },
+    /* 场景：保存 / 加载 / 撤回，供验收脚本精确复现与断言 */
+    scene: {
+      save: saveScene,
+      load: loadScene,
+      snapshot: sceneSnapshot,
+      clear: () => { try { localStorage.removeItem(SCENE_KEY); } catch (e) {} renderSceneBar(); },
+      has: () => !!load(SCENE_KEY, null),
+      visible: () => { const b = $('#scene-bar'); return !!b && !b.hidden; },
+      recallEvent: recallEvent,
+      recallPerson: recallPerson,
+      state: () => ({
+        mode: state.mode, actId: state.actId,
+        timeline: state.session ? state.session.timeline.map(c => c.id) : [],
+        hand: state.session ? state.session.hand.map(c => c.id) : [],
+        deck: state.session ? state.session.deck.map(c => c.id) : [],
+        line: state.people ? state.people.line.map(p => p.id) : null,
+        peopleHand: state.people ? state.people.hand.map(p => p.id) : null,
+        peopleDeck: state.people ? state.people.deck.map(p => p.id) : null,
+        correct: state.session ? state.session.correct : null,
+        over: state.session ? state.session.over : null
+      })
+    },
     /* 人物线调试接口：以只读为主，另给验收脚本一个直达任意幕的入口。
        全部走正常渲染链路，不绕过判定，也不写 localStorage。 */
     people: {
@@ -3198,7 +3436,7 @@
   };
 
   /* 测试口子（URL）：?act5=1 解锁并跳幕列表；?act5=play 直接开一局；#act5 同 ?act5=1。
-     网址参数会写入本机开关，刷新页面仍然有效；想关掉就再连点幕列表标题 5 次。 */
+     网址参数会写入本机开关，刷新页面仍然有效；想关掉就在首页标题 5 连点打开的设置里关闭。 */
   (function () {
     const m = /[?&]act5=([^&]*)/.exec(location.search);
     const v = m ? m[1] : (location.hash === '#act5' ? '1' : '');

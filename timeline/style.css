@@ -138,23 +138,10 @@ small{font-size:.78em;opacity:.85}
 .mode[hidden]{display:none}
 .mode.finale{background:linear-gradient(100deg,#3b3115,#252238);border-color:var(--gold)}
 .mode.finale .mode-txt b{color:var(--gold)}
-.mode.finale.test-on{border-style:dashed}
 /* 幕列表里的终章卡：金调底，与主线四幕区分 */
 .act-card.finale{background:linear-gradient(135deg,#2c2a1c,#212a44);border-color:var(--gold-dim)}
 .act-card.finale .no{letter-spacing:2.5px}
-.act-card .test-tag{
-  position:absolute;right:14px;top:14px;font-size:12px;color:var(--gold);
-  border:1px dashed var(--gold-dim);border-radius:6px;padding:2px 7px;
-}
 .act-card .finale-lock{margin-top:9px;font-size:12px;color:var(--gold)}
-#view-acts .topbar h2{user-select:none;-webkit-user-select:none;cursor:pointer}
-.act5-test-btn{
-  display:block;width:100%;margin-top:14px;padding:11px;
-  border:1px dashed var(--gold-dim);border-radius:10px;
-  background:rgba(255,204,0,.07);color:var(--gold);font-size:13px;
-}
-.act5-test-btn:hover{background:rgba(255,204,0,.14)}
-.act5-test-btn[hidden]{display:none}
 
 /* ---------- 对局 ---------- */
 #view-game.active{display:flex;flex-direction:column;min-height:100vh;padding-bottom:16px}
@@ -1205,15 +1192,6 @@ small{font-size:.78em;opacity:.85}
    关掉，玩家就完全看不到「标签浮现 → 位移归位 → 大段浮出」，与 Mac 不一致。
    纪元带是核心信息反馈，全平台统一播完整动画。 */
 
-/* 测试模式后台入口：仅在打开第五幕测试口子时由 JS 动态插入，
-   正常玩家视图不存在这个节点，游戏逻辑也不读取它。 */
-.people-test-link{
-  display:block;width:100%;margin:10px 0 0;padding:10px 12px;
-  background:rgba(255,204,0,.06);border:1px dashed var(--gold-dim);
-  border-radius:10px;color:var(--gold);font-size:12.5px;text-align:center;
-  text-decoration:none;
-}
-.people-test-link:hover{background:rgba(255,204,0,.13)}
 
 /* ============================================================
    第四幕人物线（上排虚拟半卡位 + 下排圆头像 + 金色圆点放置位）
@@ -1537,3 +1515,41 @@ small{font-size:.78em;opacity:.85}
 @media (prefers-reduced-motion:reduce){
   .redge,.rnode,.rhalo,.rbody,.hud-rel,.seg button,.gallery-kind button{transition:none}
 }
+
+
+/* ============================================================
+   第十轮：设置页唯一开关 / 场景工具条 / 撤回角标
+   开关与角标都是功能性控件，不套卡牌 hover 的浮出手感；
+   全站浮出一致性仍只作用于手牌 / 时间线卡 / 卡册缩略图 / 关系图头像。
+   ============================================================ */
+
+/* ---------- 设置页 ---------- */
+.set-panel{margin:10px 0 14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.set-row{display:flex;align-items:center;gap:14px}
+.set-info{flex:1;min-width:0}
+.set-info b{display:block;font-size:14px;margin-bottom:3px}
+.set-info small{display:block;font-size:11.5px;color:var(--muted);line-height:1.6}
+.set-switch{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;min-width:74px;justify-content:center;
+  padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#1b2138;color:var(--muted);
+  font-size:12.5px;cursor:pointer;transition:background .2s,border-color .2s,color .2s}
+.set-switch .set-knob{width:12px;height:12px;border-radius:50%;background:#6f7a97;transition:background .2s}
+.set-switch.on{border-color:var(--gold-dim);color:var(--gold);background:rgba(255,204,0,.08)}
+.set-switch.on .set-knob{background:var(--gold)}
+
+/* ---------- 场景工具条（对局页，仅开关开启时显示） ---------- */
+.scene-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px;padding:8px 10px;
+  border:1px solid var(--line);border-radius:10px;background:#1b2138;font-size:12px}
+.scene-bar[hidden]{display:none}
+.scene-tip{color:var(--muted);flex:1;min-width:150px}
+.scene-state{color:var(--gold);font-size:11.5px;white-space:nowrap}
+.scene-btn{padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:#2a3450;
+  color:var(--ink);font-size:12px;cursor:pointer;white-space:nowrap}
+.scene-btn:hover:not(:disabled){border-color:var(--gold-dim)}
+.scene-btn:disabled{opacity:.45;cursor:default}
+
+/* ---------- 撤回角标：贴在已放置卡 / 头像右上角 ---------- */
+.recall-x{position:absolute;top:4px;right:4px;z-index:6;width:20px;height:20px;line-height:18px;
+  padding:0;text-align:center;border:1px solid rgba(255,255,255,.4);border-radius:50%;
+  background:rgba(16,20,34,.85);color:#e8ebf5;font-size:14px;cursor:pointer}
+.recall-x:hover{background:var(--bad);border-color:var(--bad);color:#fff}
+.pl-person .recall-x{top:2px;right:8px}

@@ -35,7 +35,7 @@
         <span class="mode-txt"><b>闯关模式</b><small>四幕推进 · 每幕一套规则</small></span>
         <span class="mode-arrow">›</span>
       </button>
-      <!-- 终章（第五幕）：通关全部四幕 / 打开测试口子后才显示，由 renderHome() 控制 -->
+      <!-- 终章（第五幕）：通关全部四幕后才显示，由 renderHome() 控制 -->
       <button class="mode finale" id="home-finale" hidden>
         <span class="mode-icon">🏛</span>
         <span class="mode-txt"><b>终章 · 全部卡牌</b><small id="home-finale-hint">四幕已通关 · 全部 41 张卡，一条完整时间线</small></span>
@@ -79,9 +79,6 @@
       <span class="topbar-right" id="acts-progress"></span>
     </div>
     <div class="act-list" id="act-list"></div>
-    <!-- 测试口子：连点本页标题「选择一幕」5 次后出现，一键直接开第五幕；
-         测试模式下幕列表里第二 / 三 / 四幕同样可直接点进去玩 -->
-    <button class="act5-test-btn" id="act5-test-btn" type="button" hidden>🧪 测试：直接开启第五幕（全部 41 张）</button>
   </section>
 
   <!-- ============ 视图：对局 ============ -->
@@ -130,6 +127,15 @@
         <span>先翻一翻整条时间线，看看这段历史怎么连起来的，再继续。</span>
       </div>
       <button type="button" id="win-confirm">完成，看结果 ›</button>
+    </div>
+
+    <!-- 场景工具条：仅在设置里的开关开启后、且处于对局页时显示。
+         保存 / 加载复现当前场景（时间线卡牌 + 人物线 + 手牌），文字保持中性。 -->
+    <div class="scene-bar" id="scene-bar" hidden>
+      <span class="scene-tip">点卡牌右上角的 × 可放回手牌</span>
+      <span class="scene-state" id="scene-state"></span>
+      <button type="button" class="scene-btn" id="scene-save">保存场景</button>
+      <button type="button" class="scene-btn" id="scene-load">加载场景</button>
     </div>
 
     <div class="timeline-wrap">
@@ -222,12 +228,24 @@
     <div class="gallery-batchbar" id="gallery-batchbar" hidden></div>
   </section>
 
-  <!-- ============ 视图：卡牌编辑器（隐藏入口） ============ -->
+  <!-- ============ 视图：设置（首页标题连点 5 次打开） ============
+       测试模式的唯一开关放在这里；下方保留原来的卡牌编辑器。 -->
   <section class="view" id="view-editor">
     <div class="topbar">
       <button class="back" data-go="home">‹ 返回</button>
-      <h2>卡牌编辑器 <small class="tag">隐藏</small></h2>
+      <h2>设置</h2>
       <span class="topbar-right" id="editor-count"></span>
+    </div>
+    <div class="set-panel">
+      <div class="set-row">
+        <div class="set-info">
+          <b>测试模式</b>
+          <small>五幕全开、生命不限、卡册全部可见；对局中可撤下已放置的卡牌 / 人物，并保存与加载场景</small>
+        </div>
+        <button type="button" class="set-switch" id="set-testing" role="switch" aria-checked="false">
+          <span class="set-knob"></span><span id="set-testing-state">关</span>
+        </button>
+      </div>
     </div>
     <!-- 缩放已改成对局页标题后的就地滑条，这里只留一个「跳到对局页看滑条」的说明位 -->
     <p class="zp-entry" id="zp-entry">卡片显示比例已挪到对局页标题后：两根滑条分别控制时间线卡与手牌，拖动即时生效。</p>
@@ -264,13 +282,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="../version.js?v=7"></script>
+<script src="../version.js?v=8"></script>
 <script src="cards.js"></script>
 <script src="people-cards.js"></script>
 <script src="relations.js"></script>
 <script src="engine.js"></script>
 <script src="eras.js"></script>
 <script src="app.js"></script>
-<script src="../version-ui.js?v=7"></script>
+<script src="../version-ui.js?v=8"></script>
 </body>
 </html>
