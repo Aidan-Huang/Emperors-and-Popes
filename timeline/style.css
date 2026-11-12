@@ -89,6 +89,16 @@ small{font-size:.78em;opacity:.85}
 .mode.big{background:linear-gradient(100deg,#2b3757,#212a44);border-color:var(--gold-dim)}
 .mode.big .mode-txt b{color:var(--gold)}
 
+/* 中途退出的检查点入口：照搬主游戏《权力的双人舞》首页「继续上次」——
+   一行小字、点状虚线下划线、居中，不抢 .mode 主按钮。文字链接不做卡片浮出，
+   hover 只提亮，贴近原版质感；reduce 下也保留这个静态状态。 */
+.resume-line{display:block;width:100%;margin-top:12px;padding:4px 0;
+  background:none;border:0;cursor:pointer;font:inherit;font-size:12.5px;
+  color:var(--muted);text-align:center;text-decoration:underline dotted;
+  text-underline-offset:3px}
+.resume-line[hidden]{display:none}
+.resume-line:hover,.resume-line:focus-visible{color:var(--gold)}
+
 /* 首页难度选择已移除：规则绑定在关卡上，难度名见 .act-diff / .game-diff */
 .home-links{margin-top:18px}
 .sister{

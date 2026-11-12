@@ -53,6 +53,10 @@
       </button>
     </div>
 
+    <!-- 中途退出的检查点：与主游戏《权力的双人舞》首页「↩ 继续上次」同一手感，
+         由 renderHome() 控制显隐与文案；没有中断局时整行隐藏。 -->
+    <button class="resume-line" id="btn-resume" hidden></button>
+
     <!-- 难度选择已移除：失误预算、大小时间段、势力显隐等规则直接绑定在
          每一幕上（见 app.js 的 ACT_RULES），玩家进哪一幕就用哪一套规则。 -->
     <div class="home-links">
@@ -292,13 +296,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="../version.js?v=11"></script>
+<script src="../version.js?v=12"></script>
 <script src="cards.js"></script>
 <script src="people-cards.js"></script>
 <script src="relations.js"></script>
 <script src="engine.js"></script>
 <script src="eras.js"></script>
 <script src="app.js"></script>
-<script src="../version-ui.js?v=11"></script>
+<script src="../version-ui.js?v=12"></script>
 </body>
 </html>

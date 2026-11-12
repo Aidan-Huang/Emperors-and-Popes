@@ -43,6 +43,9 @@
      迁移后即删除，之后不再写入；与收集 / 禁用名单物理隔离。 */
   const SCENES_KEY = 'tl_ch6_scenes';
   const SCENE_KEY = 'tl_ch6_scene';   // 旧单份存档（只读迁移用）
+  /* 第十四轮：中途退出自动保存的固定槽位名。玩家在任意一幕点「退出」时静默写
+     进这里（同名覆盖 = 最近一次中断），首页「返回中断的游戏」按名字找它。 */
+  const RESUME_SLOT = '中断的游戏';
 
   /* ---------------- 人物线：数据池（第四幕 5 人 / 终章全池 39 人，每局抽 5 位） ----------------
      第四幕池 = 10 位关键人物 ∩ 与第四幕事件年代有交集：
@@ -556,6 +559,22 @@
         ' 张事件卡 + ' + FINALE_PEOPLE_PICK + ' 位人物，常玩常新';
     }
 
+    /* 中途退出的检查点入口：照主游戏《权力的双人舞》首页「↩ 继续上次」的
+       做法，只占一行低调小字，不抢 .mode 主按钮。没有中断局时整行不占位。 */
+    const rb = $('#btn-resume');
+    if (rb) {
+      const rs = resumeSlot();
+      if (!rs) { rb.hidden = true; }
+      else {
+        const sc = rs.scene || {};
+        const where = sc.mode === 'review' ? '复习局'
+          : (sc.actName || ('第 ' + (sc.actId || 1) + ' 幕'));
+        const n = (sc.timeline || []).length;
+        rb.hidden = false;
+        rb.textContent = '↩ 返回中断的游戏 · ' + where + ' · 已放 ' + n + ' 张';
+        rb.onclick = () => loadScene(rs.id);
+      }
+    }
   }
 
   /* ---------------- 幕选择 ---------------- */
@@ -1101,6 +1120,38 @@
       Array.isArray(sc.timeline) && sc.timeline.length &&
       Array.isArray(sc.pool) && sc.pool.length &&
       Array.isArray(sc.hand) && Array.isArray(sc.deck));
+  }
+
+  /* ---- 中途退出的检查点（第十四轮） ----
+     玩家在任意一幕点「退出」不再弹确认框：把本局静默写进固定槽位，回首页后
+     那行小字链接就能就地恢复。共用多槽位的存取与校验，不另起一份存档；
+     同名覆盖保证「中断的游戏」永远只是最近一次，不会越攒越多。
+     刻意不动 st.active，免得覆盖玩家在场景工具条里手动选中的槽位。 */
+  function resumeSlot() {
+    return sceneStore().list.find(x => x.name === RESUME_SLOT) || null;
+  }
+  function saveResume() {
+    const s = sceneSnapshot();
+    if (!validateScene(s)) return false;
+    const st = sceneStore();
+    let slot = st.list.find(x => x.name === RESUME_SLOT);
+    if (slot) { slot.scene = s; slot.at = s.at; }
+    else {
+      slot = { id: sceneSlotId(), name: RESUME_SLOT, at: s.at, scene: s };
+      st.list.push(slot);
+    }
+    saveSceneStore(st);
+    return true;
+  }
+  function clearResume() {
+    const st = sceneStore();
+    const i = st.list.findIndex(x => x.name === RESUME_SLOT);
+    if (i < 0) return false;
+    const id = st.list[i].id;
+    st.list.splice(i, 1);
+    if (st.active === id) st.active = st.list.length ? st.list[st.list.length - 1].id : null;
+    saveSceneStore(st);
+    return true;
   }
 
   function renderSceneBar() {
@@ -2679,6 +2730,8 @@
     const g = state.session;
     if (!g || state.settled) return;   // 一局只记一次「玩过」：结算 / 中途退出互斥
     state.settled = true;
+    /* 这一局已经打完，首页不该再挂着「返回中断的游戏」。 */
+    clearResume();
     const acc = g.accuracy();
     const cleared = g.mistakesLeft > 0;
     const actId = state.actId;
@@ -2765,7 +2818,10 @@
   }
 
   $('#game-quit').onclick = () => {
-    if (!confirm('退出本局？进度不会保存。')) return;
+    /* 第十四轮：中途退出不再弹「进度不会保存」的确认框，改为静默自动保存
+       一份「中断的游戏」，直接回首页；首页那行小字链接可就地接着打。
+       时间线 / 手牌 / 人物线 / 计数都由 sceneSnapshot() 一次带走。 */
+    saveResume();
     /* 中途退出也算玩过这一幕：旧版只在结算时 plays++，没打完就退出的话，
        回幕列表第一幕仍写着「未开始」。这里补记一次，与 finish() 用
        state.settled 互斥，同一局绝不会记两次。复习局不属于任何一幕，不记。 */
@@ -2778,7 +2834,7 @@
       persist();
     }
     stopAudio();
-    go(state.mode === 'review' ? 'review' : 'acts');
+    go('home');
   };
 
   /* ---------------- 复习模式 ---------------- */
@@ -3624,6 +3680,18 @@
       export: exportScene,
       import: importScene,
       visible: () => { const b = $('#scene-bar'); return !!b && !b.hidden; },
+      /* 中途退出的检查点：只读 / 手动触发 / 清除，供验收脚本精确断言 */
+      resume: () => {
+        const s = resumeSlot();
+        return s ? { id: s.id, name: s.name, at: s.at, scene: s.scene } : null;
+      },
+      saveResume: saveResume,
+      clearResume: clearResume,
+      settle: () => { finish(); return state.settled; },   // 供验收精确触发结算
+      resumeButton: () => {
+        const b = $('#btn-resume');
+        return b ? { hidden: b.hidden, text: b.textContent } : null;
+      },
       recallEvent: recallEvent,
       recallPerson: recallPerson,
       state: () => ({
