@@ -128,12 +128,24 @@
     </div>
 
     <!-- 场景工具条：仅在设置里的开关开启后、且处于对局页时显示。
-         保存 / 加载复现当前场景（时间线卡牌 + 人物线 + 手牌），文字保持中性。 -->
+         第十三轮起为多个命名槽位：命名保存 / 下拉选槽 / 加载 / 导出 .json /
+         从外部文件导入 / 删除；文字保持中性，不出现「测试」字样。 -->
     <div class="scene-bar" id="scene-bar" hidden>
-      <span class="scene-tip">点卡牌右上角的 × 可放回手牌</span>
-      <span class="scene-state" id="scene-state"></span>
-      <button type="button" class="scene-btn" id="scene-save">保存场景</button>
-      <button type="button" class="scene-btn" id="scene-load">加载场景</button>
+      <div class="scene-row">
+        <span class="scene-tip">点 × 放回手牌 · 改名另存多个场景</span>
+        <span class="scene-state" id="scene-state"></span>
+      </div>
+      <div class="scene-row scene-controls">
+        <input type="text" class="scene-name" id="scene-name" maxlength="24"
+               placeholder="场景名" aria-label="场景名">
+        <button type="button" class="scene-btn" id="scene-save">保存场景</button>
+        <select class="scene-select" id="scene-select" aria-label="已保存的场景"></select>
+        <button type="button" class="scene-btn" id="scene-load">加载场景</button>
+        <button type="button" class="scene-btn" id="scene-export">导出</button>
+        <button type="button" class="scene-btn" id="scene-import">导入文件</button>
+        <button type="button" class="scene-btn scene-del" id="scene-del">删除</button>
+        <input type="file" id="scene-file" accept=".json,application/json" hidden>
+      </div>
     </div>
 
     <div class="timeline-wrap">
@@ -238,7 +250,7 @@
       <div class="set-row">
         <div class="set-info">
           <b>测试模式</b>
-          <small>五幕全开、生命不限、卡册全部可见；对局中可撤下已放置的卡牌 / 人物，并保存与加载场景</small>
+          <small>五幕全开、生命不限、卡册全部可见；对局中可撤下已放置的卡牌 / 人物，把场景存成多个命名槽位，导入或导出场景文件</small>
         </div>
         <button type="button" class="set-switch" id="set-testing" role="switch" aria-checked="false">
           <span class="set-knob"></span><span id="set-testing-state">关</span>
@@ -280,13 +292,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="../version.js?v=10"></script>
+<script src="../version.js?v=11"></script>
 <script src="cards.js"></script>
 <script src="people-cards.js"></script>
 <script src="relations.js"></script>
 <script src="engine.js"></script>
 <script src="eras.js"></script>
 <script src="app.js"></script>
-<script src="../version-ui.js?v=10"></script>
+<script src="../version-ui.js?v=11"></script>
 </body>
 </html>

@@ -13,6 +13,9 @@
      ★ 第十一轮：一局要排 41 张事件卡 + 39 位人物实在太长，改为每次进终章
        随机抽 FINALE_EVENT_PICK 张事件卡 + FINALE_PEOPLE_PICK 位人物，
        重开一局就重抽，常玩常新。
+     ★ 第十三轮：用户拍板「纯随机」，抽样改为 Fisher-Yates 等概率无放回抽样，
+       不再按年代分层。代价是一局的人物偶尔集中在同一段年代、金色虚线挂到
+       相邻缝隙，双线联动观感会变弱 —— 用户已知悉并接受，不要擅自改回分层。
        all:true / Engine.actCards() / poolForAct() 仍是「全池」语义
        （卡册收集统计、禁用名单、调试接口都依赖它），抽样只发生在
        startAct() 建本局时，不污染任何全池数据。
@@ -21,7 +24,9 @@
   const FINALE_ID = FINALE ? FINALE.id : 0;
   const MAIN_ACTS = ACTS.filter(a => !a.all);
   /* 终章每局随机抽样数量。抽样在「禁用名单过滤之后」做，被禁用的卡不会混进来；
-     卡数不足时取全部（事件保底 2 张、人物保底 3 位由各自的全池函数保证）。 */
+     卡数不足时取全部（事件保底 2 张、人物保底 3 位由各自的全池函数保证）。
+     抽样方式：'pure'（第十三轮，Fisher-Yates 纯随机）；旧值 'stratified' 已废弃。 */
+  const FINALE_PICK_MODE = 'pure';
   const FINALE_EVENT_PICK = 10;
   const FINALE_PEOPLE_PICK = 5;
   const ACT5_TEST_KEY = 'tl_ch6_act5_test';   // 测试口子开关：五幕全部直接可玩；独立于游戏进度，开关本身不写 S.progress
@@ -31,9 +36,13 @@
        物理隔离，否则禁用事件卡会误禁同名人物、放对人物会误翻事件卡。 */
   const DISABLED_KEY = 'tl_ch6_disabled_cards';
   const DISABLED_PEOPLE_KEY = 'tl_ch6_disabled_people';
-  /* 场景快照：单份、独立于收集与禁用名单。存时间线 / 人物线 / 手牌 / 牌堆的
-     id 序列与本局计数，供设置里的开关开启后一键保存、随时加载复现。 */
-  const SCENE_KEY = 'tl_ch6_scene';
+  /* 场景快照（第十三轮）：多个命名槽位，存 tl_ch6_scenes = {v, list, active}。
+     每个槽位 name + at + scene；scene 仍是只含 id 序列与标量的轻量快照
+     （时间线 / 人物线 / 手牌 / 牌堆 + 本局计数），可导出 .json、从外部文件导入。
+     SCENE_KEY 是第十轮的「单份」旧存档，只在首次读取时迁移成『场景 1』，
+     迁移后即删除，之后不再写入；与收集 / 禁用名单物理隔离。 */
+  const SCENES_KEY = 'tl_ch6_scenes';
+  const SCENE_KEY = 'tl_ch6_scene';   // 旧单份存档（只读迁移用）
 
   /* ---------------- 人物线：数据池（第四幕 5 人 / 终章全池 39 人，每局抽 5 位） ----------------
      第四幕池 = 10 位关键人物 ∩ 与第四幕事件年代有交集：
@@ -1045,26 +1054,90 @@
     if (st) st.textContent = on ? '开' : '关';
   }
 
+  /* ---- 场景槽位存取（第十三轮） ----
+     tl_ch6_scenes = { v:2, list:[{id,name,at,scene}], active:id|null }。
+     旧单份存档 tl_ch6_scene 只在首次读取时迁移成『场景 1』，之后删除；
+     槽位里只有 id 序列与标量，导出 / 导入都是纯 JSON，不带函数与 DOM。 */
+  function sceneSlotId() {
+    return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+  function sceneStore() {
+    let st = load(SCENES_KEY, null);
+    if (!st || !Array.isArray(st.list)) {
+      st = { v: 2, list: [], active: null };
+      const legacy = load(SCENE_KEY, null);
+      if (legacy && Array.isArray(legacy.timeline) && legacy.timeline.length) {
+        const slot = { id: sceneSlotId(), name: '场景 1', at: legacy.at || Date.now(), scene: legacy };
+        st.list.push(slot);
+        st.active = slot.id;
+      }
+      save(SCENES_KEY, st);
+      try { localStorage.removeItem(SCENE_KEY); } catch (e) {}
+    }
+    return st;
+  }
+  function saveSceneStore(st) { save(SCENES_KEY, st); }
+  function sceneActiveSlot(st) {
+    if (!st || !st.list.length) return null;
+    return st.list.find(x => x.id === st.active) || st.list[st.list.length - 1];
+  }
+  function sceneFindSlot(st, key) {
+    if (!st || key == null || key === '') return null;
+    return st.list.find(x => x.id === String(key) || x.name === String(key)) || null;
+  }
+  function sceneTime(at) {
+    const d = new Date(at || Date.now());
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+      String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+  function sceneName(base, st) {
+    let n = String(base || '场景').trim().slice(0, 24) || '场景';
+    const has = x => st.list.some(s => s.name === x);
+    if (has(n)) { let i = 2; while (has(n + ' (' + i + ')')) i++; n += ' (' + i + ')'; }
+    return n;
+  }
+  function validateScene(sc) {
+    return !!(sc && typeof sc === 'object' &&
+      Array.isArray(sc.timeline) && sc.timeline.length &&
+      Array.isArray(sc.pool) && sc.pool.length &&
+      Array.isArray(sc.hand) && Array.isArray(sc.deck));
+  }
+
   function renderSceneBar() {
     const bar = $('#scene-bar');
     if (!bar) return;
     const on = act5Test() && state.view === 'game' && !!state.session;
     bar.hidden = !on;
     if (!on) return;
-    const s = load(SCENE_KEY, null);
-    const st = $('#scene-state');
-    if (st) {
-      if (s && s.at) {
-        const d = new Date(s.at);
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mm = String(d.getMinutes()).padStart(2, '0');
-        st.textContent = '已存 ' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + hh + ':' + mm;
-      } else {
-        st.textContent = '尚未保存';
-      }
+    const st = sceneStore();
+    const active = sceneActiveSlot(st);
+    const sel = $('#scene-select');
+    if (sel) {
+      sel.innerHTML = '';
+      st.list.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.id;
+        o.textContent = s.name + ' · ' + sceneTime(s.at);
+        sel.appendChild(o);
+      });
+      sel.value = active ? active.id : '';
+      sel.disabled = !st.list.length;
     }
-    const lb = $('#scene-load');
-    if (lb) lb.disabled = !s;
+    const nameInput = $('#scene-name');
+    if (nameInput && document.activeElement !== nameInput) {
+      nameInput.value = active ? active.name : '';
+    }
+    const stateEl = $('#scene-state');
+    if (stateEl) {
+      /* 名字在下拉 option 里已经完整显示，这里只留数量与时间，避免 375px 首行折行。 */
+      stateEl.textContent = active
+        ? '已存 ' + st.list.length + ' 个 · ' + sceneTime(active.at)
+        : '尚未保存';
+    }
+    ['#scene-load', '#scene-export', '#scene-del'].forEach(id => {
+      const b = $(id);
+      if (b) b.disabled = !st.list.length;
+    });
   }
 
   /* 撤回：时间线 / 人物线上除首张（开局锚点）外的卡放回手牌区。
@@ -1170,18 +1243,36 @@
     };
   }
 
-  function saveScene() {
+  function saveScene(name) {
     const s = sceneSnapshot();
     if (!s) { toast('先进入一局再保存'); return false; }
-    save(SCENE_KEY, s);
+    const st = sceneStore();
+    const raw = typeof name === 'string' ? name.trim() : '';
+    const active = sceneActiveSlot(st);
+    /* 有名字：同名覆盖、新名新建；没名字：覆盖当前选中槽位（保留旧「保存即覆盖」手感）。 */
+    let slot = raw ? st.list.find(x => x.name === raw) : active;
+    if (slot) {
+      slot.scene = s; slot.at = s.at;
+    } else {
+      slot = {
+        id: sceneSlotId(),
+        name: sceneName(raw || ('场景 ' + (st.list.length + 1)), st),
+        at: s.at, scene: s
+      };
+      st.list.push(slot);
+    }
+    st.active = slot.id;
+    saveSceneStore(st);
     renderSceneBar();
-    toast('场景已保存');
+    toast('已保存「' + slot.name + '」');
     return true;
   }
 
-  function loadScene() {
-    const s = load(SCENE_KEY, null);
-    if (!s || !Array.isArray(s.timeline) || !s.timeline.length) {
+  function loadScene(key) {
+    const st = sceneStore();
+    const slot = key != null && key !== '' ? sceneFindSlot(st, key) : sceneActiveSlot(st);
+    const s = slot ? slot.scene : null;
+    if (!validateScene(s)) {
       toast('还没有保存过场景');
       return false;
     }
@@ -1242,26 +1333,107 @@
     }
     go('game');
     renderGame();
-    toast('已载入保存的场景');
+    toast('已载入「' + slot.name + '」');
     return true;
+  }
+
+  function removeScene(key) {
+    const st = sceneStore();
+    const slot = key != null && key !== '' ? sceneFindSlot(st, key) : sceneActiveSlot(st);
+    if (!slot) { toast('没有可删除的场景'); return false; }
+    const i = st.list.findIndex(x => x.id === slot.id);
+    st.list.splice(i, 1);
+    st.active = st.list.length ? st.list[Math.min(i, st.list.length - 1)].id : null;
+    saveSceneStore(st);
+    renderSceneBar();
+    toast('已删除「' + slot.name + '」');
+    return true;
+  }
+
+  /* 导出：默认当前槽位；key === 'all' 导出全部槽位，便于整包迁移 / 备份。
+     两种格式 importScene() 都能读回，也接受裸快照或槽位数组。 */
+  function exportScene(key) {
+    const st = sceneStore();
+    if (key === 'all') {
+      return JSON.stringify({ v: 2, kind: 'timeline-scenes', list: st.list }, null, 2);
+    }
+    const slot = key != null && key !== '' ? sceneFindSlot(st, key) : sceneActiveSlot(st);
+    if (!slot) return null;
+    return JSON.stringify({
+      v: 2, kind: 'timeline-scene', name: slot.name, at: slot.at, scene: slot.scene
+    }, null, 2);
+  }
+
+  function importScene(text, fallbackName) {
+    let data;
+    try { data = JSON.parse(text); }
+    catch (e) { return { ok: false, error: '不是有效的 JSON 文件' }; }
+    const items = [];
+    const push = (name, scene, at) => {
+      if (validateScene(scene)) items.push({ name: name, scene: scene, at: at || Date.now() });
+    };
+    if (Array.isArray(data)) {
+      data.forEach((x, i) => push(x && (x.name || ('导入 ' + (i + 1))),
+        x && (x.scene || x), x && x.at));
+    } else if (data && Array.isArray(data.list)) {
+      data.list.forEach((x, i) => push(x && (x.name || ('导入 ' + (i + 1))),
+        x && (x.scene || x), x && x.at));
+    } else if (data && data.scene) {
+      push(data.name || fallbackName || '导入场景', data.scene, data.at);
+    } else {
+      push(fallbackName || '导入场景', data, data && data.at);
+    }
+    if (!items.length) return { ok: false, error: '文件里没有可用的场景数据' };
+    const st = sceneStore();
+    const names = [];
+    items.forEach(it => {
+      const base = String(it.name || '导入场景').replace(/\.json$/i, '')
+        .trim().slice(0, 24) || '导入场景';
+      const slot = { id: sceneSlotId(), name: sceneName(base, st), at: it.at, scene: it.scene };
+      st.list.push(slot);
+      st.active = slot.id;
+      names.push(slot.name);
+    });
+    saveSceneStore(st);
+    renderSceneBar();
+    return { ok: true, names: names, count: names.length };
+  }
+
+  function downloadSceneFile(name, text) {
+    const safe = String(name || '场景').replace(/[\\/:*?"<>|]/g, '_').slice(0, 40);
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = safe + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function clearScenes() {
+    try {
+      localStorage.removeItem(SCENES_KEY);
+      localStorage.removeItem(SCENE_KEY);
+    } catch (e) {}
+    renderSceneBar();
   }
 
   /* ---------------- 对局 ---------------- */
 
-  /* 终章抽样：把「已按年代排好序」的全池均分成 n 段，每段随机取 1 个。
-     仍是随机选取，但比纯随机更适合本作 —— 一局的年份覆盖整条千年长卷，
-     5 位人物的定位年也分散开，按 personSortKey() 挂得到事件时间线的不同缝隙，
-     双线联动（项目玩法核心）不会因为牌全挤在同一端而形同虚设。
-     池不足 n 个时全取；返回顺序沿用原池顺序，保持 pool 的有序语义。 */
-  function stratifiedPick(sortedArr, n) {
+  /* 终章抽样（第十三轮）：Fisher-Yates 洗牌取前 n 个 = 等概率无放回的纯随机样本。
+     全池里每张卡 / 每位人物被抽中的概率完全相同，不再按年代分段（用户拍板）。
+     ★ 抽完仍按「原池顺序」排回：事件按 y、人物按 peopleOrder —— GameSession
+       与双线联动都依赖 pool 有序，抽样方式变了这条铁律也不能破。
+     池不足 n 个时全取。 */
+  function randomPick(sortedArr, n) {
     if (sortedArr.length <= n) return sortedArr.slice();
-    const out = [];
-    for (let k = 0; k < n; k++) {
-      const lo = Math.floor(k * sortedArr.length / n);
-      const hi = Math.max(lo + 1, Math.floor((k + 1) * sortedArr.length / n));
-      out.push(sortedArr[lo + Math.floor(Math.random() * (hi - lo))]);
+    const a = sortedArr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
     }
-    return out;
+    const picked = new Set(a.slice(0, n));
+    return sortedArr.filter(x => picked.has(x));
   }
 
   function poolForAct(actId) {
@@ -1297,17 +1469,18 @@
     state.mode = 'act';
     state.actId = actId;
     const isFinale = !!(FINALE_ID && actId === FINALE_ID);
-    /* 第十一轮：终章每次进入都重抽一小副牌。抽样放在全池 / 禁用过滤之后，
-       所以禁用名单照旧生效；poolForAct() 本身不改，卡册与调试接口仍见全 41 张。 */
+    /* 第十一轮：终章每次进入都重抽一小副牌；第十三轮起为纯随机。
+       抽样放在全池 / 禁用过滤之后，所以禁用名单照旧生效；
+       poolForAct() 本身不改，卡册与调试接口仍见全 41 张。 */
     let pool = poolForAct(actId);
     if (isFinale) {
-      pool = stratifiedPick(pool.slice().sort((a, b) => a.y - b.y), FINALE_EVENT_PICK);
+      pool = randomPick(pool.slice().sort((a, b) => a.y - b.y), FINALE_EVENT_PICK);
     }
     const r = ruleFor(actId);
     state.rule = r;
-    /* 人物线同样每局分层重抽，peoplePoolFor 已按 peopleOrder 排好序。 */
+    /* 人物线同样每局纯随机重抽，peoplePoolFor 已按 peopleOrder 排好序。 */
     const peoplePool = isFinale
-      ? stratifiedPick(peoplePoolFor(actId), FINALE_PEOPLE_PICK)
+      ? randomPick(peoplePoolFor(actId), FINALE_PEOPLE_PICK)
       : null;
     initPeople(actId, peoplePool);   // 第四幕 5 位 / 终章每局随机 5 位，其余关卡恒为 null
     /* 大小时间段是账号级开关：第一次打到第三幕（以及之后任何开放 era 的关卡）
@@ -3138,9 +3311,45 @@
     syncSettings();
   };
   const sceneSaveBtn = $('#scene-save');
-  if (sceneSaveBtn) sceneSaveBtn.onclick = () => saveScene();
+  if (sceneSaveBtn) sceneSaveBtn.onclick = () =>
+    saveScene($('#scene-name') ? $('#scene-name').value : '');
   const sceneLoadBtn = $('#scene-load');
-  if (sceneLoadBtn) sceneLoadBtn.onclick = () => loadScene();
+  if (sceneLoadBtn) sceneLoadBtn.onclick = () =>
+    loadScene($('#scene-select') ? $('#scene-select').value : null);
+  const sceneSelect = $('#scene-select');
+  if (sceneSelect) sceneSelect.onchange = () => {
+    const st = sceneStore();
+    st.active = sceneSelect.value || null;
+    saveSceneStore(st);
+    renderSceneBar();
+  };
+  const sceneExportBtn = $('#scene-export');
+  if (sceneExportBtn) sceneExportBtn.onclick = () => {
+    const st = sceneStore();
+    const slot = sceneFindSlot(st, sceneSelect ? sceneSelect.value : null) || sceneActiveSlot(st);
+    const text = exportScene(slot ? slot.id : null);
+    if (!text) { toast('还没有可导出的场景'); return; }
+    downloadSceneFile(slot.name, text);
+    toast('已导出「' + slot.name + '」.json');
+  };
+  const sceneFile = $('#scene-file');
+  const sceneImportBtn = $('#scene-import');
+  if (sceneImportBtn) sceneImportBtn.onclick = () => { if (sceneFile) sceneFile.click(); };
+  if (sceneFile) sceneFile.onchange = () => {
+    const f = sceneFile.files && sceneFile.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const r = importScene(String(reader.result), f.name);
+      toast(r.ok ? '已导入 ' + r.count + ' 个场景' : ('导入失败：' + r.error));
+      sceneFile.value = '';
+    };
+    reader.onerror = () => { toast('文件读取失败'); sceneFile.value = ''; };
+    reader.readAsText(f, 'utf-8');
+  };
+  const sceneDelBtn = $('#scene-del');
+  if (sceneDelBtn) sceneDelBtn.onclick = () =>
+    removeScene($('#scene-select') ? $('#scene-select').value : null);
   syncSettings();
 
   /* 人物关系图只保留卡册人物卡页一个入口：首页独立人物册视图、对局 HUD
@@ -3334,6 +3543,7 @@
     /* 第十一轮：终章随机抽样只读接口，供验收断言「本局抽了哪些牌 / 全池有哪些牌」。 */
     finale: {
       picks: () => ({ events: FINALE_EVENT_PICK, people: FINALE_PEOPLE_PICK }),
+      mode: () => FINALE_PICK_MODE,
       active: () => !!(FINALE_ID && state.actId === FINALE_ID && state.mode === 'act'),
       events: () => state.session ? state.session.pool.map(c => String(c.id)) : [],
       people: () => state.people ? state.people.pool.map(p => String(p.id)) : [],
@@ -3390,13 +3600,29 @@
       switchOn: () => { const b = $('#set-testing'); return !!b && b.classList.contains('on'); },
       view: () => state.view
     },
-    /* 场景：保存 / 加载 / 撤回，供验收脚本精确复现与断言 */
+    /* 场景：多个命名槽位 + 导入导出删除 + 撤回，供验收脚本精确复现与断言。
+       save/load/clear/has 保留第十轮的无参语义，旧脚本零改动可读。 */
     scene: {
       save: saveScene,
       load: loadScene,
       snapshot: sceneSnapshot,
-      clear: () => { try { localStorage.removeItem(SCENE_KEY); } catch (e) {} renderSceneBar(); },
-      has: () => !!load(SCENE_KEY, null),
+      clear: clearScenes,
+      has: () => sceneStore().list.length > 0,
+      mode: () => 'named-slots',
+      keys: () => ({ scenes: SCENES_KEY, legacy: SCENE_KEY }),
+      slots: () => sceneStore().list.map(s => ({
+        id: s.id, name: s.name, at: s.at,
+        timeline: (s.scene.timeline || []).length, pool: (s.scene.pool || []).length
+      })),
+      active: () => { const a = sceneActiveSlot(sceneStore()); return a ? a.name : null; },
+      select: key => {
+        const st = sceneStore(), s = sceneFindSlot(st, key);
+        if (!s) return false;
+        st.active = s.id; saveSceneStore(st); renderSceneBar(); return true;
+      },
+      remove: removeScene,
+      export: exportScene,
+      import: importScene,
       visible: () => { const b = $('#scene-bar'); return !!b && !b.hidden; },
       recallEvent: recallEvent,
       recallPerson: recallPerson,

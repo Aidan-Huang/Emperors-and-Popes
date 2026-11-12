@@ -1529,16 +1529,26 @@ small{font-size:.78em;opacity:.85}
 .set-switch.on{border-color:var(--gold-dim);color:var(--gold);background:rgba(255,204,0,.08)}
 .set-switch.on .set-knob{background:var(--gold)}
 
-/* ---------- 场景工具条（对局页，仅开关开启时显示） ---------- */
-.scene-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px;padding:8px 10px;
+/* ---------- 场景工具条（对局页，仅开关开启时显示；第十三轮：多命名槽位） ---------- */
+.scene-bar{display:flex;flex-direction:column;gap:6px;margin:0 0 8px;padding:8px 10px;
   border:1px solid var(--line);border-radius:10px;background:#1b2138;font-size:12px}
 .scene-bar[hidden]{display:none}
-.scene-tip{color:var(--muted);flex:1;min-width:150px}
-.scene-state{color:var(--gold);font-size:11.5px;white-space:nowrap}
-.scene-btn{padding:6px 11px;border:1px solid var(--line);border-radius:8px;background:#2a3450;
+.scene-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.scene-controls{gap:6px}
+.scene-tip{color:var(--muted);flex:1 1 auto;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scene-state{color:var(--gold);font-size:11.5px;white-space:nowrap;flex:0 0 auto}
+.scene-name,.scene-select{height:30px;box-sizing:border-box;padding:4px 8px;
+  border:1px solid var(--line);border-radius:8px;background:#11172a;
+  color:var(--ink);font-size:12px}
+.scene-name{width:104px;min-width:88px;flex:0 1 104px}
+.scene-name::placeholder{color:var(--muted)}
+.scene-select{flex:1 1 110px;min-width:96px;max-width:220px}
+.scene-btn{padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:#2a3450;
   color:var(--ink);font-size:12px;cursor:pointer;white-space:nowrap}
 .scene-btn:hover:not(:disabled){border-color:var(--gold-dim)}
 .scene-btn:disabled{opacity:.45;cursor:default}
+.scene-del{color:#e3a9a9}
 
 /* ---------- 撤回角标：贴在已放置卡 / 头像右上角 ---------- */
 .recall-x{position:absolute;top:4px;right:4px;z-index:6;width:20px;height:20px;line-height:18px;
