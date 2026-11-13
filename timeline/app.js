@@ -72,8 +72,16 @@
      固定贴边后，两端圆点与中间圆点（两头像中点，距边框 12px）观感一致，
      也和事件卡两侧紧贴卡牌的插入金线是同一手感。 */
   const DOT_EDGE = 58;
+  /* 第四幕的「年代跨度」用于筛与这一幕相交的关键人物。这里必须用第四幕的
+     ★ 原始全量卡池（全部 CARDS 里 act===4 的 18 张），不能走 Engine.actCards(4)：
+     第十五轮起 actCards() 会按 ACT_OMIT 排除名单过滤关卡卡牌，被排除的早期卡
+     （如 william-1066@1066、hapsburg@1450）恰好撑住了跨度左端。若用过滤后的
+     卡池，跨度会从 1066–1870 收窄成 1453–1870，gregory7、henry4 两位人物被
+     无辜筛掉，人物线从 5 位掉到 3 位。玩家只要「关卡里少几张事件卡」，
+     人物线人数不该跟着变 —— 这也是双线联动的一条隐性契约。 */
   const ACT4_SPAN = (function () {
-    const cs = (typeof Engine !== 'undefined' && Engine.actCards) ? Engine.actCards(4) : [];
+    const src = (typeof CARDS !== 'undefined' && Array.isArray(CARDS)) ? CARDS : [];
+    const cs = src.filter(c => c.act === 4);
     if (!cs.length) return { min: 0, max: 0 };
     return { min: Math.min.apply(null, cs.map(c => c.y)),
              max: Math.max.apply(null, cs.map(c => c.y)) };

@@ -7,6 +7,10 @@
 
   const CARD_SRC = (typeof CARDS !== 'undefined') ? CARDS : (root.CARDS || []);
   const ACT_SRC = (typeof ACTS !== 'undefined') ? ACTS : (root.ACTS || []);
+  /* 第十五轮：按幕排除名单（cards.js 的 ACT_OMIT）。只在主线四幕的
+     actCards() 里读它；终章 all:true 是全池，卡册「全部」/ 复习局 /
+     收集统计都不经过这里，所以全池 41 张的语义保持不变。 */
+  const OMIT_SRC = (typeof ACT_OMIT !== 'undefined') ? ACT_OMIT : (root.ACT_OMIT || {});
 
   /* ---------- 工具 ---------- */
 
@@ -166,10 +170,12 @@
   /* ---------- 卡池构造 ---------- */
 
   function actCards(actId) {
-    // 终章（ACTS 里标了 all:true 的一幕）：卡池是全部卡牌，而不是某一幕。
+    // 终章（ACTS 里标了 all:true 的一幕）：卡池是全部卡牌，不读按幕排除名单。
     const meta = ACT_SRC.find(a => a.id === actId);
     if (meta && meta.all) return CARD_SRC.slice().sort((a, b) => a.y - b.y);
-    return CARD_SRC.filter(c => c.act === actId).sort((a, b) => a.y - b.y);
+    const omit = OMIT_SRC[actId] || [];
+    return CARD_SRC.filter(c => c.act === actId && omit.indexOf(c.id) < 0)
+                   .sort((a, b) => a.y - b.y);
   }
 
   /* 复习卡池：错题优先，其次未收集，再补齐随机；错得多、隔得久的优先 */

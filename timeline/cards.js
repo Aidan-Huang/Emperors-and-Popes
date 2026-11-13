@@ -72,6 +72,23 @@ const FACTIONS = {
   both:   { name: '双方', en: 'BOTH',   color: '#c8b271', icon: '⚖' }
 };
 
+/* ------------------------------------------------------------
+   按幕排除名单（第十五轮 · 2026-11-13）
+   用户按幕点名精简「游戏场景数据」：第二幕 1 张、第三幕 1 张、第四幕 9 张。
+   ★ 只作用于主线四幕的 Engine.actCards()：终章（all:true）走全池、
+     卡册「全部」走 ALL_CARDS、复习局走 CARD_SRC，三者都不读这份名单。
+     因此全池仍是 41 张、卡册仍可查阅这些史料、已保存的场景快照 /
+     「中断的游戏」里的卡 id 也不会悬空；收集统计与禁用名单同样不受影响。
+   ★ 名单里的 id 必须确实属于该幕，调整前先核对下方卡对象的 act 字段。
+   ★ 想恢复某张卡，只需从这里删掉它的 id，数据对象一直都在。
+   ------------------------------------------------------------ */
+const ACT_OMIT = {
+  2: ['aachen'],
+  3: ['dictatus-1075'],
+  4: ['william-1066', 'hapsburg', 'worms-diet', 'lutheran', 'cellini',
+      'concordat-1801', 'code-napoleon', 'hre-end', 'arc-1806']
+};
+
 const CARDS = [
 
   /* ================= 第一幕 · 帝国的余晖与重生 ================= */
@@ -807,4 +824,4 @@ const TRIVIA = [
   }
 ];
 
-if (typeof module !== 'undefined') module.exports = { CARDS, ACTS, FACTIONS, TRIVIA };
+if (typeof module !== 'undefined') module.exports = { CARDS, ACTS, FACTIONS, TRIVIA, ACT_OMIT };
