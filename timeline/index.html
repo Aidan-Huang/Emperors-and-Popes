@@ -41,7 +41,8 @@
         <span class="mode-txt"><b>终章 · 千年长卷</b><small id="home-finale-hint">四幕已通关 · 每局随机 10 张事件 + 5 位人物，常玩常新</small></span>
         <span class="mode-arrow">›</span>
       </button>
-      <button class="mode" data-go="review">
+      <!-- 第十六轮：通关第三幕前隐藏；测试口子下始终显示，由 renderHome() 控制 -->
+      <button class="mode" id="home-review" data-go="review" hidden>
         <span class="mode-icon">🔁</span>
         <span class="mode-txt"><b>复习模式</b><small id="review-hint">错题优先 · 间隔重复</small></span>
         <span class="mode-arrow">›</span>
@@ -296,13 +297,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="../version.js?v=13"></script>
+<script src="../version.js?v=14"></script>
 <script src="cards.js"></script>
 <script src="people-cards.js"></script>
 <script src="relations.js"></script>
 <script src="engine.js"></script>
 <script src="eras.js"></script>
 <script src="app.js"></script>
-<script src="../version-ui.js?v=13"></script>
+<script src="../version-ui.js?v=14"></script>
 </body>
 </html>

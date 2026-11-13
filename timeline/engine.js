@@ -179,23 +179,42 @@
   }
 
   /* 复习卡池：错题优先，其次未收集，再补齐随机；错得多、隔得久的优先 */
-  function reviewPool(errorMap, collection, size, rnd) {
-    const r = rnd || Math.random;
-    const now = Date.now();
+  /* 第十六轮：复习局抽卡 —— 「有效错题优先 → 已解锁卡随机补足 → 上限截断」。
+     source 由调用方传（时间卡 CARDS / 人物卡 PEOPLE），引擎不依赖具体卡种，
+     纯逻辑可在 Node 下单测。errorMap[id] = {count, lastAt, snoozeUntil?}：
+     snoozeUntil > now 表示「刚在复习局答对、短期不复习」，既不优先也不补足。
+     collection 为「已解锁」表；传 null 表示全池已解锁（测试口子 / 验收注入）。
+     opts.rnd / opts.now / opts.source 便于验收确定性注入；第 4 参仍兼容旧的函数型 rnd。 */
+  function reviewPool(errorMap, collection, size, opts) {
+    const o = (typeof opts === 'function') ? { rnd: opts } : (opts || {});
+    const r = o.rnd || Math.random;
+    const now = o.now || Date.now();
+    const src = o.source || CARD_SRC;
+    const cap = Math.max(0, size || 8);
+    errorMap = errorMap || {};
+    const snoozed = e => !!(e && e.snoozeUntil && e.snoozeUntil > now);
     const score = c => {
       const e = errorMap[c.id];
-      const unlocked = collection && collection[c.id];
-      let s = 0;
-      if (e) {
-        const days = Math.max(0, (now - (e.lastAt || now)) / 86400000);
-        s += 100 + e.count * 30 + Math.min(days, 30) * 2;
-      }
-      if (!unlocked) s += 25;
-      s += r() * 8;
-      return s;
+      const days = Math.max(0, (now - (e.lastAt || now)) / 86400000);
+      return e.count * 30 + Math.min(days, 30) * 2;
     };
-    const ranked = CARD_SRC.slice().sort((a, b) => score(b) - score(a));
-    return ranked.slice(0, Math.min(size || 8, CARD_SRC.length));
+    const wrong = src.filter(c => errorMap[c.id] && !snoozed(errorMap[c.id]))
+      .slice().sort((a, b) => score(b) - score(a) || (r() - 0.5));
+    const picked = wrong.slice(0, cap);
+    const have = {};
+    picked.forEach(c => { have[c.id] = 1; });
+    if (picked.length < cap) {
+      const rest = src.filter(c => !have[c.id] && !snoozed(errorMap[c.id]) &&
+        (!collection || collection[c.id]));
+      for (let i = rest.length - 1; i > 0; i--) {
+        const j = Math.floor(r() * (i + 1));
+        const t = rest[i]; rest[i] = rest[j]; rest[j] = t;
+      }
+      for (let i = 0; i < rest.length && picked.length < cap; i++) {
+        picked.push(rest[i]); have[rest[i].id] = 1;
+      }
+    }
+    return picked;
   }
 
   const API = {

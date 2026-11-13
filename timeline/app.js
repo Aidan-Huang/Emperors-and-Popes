@@ -133,6 +133,14 @@
   };
   const FINALE_RULE = { diff: 'hard', mistakes: 8, name: '', era: true };   // 终章：全要素正式版，不挂难度名
   const REVIEW_RULE = { diff: 'normal', mistakes: 3, name: '', era: true };  // 复习局：不属于任何一幕，固定 3 次失误（测试模式例外：无限，见 startReview）
+  /* 第十六轮：复习局抽卡口径。时间卡最多 6 张、人物卡最多 3 张（人物线至少
+     3 人才成型：1 锚点 + 2 手牌，不足就不启用）；两类合计不足 5 张时不开局，
+     提示先去游玩。复习局里放对的错题进入 REVIEW_SNOOZE_MS 的「短期搁置」，
+     期间不显示在错题本、也不被优先抽到；再答错立即解除并重新计数。 */
+  const REVIEW_EVENT_MAX = 6;
+  const REVIEW_PEOPLE_MAX = 3;
+  const REVIEW_MIN_TOTAL = 5;
+  const REVIEW_SNOOZE_MS = 3 * 24 * 60 * 60 * 1000;
 
   /* 幕列表 / 对局标题要用的是产品规则，不受测试覆盖影响。 */
   function productRule(actId) {
@@ -157,6 +165,9 @@
     progress: 'tl_ch6_progress',
     collection: 'tl_ch6_collection',
     errors: 'tl_ch6_errors',
+    /* 第十六轮：人物错题本独立存档。事件卡 id 与人物 id 有重叠
+       （augustus / clovis / pepin …），共用一份会互相串数据。 */
+    peopleErrors: 'tl_ch6_people_errors',
     settings: 'tl_ch6_settings',
     custom: 'tl_ch6_custom_cards',
     /* 人物收集存档，与事件卡 collection 物理隔离：两类卡的 id 有重叠
@@ -177,7 +188,8 @@
   const S = {
     progress: load(KEY.progress, {}),    // { actId: {plays, cleared, best, bestCombo} }
     collection: load(KEY.collection, {}),// { cardId: {at} }
-    errors: load(KEY.errors, {}),        // { cardId: {count, lastAt} }
+    errors: load(KEY.errors, {}),        // { cardId: {count, lastAt, snoozeUntil?} }
+    peopleErrors: load(KEY.peopleErrors, {}),  // { personId: 同上 }，与 errors 物理隔离
     /* 难度不再由玩家选择、也不再存档：改为按幕绑定（见 ACT_RULES）。
        旧存档里残留的 difficulty 字段无害，这里不再读取。
        eraUnlocked 是大小时间段的账号级开关：第一次打到第三幕时置真，
@@ -190,6 +202,7 @@
     save(KEY.progress, S.progress);
     save(KEY.collection, S.collection);
     save(KEY.errors, S.errors);
+    save(KEY.peopleErrors, S.peopleErrors);
     save(KEY.settings, S.settings);
     save(KEY.custom, S.custom);
     save(KEY.peopleSeen, S.peopleSeen);
@@ -250,6 +263,11 @@
     return MAIN_ACTS.every(a => S.progress[a.id] && S.progress[a.id].cleared);
   }
   function act5Unlocked() { return act5Test() || fourCleared(); }
+  /* 第十六轮：复习入口在「通关第三幕」后才出现；测试口子下始终可见。
+     用 cleared（通关）而不是 plays>0，对齐用户说的「通过第三幕」。 */
+  function reviewUnlocked() {
+    return act5Test() || !!(S.progress[3] && S.progress[3].cleared);
+  }
   /* 禁用功能开放条件：正式解锁第五幕（四幕通关）后即可用，不再限于测试口子。 */
   function disableEnabled() { return act5Unlocked(); }
   /* 人物卡册开放条件：人物卡在第四幕首次出现在游戏里，卡册查看同步在此时打开。 */
@@ -553,8 +571,11 @@
       return '<div class="ring' + (done ? ' done' : '') + '"><b>' + got + '/' + cards.length + '</b>第' + a.id + '幕</div>';
     }).join('');
 
-    const wrongCount = Object.keys(S.errors).length;
+    const wrongCount = activeErrorCount();
     $('#review-hint').textContent = wrongCount ? ('错题 ' + wrongCount + ' 张 · 优先重排') : '还没有错题 · 随时可来热手';
+    /* 第十六轮：复习入口在通关第三幕前隐藏，测试口子下始终可见。 */
+    const revBtn = $('#home-review');
+    if (revBtn) revBtn.hidden = !reviewUnlocked();
     $('#gallery-hint').textContent = '已解锁 ' + collected + ' / ' + TOTAL + ' 张' +
       (peopleGalleryUnlocked() ? ' · 含人物卡' : '');
 
@@ -685,11 +706,13 @@
   }
 
   function peopleActive() {
-    /* 第四幕 5 位关键人物、终章每局随机 5 位人物；其余关卡恒为 false。
-       testDifficulty 是验收用的难度覆盖通道，两条人物线都不介入。 */
+    /* 第四幕 5 位关键人物、终章每局随机 5 位人物；第十六轮起复习局凑够 3 位
+       人物时同样启用人物线（时间卡与人物卡都能复习）。其余关卡恒为 false。
+       testDifficulty 是验收用的难度覆盖通道，三条人物线都不介入。 */
     const actOk = state.actId === 4 || (FINALE_ID && state.actId === FINALE_ID);
-    return !!(state.mode === 'act' && actOk &&
-      !state.testDifficulty && state.people && state.people.pool.length >= 3);
+    const modeOk = (state.mode === 'act' && actOk) || state.mode === 'review';
+    return !!(modeOk && !state.testDifficulty &&
+      state.people && state.people.pool.length >= 3);
   }
 
   function peopleComplete() {
@@ -1041,12 +1064,14 @@
     if (ok) {
       p.line.splice(idx, 0, card);
       unlockPerson(card.id);        // 放对一次 → 永久解锁这张人物卡
+      if (state.mode === 'review') snoozeError(S.peopleErrors, card.id);
       g.correct++; g.combo++;
       if (g.combo > g.maxCombo) g.maxCombo = g.combo;
       state.lastRes = null;      // 人物卡没有事件卡那套「详情」，别让入口指向旧结果
       setHint('<b>✓ 放对了</b> · ' + esc(personYears(card)) + ' · ' + esc(card.zh), 'ok');
     } else {
       g.wrong++; g.combo = 0; g.mistakesLeft--;
+      markError(S.peopleErrors, card.id);
       p.deck.push(card);         // 回到人物牌堆尾，本局还会再见到他
       state.lastRes = { ok: false };   // scheduleFinish 据此等弹回动画播完
       /* 生年不详的人物最容易让玩家反复猜位置：放错时直接把定位线索给他，
@@ -1565,34 +1590,51 @@
     afterStart(ACTS.find(a => a.id === actId));
   }
 
+  /* 第十六轮：禁用名单在「卡源」层过滤，过滤后不足 2 张时保底不过滤，
+     避免玩家把卡禁得太多导致复习局凑不出牌。 */
+  function reviewSource(all, off) {
+    if (!off.length) return all;
+    const kept = all.filter(x => off.indexOf(String(x.id)) < 0);
+    return kept.length >= 2 ? kept : all;
+  }
+  /* 复习局卡池 = 时间卡（最多 6）+ 人物卡（最多 3），两类都走
+     「有效错题优先 → 已解锁卡随机补足」。测试口子下传 null = 全池已解锁，
+     方便验收与试牌，也保持测试口子「全部可见」的一贯语义。 */
+  function buildReviewDeck() {
+    const allUnlocked = act5Test();
+    const evOff = disableEnabled() ? disabledCards() : [];
+    const peOff = disableEnabled() ? disabledPeople() : [];
+    const events = Engine.reviewPool(S.errors, allUnlocked ? null : S.collection,
+      REVIEW_EVENT_MAX, { source: reviewSource(ALL_CARDS, evOff) });
+    let people = Engine.reviewPool(S.peopleErrors, allUnlocked ? null : S.peopleSeen,
+      REVIEW_PEOPLE_MAX, { source: reviewSource(PEOPLE_ALL, peOff) });
+    /* 人物线至少 3 人才成型，不足就不启用，也不计入本局总卡数。 */
+    if (people.length < 3) people = [];
+    return { events: events, people: people, total: events.length + people.length };
+  }
   function startReview() {
-    state.mode = 'review';
-    initPeople(0);       // 复习局无幕概念，不出现人物线
-    let pool = Engine.reviewPool(S.errors, S.collection, 8);
-    if (disableEnabled()) {
-      const off = disabledCards();
-      if (off.length) {
-        const kept = pool.filter(c => off.indexOf(String(c.id)) < 0);
-        if (kept.length >= 2) pool = kept;
-        else {
-          const have = {}; kept.forEach(c => { have[String(c.id)] = 1; });
-          pool = kept.concat(ALL_CARDS.filter(c => !have[String(c.id)])
-            .slice(0, 2 - kept.length));
-        }
-      }
+    const deck = buildReviewDeck();
+    if (deck.total < REVIEW_MIN_TOTAL) {
+      toast('先去游玩游戏，攒够 ' + REVIEW_MIN_TOTAL + ' 张卡再来复习', 2600);
+      return false;
     }
+    state.mode = 'review';
+    state.actId = 0;                  // 复习局不属任何一幕
+    initPeople(0, deck.people);       // 3 位 → 启用人物线；空数组 → 不带人物线
     /* 复习局不属任何一幕：普通预设 + 3 次失误（测试模式例外：无限）、era 规则为真；
        实际显不显示还要看账号级全局开关（没打到第三幕前复习局也不显示）。 */
     const r = state.testDifficulty ? ruleFor(0) : REVIEW_RULE;
     state.rule = r;
-    /* 测试口子：复习局同样放开无限生命（与 1~5 幕一致），方便反复试牌。
-       照样传 Infinity，HUD 复用 renderGame() 的 ∞ 特判，engine.js 零改动。 */
+    /* 测试口子：复习局同样放开无限生命，HUD 复用 renderGame() 的 ∞ 特判。 */
     const mistakes = act5Test() ? Infinity : REVIEW_RULE.mistakes;
-    state.session = new Engine.GameSession(pool,
+    state.session = new Engine.GameSession(deck.events,
       { difficulty: r.diff, maxMistakes: mistakes });
     state.selectedId = null;
     unlock(state.session.anchor.id);
-    afterStart({ name: '复习局', span: '错题优先 · 8 张' });
+    afterStart({ name: '复习局',
+      span: '错题优先 · ' + deck.events.length + ' 张时间卡' +
+        (deck.people.length ? ' + ' + deck.people.length + ' 位人物' : '') });
+    return true;
   }
 
   function afterStart(act) {
@@ -1610,11 +1652,13 @@
     const hl = $('#hand-label');
     if (hl) hl.innerHTML = !peopleActive()
       ? '手牌 <small>（年份未知，点选后放入缝隙）</small>'
-      : (FINALE_ID && state.actId === FINALE_ID
-        ? '手牌 <small>（' + (state.session ? state.session.pool.length : FINALE_EVENT_PICK) +
-          ' 张事件卡 + ' + (state.people ? state.people.pool.length : FINALE_PEOPLE_PICK) +
-          ' 位人物 · 事件放金线，人物放金点）</small>'
-        : '手牌 <small>（事件卡放金色细线 · 人物卡放金色圆点）</small>');
+      : (state.mode === 'review'
+        ? '手牌 <small>（时间卡放金色细线 · 人物卡放金色圆点）</small>'
+        : (FINALE_ID && state.actId === FINALE_ID
+          ? '手牌 <small>（' + (state.session ? state.session.pool.length : FINALE_EVENT_PICK) +
+            ' 张事件卡 + ' + (state.people ? state.people.pool.length : FINALE_PEOPLE_PICK) +
+            ' 位人物 · 事件放金线，人物放金点）</small>'
+          : '手牌 <small>（事件卡放金色细线 · 人物卡放金色圆点）</small>'));
     eraReset();                    // 新开一局：撤掉上一局可能残留的飞签 / 定时器 / 浮起
     hideWinBar();                  // 新开一局，撤掉上一局可能残留的待确认条
     clearTimeout(state.pendingFinish);
@@ -2453,16 +2497,39 @@
 
   /* ---------------- 判定反馈 ---------------- */
 
-  /* 记录收集与错题，两种反馈模式共用 */
+  /* ---------- 第十六轮：错题本（两类卡物理隔离）+ 短期搁置 ---------- */
+  /* snoozeUntil > now 的条目 = 「刚在复习局答对」，短期内不出现在错题本、
+     也不被复习局优先抽到；再答错由 markError 清掉搁置并重新计数。 */
+  function errActive(e) { return !!e && !(e.snoozeUntil && e.snoozeUntil > Date.now()); }
+  function activeErrors(map) {
+    return Object.keys(map || {}).filter(id => errActive(map[id]));
+  }
+  function activeErrorCount() {
+    return activeErrors(S.errors).length + activeErrors(S.peopleErrors).length;
+  }
+  function markError(map, id) {
+    const e = map[id] || { count: 0, lastAt: 0 };
+    e.count++; e.lastAt = Date.now();
+    e.snoozeUntil = 0;          // 又错了，立即解除短期搁置
+    map[id] = e;
+    persist();
+  }
+  function snoozeError(map, id) {
+    if (!map[id]) return;
+    map[id].snoozeUntil = Date.now() + REVIEW_SNOOZE_MS;
+    persist();
+  }
+
+  /* 记录收集与错题，两种反馈模式共用。
+     第十六轮：只有「复习局答对」才把该错题搁置 3 天 —— 闯关里偶尔放对一次
+     不该把反复错的卡从错题本抹掉，那是复习局该做的事。 */
   function recordOutcome(res) {
     const c = res.card;
     if (res.ok) {
       unlock(c.id);
+      if (state.mode === 'review') snoozeError(S.errors, c.id);
     } else {
-      const e = S.errors[c.id] || { count: 0, lastAt: 0 };
-      e.count++; e.lastAt = Date.now();
-      S.errors[c.id] = e;
-      persist();
+      markError(S.errors, c.id);
     }
   }
 
@@ -2848,26 +2915,42 @@
   /* ---------------- 复习模式 ---------------- */
 
   function renderReview() {
-    const errs = Object.keys(S.errors).map(id => ({ id: id, e: S.errors[id], c: ALL_CARDS.find(x => x.id === id) }))
+    const evErrs = activeErrors(S.errors)
+      .map(id => ({ id: id, e: S.errors[id], c: ALL_CARDS.find(x => x.id === id) }))
       .filter(x => x.c).sort((a, b) => b.e.count - a.e.count || b.e.lastAt - a.e.lastAt);
+    const peErrs = activeErrors(S.peopleErrors)
+      .map(id => ({ id: id, e: S.peopleErrors[id], c: PEOPLE_ALL.find(x => x.id === id) }))
+      .filter(x => x.c).sort((a, b) => b.e.count - a.e.count || b.e.lastAt - a.e.lastAt);
+    const errs = evErrs.concat(peErrs);
     $('#review-count').textContent = errs.length ? ('错题 ' + errs.length + ' 张') : '';
 
     const list = errs.length
-      ? errs.map(x => '<div class="rev-item"><span class="y">' + esc(x.c.dy) + '</span>' +
-          '<span class="t">' + esc(x.c.zh) + '</span>' +
+      ? errs.map(x => '<div class="rev-item"><span class="y">' +
+          esc(x.c.dy || personYears(x.c)) + '</span>' +
+          '<span class="t">' + esc(x.c.zh) + (x.c.dy ? '' : ' <small>（人物卡）</small>') + '</span>' +
           '<span class="c">错 ' + x.e.count + ' 次</span>' +
-          '<button data-open="' + x.id + '">看卡</button></div>').join('')
+          (x.c.dy ? '<button data-open="' + x.id + '">看卡</button>' : '') + '</div>').join('')
       : '<div class="empty">还没有错题。去闯关模式转一圈，答错的卡会自动进到这里。</div>';
 
+    const deck = buildReviewDeck();
+    const enough = deck.total >= REVIEW_MIN_TOTAL;
+    const startTxt = enough ? '开始复习局' : '先去游玩游戏，等下再来复习';
     $('#review-body').innerHTML =
       '<div class="rev-panel">' +
         '<h3>错题优先 · 间隔重复</h3>' +
-        '<p>系统按「错得越多、隔得越久」排序抽 8 张卡，组成一局复习。放对的卡会解锁进卡册。</p>' +
+        '<p>优先抽错题本里的卡，不够再从已解锁的卡里补；一局最多 ' +
+          REVIEW_EVENT_MAX + ' 张时间卡 + ' + REVIEW_PEOPLE_MAX +
+          ' 位人物。在复习局里放对的卡，' + Math.round(REVIEW_SNOOZE_MS / 86400000) +
+          ' 天内不再出现在错题本、也不会被优先抽到；再放错会立刻回来。</p>' +
         '<div class="rev-stats"><span>已收集 ' + Object.keys(S.collection).length + ' 张</span>' +
-        '<span>错题 ' + errs.length + ' 张</span>' +
+        '<span>有效错题 ' + errs.length + ' 张</span>' +
+        '<span>本局可抽 ' + deck.total + ' 张（时间 ' + deck.events.length +
+          ' · 人物 ' + deck.people.length + '）</span>' +
         '<span>复习局 · ' + REVIEW_RULE.mistakes + ' 次失误</span></div>' +
+        (enough ? '' : '<div class="empty">卡牌不足 ' + REVIEW_MIN_TOTAL +
+          ' 张，先去游玩游戏，等下再来复习。</div>') +
         '<div class="modal-actions" style="margin-top:12px">' +
-          '<button class="primary" id="rev-start">开始复习局</button>' +
+          '<button class="primary" id="rev-start">' + startTxt + '</button>' +
           '<button id="rev-clear">清空错题本</button>' +
         '</div>' +
       '</div>' +
@@ -2875,7 +2958,10 @@
 
     $('#rev-start').onclick = startReview;
     $('#rev-clear').onclick = () => {
-      if (confirm('清空错题本？')) { S.errors = {}; persist(); renderReview(); toast('已清空'); }
+      if (confirm('清空错题本？')) {
+        S.errors = {}; S.peopleErrors = {};
+        persist(); renderReview(); toast('已清空');
+      }
     };
     $$('#review-body [data-open]').forEach(b => {
       b.onclick = () => { const c = ALL_CARDS.find(x => x.id === b.dataset.open); if (c) openCard(c, true); };
@@ -3425,7 +3511,7 @@
 
   $('#btn-reset').onclick = () => {
     if (!confirm('清空进度、收集与错题本？（自定义卡会保留，需在编辑器里单独删除）')) return;
-    S.progress = {}; S.collection = {}; S.errors = {};
+    S.progress = {}; S.collection = {}; S.errors = {}; S.peopleErrors = {};
     persist(); renderHome(); toast('进度已清空 · 自定义卡保留');
   };
 
@@ -3490,6 +3576,23 @@
   });
   window.__TL = {
     state: state, S: S, go: go, ALL_CARDS: ALL_CARDS, Engine: Engine,
+    /* 第十六轮：复习局调试 / 验收接口（只读为主，注入只写错题本与进度） */
+    review: {
+      unlocked: () => reviewUnlocked(),
+      limits: () => ({ events: REVIEW_EVENT_MAX, people: REVIEW_PEOPLE_MAX,
+                       minTotal: REVIEW_MIN_TOTAL, snoozeMs: REVIEW_SNOOZE_MS }),
+      deck: () => { const d = buildReviewDeck(); return {
+        events: d.events.map(c => c.id), people: d.people.map(p => p.id), total: d.total }; },
+      errors: () => ({ events: JSON.parse(JSON.stringify(S.errors)),
+                       people: JSON.parse(JSON.stringify(S.peopleErrors)) }),
+      activeCount: () => activeErrorCount(),
+      setErrors: (ev, pe) => {
+        S.errors = ev || {}; S.peopleErrors = pe || {};
+        persist(); renderHome(); if (state.view === 'review') renderReview();
+        return activeErrorCount();
+      },
+      setProgress: p => { S.progress = p || {}; persist(); renderHome(); }
+    },
     /* 卡册整体性调整：分类 / 解锁 / 禁用 / 设备分流的只读与设置入口。
        供验收脚本在 CDP 里强制设备类型、注入收集态，不绕过正常渲染链路。 */
     gallery: {
