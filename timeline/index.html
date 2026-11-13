@@ -27,6 +27,9 @@
         <div class="bar"><i id="home-collect-bar" style="width:0%"></i></div>
         <div class="act-rings" id="home-rings"></div>
       </div>
+      <!-- 第十七轮：从「菜单之间」搬到收集卡片下方这块原本就空着的居中位置。
+           仍由 renderHome() 按 id 控制显隐与文案，位置变化不影响任何逻辑。 -->
+      <button class="resume-line" id="btn-resume" hidden></button>
     </header>
 
     <div class="mode-list">
@@ -53,10 +56,6 @@
         <span class="mode-arrow">›</span>
       </button>
     </div>
-
-    <!-- 中途退出的检查点：与主游戏《权力的双人舞》首页「↩ 继续上次」同一手感，
-         由 renderHome() 控制显隐与文案；没有中断局时整行隐藏。 -->
-    <button class="resume-line" id="btn-resume" hidden></button>
 
     <!-- 难度选择已移除：失误预算、大小时间段、势力显隐等规则直接绑定在
          每一幕上（见 app.js 的 ACT_RULES），玩家进哪一幕就用哪一套规则。 -->
@@ -297,13 +296,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="../version.js?v=14"></script>
+<script src="../version.js?v=15"></script>
 <script src="cards.js"></script>
 <script src="people-cards.js"></script>
 <script src="relations.js"></script>
 <script src="engine.js"></script>
 <script src="eras.js"></script>
 <script src="app.js"></script>
-<script src="../version-ui.js?v=14"></script>
+<script src="../version-ui.js?v=15"></script>
 </body>
 </html>
