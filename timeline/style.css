@@ -401,6 +401,10 @@ small{font-size:.78em;opacity:.85}
   background:rgba(255,204,0,.06);border:2px dashed var(--gold);border-radius:8px;
   box-shadow:none;opacity:.32;cursor:default;pointer-events:none;
   display:flex;align-items:center;justify-content:center;
+  /* ghost 插在每个 slot「后面」，与前面真卡隔着 slot 是 gap+slot+gap=22px，
+     与后面真卡却直接相邻只有 gap=8px。补上 slot+gap=14px，让前后间距都等于
+     真实落牌后的卡间距（22px），预览和最终效果完全一致，不会一边宽一边窄。 */
+  margin-right:14px;
 }
 .tl-card.drag-ghost::after{
   content:'放这里';writing-mode:vertical-rl;letter-spacing:3px;
@@ -524,6 +528,11 @@ body.no-select,body.no-select *{-webkit-user-select:none!important;user-select:n
   transform:translateY(-3px) scale(1.04);
   box-shadow:var(--card-shadow-hover);
   z-index:20;
+}
+/* 拖动落位预览期间：真卡不再随指针 hover 浮起。否则卡被 scale(1.04) 放大后
+   会把 ghost 与它的间距视觉上压缩几像素，破坏「预览间距 == 落位间距」的一致性。 */
+#view-game.dragging .tl-card:hover,#view-game.dragging .tl-card.era-hover{
+  transform:none;box-shadow:var(--card-shadow);z-index:auto;
 }
 /* 选中沿用原版的纯金边，不额外抬升卡片 */
 .hand-card.sel{z-index:15}
@@ -1004,8 +1013,9 @@ body.no-select,body.no-select *{-webkit-user-select:none!important;user-select:n
   }
   .slot:hover::before,.slot.ghost::before{width:auto;height:3px;background:var(--gold)}
   /* 竖屏：虚线卡槽改成横向扁槽，宽度铺满插入位 */
-  /* 落位预览卡沿用手机横条卡尺寸；「放这里」改横排，别竖着挤在 80px 高的槽里 */
-  .tl-card.drag-ghost{border-radius:8px}
+  /* 落位预览卡沿用手机横条卡尺寸；「放这里」改横排，别竖着挤在 80px 高的槽里。
+     纵向排布补偿改到下方：手机 gap6 + slot8 = 14px，前后间距同样都是 20px。 */
+  .tl-card.drag-ghost{border-radius:8px;margin-right:0;margin-bottom:14px}
   .tl-card.drag-ghost::after{writing-mode:horizontal-tb;letter-spacing:2px;font-size:12px}
   /* 简单模式：竖屏恢复横排年代提示，同样不加虚线框 */
   .slot.with-hint{
