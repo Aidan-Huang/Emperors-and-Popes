@@ -401,11 +401,15 @@ small{font-size:.78em;opacity:.85}
   background:rgba(255,204,0,.06);border:2px dashed var(--gold);border-radius:8px;
   box-shadow:none;opacity:.32;cursor:default;pointer-events:none;
   display:flex;align-items:center;justify-content:center;
-  /* ghost 插在每个 slot「后面」，与前面真卡隔着 slot 是 gap+slot+gap=22px，
-     与后面真卡却直接相邻只有 gap=8px。补上 slot+gap=14px，让前后间距都等于
-     真实落牌后的卡间距（22px），预览和最终效果完全一致，不会一边宽一边窄。 */
+  /* ghost 插在 slot「后面」，与后面真卡直接相邻只有 gap=8px，补 slot+gap=14px
+     让间距等于真实落牌的 22px。末尾那个 ghost 插在末 slot「前面」(见 .at-end)，
+     改为补左侧间距，且不能带 margin-right——否则它会覆盖 :last-child 的
+     margin-right:auto，把整组时间线推到右边（首卡右移的 bug）。 */
   margin-right:14px;
 }
+/* 末尾插入位的 ghost：位于末 slot 之前，左间距补 14px，右侧交还给 gap，
+   确保 timeline 的最后一个子元素仍是 slot，居中 auto 生效、首卡不位移。 */
+.tl-card.drag-ghost.at-end{margin-right:0;margin-left:14px}
 .tl-card.drag-ghost::after{
   content:'放这里';writing-mode:vertical-rl;letter-spacing:3px;
   color:rgba(255,215,90,.7);font-size:14px;font-weight:500;
@@ -413,6 +417,25 @@ small{font-size:.78em;opacity:.85}
 /* 离指针最近的落点：实线 + 更亮底色，明确「松手放这张」 */
 .tl-card.drag-ghost.drop-target{
   border-style:solid;border-color:#ffe38a;background:rgba(255,204,0,.2);
+}
+/* 够近、松手真的会放进去：另一种更醒目的显示（文案切换 + 内发光边框），
+   和普通「只是最近但还够不着」的 drop-target 区分开。离远了这两个 class 都消失。 */
+.tl-card.drag-ghost.can-drop{
+  border:2px solid #ffe38a;background:rgba(255,204,0,.3);
+  box-shadow:inset 0 0 0 2px rgba(255,227,138,.35);
+}
+.tl-card.drag-ghost.can-drop::after{content:'松手放这';color:#fff3c4;font-weight:700}
+/* 放错时提示正确位置：只在正确 slot 上高亮金色细线 + 轻微底色，不插入全尺寸
+   幽灵卡（那会让玩家误以为卡已经占住了时间线位置）。2.2s 后自动移除。 */
+.slot.correct-mark::before{opacity:1;width:3px;background:var(--gold)}
+.slot.correct-mark::after{
+  content:'';position:absolute;top:6%;bottom:6%;left:50%;width:26px;
+  transform:translateX(-50%);border:2px dashed var(--gold);border-radius:8px;
+  background:rgba(255,204,0,.08);pointer-events:none;
+}
+@media (max-width:640px){
+  .slot.correct-mark::after{top:50%;bottom:auto;left:2%;right:2%;width:auto;height:26px;
+    transform:translateY(-50%)}
 }
 /* 拖动期间锁死文字选择，避免拖牌时选中一大片网页文字（见 body.no-select） */
 body.no-select,body.no-select *{-webkit-user-select:none!important;user-select:none!important}
@@ -479,6 +502,9 @@ body.no-select,body.no-select *{-webkit-user-select:none!important;user-select:n
   height:210px;min-height:210px;background:var(--card-bg);color:var(--card-ink);border-radius:8px;
   border:0;box-shadow:var(--card-shadow);overflow:hidden;position:relative;
   display:flex;flex-direction:column;cursor:pointer;
+  /* 手机拖动必需：禁掉浏览器默认的滚动/长按手势，pointermove 才会持续派发，
+     否则手指一动就被判成页面滚动，拖动链路收不到 move 事件。 */
+  touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
 }
 .hand-card .fstrip{height:3px;background:var(--local)}
 .hand-card.f-church .fstrip{background:var(--church)}
@@ -1016,6 +1042,7 @@ body.no-select,body.no-select *{-webkit-user-select:none!important;user-select:n
   /* 落位预览卡沿用手机横条卡尺寸；「放这里」改横排，别竖着挤在 80px 高的槽里。
      纵向排布补偿改到下方：手机 gap6 + slot8 = 14px，前后间距同样都是 20px。 */
   .tl-card.drag-ghost{border-radius:8px;margin-right:0;margin-bottom:14px}
+  .tl-card.drag-ghost.at-end{margin-bottom:0;margin-top:14px}
   .tl-card.drag-ghost::after{writing-mode:horizontal-tb;letter-spacing:2px;font-size:12px}
   /* 简单模式：竖屏恢复横排年代提示，同样不加虚线框 */
   .slot.with-hint{

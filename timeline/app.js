@@ -1772,16 +1772,39 @@
       try { return matchMedia('(hover:none),(pointer:coarse)').matches; }
       catch (e) { return false; }
     };
-    // 拖动一开始就给每个 slot 后面插一张等大虚线占位卡，之后整段拖动都不再增删
+    // 拖动一开始就给每个 slot 配一张等大虚线占位卡，之后整段拖动都不再增删
     // DOM（只改 opacity / drop-target），布局稳定、距离判定不会抖。
+    // 关键：末尾那个 slot 的 ghost 插在它「前面」而不是后面。否则 ghost 会成为
+    // timeline 的 :last-child，它的 margin-right 覆盖 :last-child{margin-right:auto}
+    // → 整组失去居中、首卡右移；而且末尾 slot 的年代文字会被夹在卡与 ghost 之间。
+    // 插到 slot 前，序列变成「字-框-卡-框-字」：首卡居中不动、两端文字都在外侧。
     const showGhosts = () => {
       if (ghosts.length) return;
+      const tl = $('#timeline');
       const slots = $$('#timeline .slot');
-      ghosts = slots.map(sl => {
+      const last = slots.length - 1;
+      const cs = getComputedStyle(tl);
+      const vert = cs.flexDirection === 'column';
+      const gap = parseFloat(cs.gap) || 0;
+      // 补偿 = slot 尺寸 + gap：真实落牌后两卡之间隔着一个完整 slot（普通 6px /
+      // easy 24px / 手机 8px），ghost 与真卡直接相邻，得补回这段才所见即所得。
+      // 用实际 slot 尺寸计算，避免 easy 模式文字变宽后间距仍按 14px 偏窄。
+      const sDim = vert ? slots[0].offsetHeight : slots[0].offsetWidth;
+      const pad = sDim + gap;
+      ghosts = slots.map((sl, i) => {
         const g = document.createElement('div');
-        g.className = 'tl-card drag-ghost';
+        g.className = 'tl-card drag-ghost' + (i === last ? ' at-end' : '');
         g.setAttribute('aria-hidden', 'true');
-        sl.parentNode.insertBefore(g, sl.nextSibling);
+        g.style.marginRight = g.style.marginLeft = g.style.marginBottom = g.style.marginTop = '0';
+        if (vert) {
+          if (i === last) g.style.marginTop = pad + 'px';
+          else g.style.marginBottom = pad + 'px';
+        } else {
+          if (i === last) g.style.marginLeft = pad + 'px';
+          else g.style.marginRight = pad + 'px';
+        }
+        if (i === last) sl.parentNode.insertBefore(g, sl);   // 末尾：插在 slot 前
+        else sl.parentNode.insertBefore(g, sl.nextSibling);  // 其余：插在 slot 后
         const r = g.getBoundingClientRect();   // 一次量好中心，避免每帧读布局
         return { el: g, slot: sl, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
       });
@@ -1809,24 +1832,36 @@
       hideGhosts();
       lastTarget = null;
     };
-    // 按指针到各占位卡中心的距离设亮度（近亮远暗、保底可见），最近者实线高亮，
-    // 并把它对应的 slot 作为落点。桌面看横向距离、手机看纵向，取主轴即可。
+    // 按指针到各占位卡中心的距离设亮度（近亮远暗、保底可见），最近者实线高亮。
+    // 与上一轮的关键差别：加「可放下阈值」。只有指针足够靠近某个占位卡时，才把它
+    // 当作落点并点亮更强的 .can-drop 提示；离得远则没有落点，松手一切复原、不放牌，
+    // 避免新手随手一松就把牌扔进很远的位置。
     const updateGhosts = (x, y) => {
       if (!ghosts.length) return;
+      const vertical = !!(window.matchMedia && matchMedia('(max-width:640px)').matches);
+      const dist = g => vertical ? Math.abs(g.cy - y) : Math.abs(g.cx - x);
       let best = null, bestD = Infinity;
       ghosts.forEach(g => {
-        const d = Math.abs(g.cx - x) + Math.abs(g.cy - y);
+        const d = dist(g);
         if (d < bestD) { bestD = d; best = g; }
       });
-      const maxD = Math.max(160, bestD * 1.9);   // 让亮度差拉开，近处更聚焦
+      // 半张卡 + 一点余量：桌面卡宽 140 → 阈值 ~90；手机卡高 80 → ~62。
+      const first = ghosts[0];
+      const cardSpan = first ? (vertical ? first.el.offsetHeight : first.el.offsetWidth) : 140;
+      const reach = cardSpan * 0.65 + 12;
+      const inReach = best && bestD <= reach;
+      const maxD = Math.max(cardSpan, bestD * 1.9);   // 让亮度差拉开，近处更聚焦
       ghosts.forEach(g => {
-        const d = Math.abs(g.cx - x) + Math.abs(g.cy - y);
+        const d = dist(g);
         const t = Math.max(0, 1 - d / maxD);
         g.el.style.opacity = (0.3 + 0.7 * t).toFixed(3);
-        const isBest = g === best;
+        const isBest = inReach && g === best;
         g.el.classList.toggle('drop-target', isBest);
+        // can-drop = 「松手就放这里」的强化提示：只有够近才出现
+        g.el.classList.toggle('can-drop', isBest);
       });
-      lastTarget = best ? best.slot : null;
+      // 够近才有落点；否则 null → pointerup 不放牌、直接复原
+      lastTarget = inReach ? best.slot : null;
     };
 
     /* 点选手牌的还原沿用 pointerup；「拖到卡槽放下」也接在同一条 pointer 链上：
@@ -2696,7 +2731,8 @@
     highlightPlacement(res);
   }
 
-  // 高亮：正确→落位卡；错误→正确位置的幽灵卡
+  // 高亮：正确→落位卡；错误→正确位置的 slot 短暂高亮（不再插入全尺寸幽灵卡，
+  // 否则玩家会误以为那张放错的卡已经占住了时间线）。
   function highlightPlacement(res) {
     const c = res.card;
     setTimeout(() => {
@@ -2706,15 +2742,13 @@
         target = nodes.find(n => n.dataset.id === c.id);
         if (target) { target.classList.add('new'); }
       } else {
-        const ghost = document.createElement('div');
-        ghost.className = 'tl-card ghost ' + factionClass(c.faction);
-        ghost.innerHTML = cardFace(c, { year: true, showFaction: showFactionTag() });
-        const tl = $('#timeline');
         const slots = $$('#timeline .slot');
-        const ref = slots[res.correctIndex];
-        tl.insertBefore(ghost, ref);
-        target = ghost;
-        setTimeout(() => { ghost.remove(); }, 2200);
+        const mark = slots[res.correctIndex];
+        if (mark) {
+          mark.classList.add('correct-mark');
+          setTimeout(() => mark.classList.remove('correct-mark'), 2200);
+          target = mark;
+        }
       }
       try {
         if (target && target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
