@@ -1637,7 +1637,26 @@
     return true;
   }
 
+  /* 首次进入对局时给 HUD 三项浮出简短含义，4.5 秒后自动收起，全局只显示一次。
+     localStorage 记住已看过；验收清 localStorage 会重新触发，但纯 CSS 不进 DOM 结构。 */
+  let hudGuideDone = false;
+  function maybeShowHudGuide() {
+    if (hudGuideDone) return;
+    hudGuideDone = true;
+    let seen = false;
+    try { seen = localStorage.getItem('tl_ch6_hud_guide') === '1'; } catch (e) {}
+    if (seen) return;
+    const hud = $('#view-game .hud');
+    if (!hud) return;
+    hud.classList.add('guide-on');
+    setTimeout(() => {
+      hud.classList.remove('guide-on');
+      try { localStorage.setItem('tl_ch6_hud_guide', '1'); } catch (e) {}
+    }, 4500);
+  }
+
   function afterStart(act) {
+    maybeShowHudGuide();
     state.sessionSeq++;
     state.locked = false;
     state.settled = false;    // 新的一局：结算与中途退出共用这一份「玩过」记账
@@ -1743,6 +1762,7 @@
   function bindTouchSelection() {
     let press = null;
     let handledAt = 0;
+    let lastTarget = null;
     const touch = e => !!e.pointerType && e.pointerType !== 'mouse';
     const inGame = () => state.view === 'game' && !!state.session;
     const near = (t, sel) => (t && t.closest) ? t.closest(sel) : null;
@@ -1750,39 +1770,93 @@
       try { return matchMedia('(hover:none),(pointer:coarse)').matches; }
       catch (e) { return false; }
     };
+    const clearDrag = () => {
+      const vg = $('#view-game');
+      if (vg) vg.classList.remove('dragging');
+      $$('#timeline .slot.drop-target').forEach(s => s.classList.remove('drop-target'));
+      lastTarget = null;
+    };
+    const slotAt = (x, y) => {
+      const el = document.elementFromPoint(x, y);
+      return (el && el.closest) ? el.closest('#timeline .slot') : null;
+    };
 
+    /* 点选手牌的还原沿用 pointerup；「拖到卡槽放下」也接在同一条 pointer 链上：
+       按住手牌移动超过阈值即进入拖动，所有插入位浮出虚线卡槽，目标槽再单独点亮，
+       松手落在目标槽上就直接 onPlace。桌面鼠标同样支持；位移很小的普通点击仍交给
+       手牌 onclick，原有两步点选完全保留。人物卡不落到事件卡槽。 */
     document.addEventListener('pointerdown', e => {
       if (press && press.id !== e.pointerId) return;   // 多指：只认第一根
       press = null;
-      if (!touch(e) || !inGame() || state.locked) return;
+      if (!inGame() || state.locked) return;
       const t = e.target;
       const card = near(t, '.hand-card');
       press = {
         id: e.pointerId, x: e.clientX, y: e.clientY, card: card,
+        touch: touch(e), dragging: false,
         // 插入位要留着 selectedId 放牌；手牌自己处理；其余一律算「点在了别处」
         // 人物线的金色圆点同样是放置位，点它时不能提前清掉 selectedId
         keep: !!(card || near(t, '.slot') || near(t, '.people-slot'))
       };
     }, true);
 
-    document.addEventListener('pointerup', e => {
-      if (!press || press.id !== e.pointerId) return;
-      const p = press; press = null;
-      if (!touch(e) || !inGame() || state.locked) return;
-      // 滑动浏览时间线 / 手牌不算点，选中态原样保留
-      if (Math.abs(e.clientX - p.x) > 10 || Math.abs(e.clientY - p.y) > 10) return;
-      if (p.card) {
-        handledAt = Date.now();
-        toggleHandSelect(p.card.dataset.id, p.card.dataset.kind || undefined);
-      } else if (!p.keep) {
-        clearHandSelect();
+    document.addEventListener('pointermove', e => {
+      if (!press || press.id !== e.pointerId || !press.card) return;
+      const moved = Math.abs(e.clientX - press.x) > 10 || Math.abs(e.clientY - press.y) > 10;
+      if (!moved) return;
+      if (!press.dragging) {
+        press.dragging = true;
+        const vg = $('#view-game');
+        if (vg) vg.classList.add('dragging');
+      }
+      if (e.cancelable) e.preventDefault();
+      if ((press.card.dataset.kind || 'event') === 'event') {
+        const sl = slotAt(e.clientX, e.clientY);
+        if (sl !== lastTarget) {
+          if (lastTarget) lastTarget.classList.remove('drop-target');
+          if (sl) sl.classList.add('drop-target');
+          lastTarget = sl;
+        }
       }
     }, true);
 
-    document.addEventListener('pointercancel', () => { press = null; }, true);
-    // 切走 / 锁屏：仅在真正的触屏设备上顺手收干净，桌面行为一点不变
+    document.addEventListener('pointerup', e => {
+      if (!press || press.id !== e.pointerId) return;
+      const p = press; press = null;
+      if (!inGame() || state.locked) { clearDrag(); return; }
+      const moved = Math.abs(e.clientX - p.x) > 10 || Math.abs(e.clientY - p.y) > 10;
+      if (p.dragging || moved) {
+        clearDrag();
+        // 只有触屏会补发「落回起点」的合成 click 需要吞；桌面的 click 目标是
+        // mousedown/mouseup 共同祖先，不会误 toggle 手牌，故桌面不设抑制，
+        // 否则拖动后 500ms 内点下一张牌会被吞掉（快速连点会以为没点上）。
+        if (p.touch) handledAt = Date.now();
+        if (p.card && (p.card.dataset.kind || 'event') === 'event') {
+          const sl = slotAt(e.clientX, e.clientY);
+          if (sl) {
+            // onPlace 依赖 selectedId：拖动放置前先把这张牌置为选中态
+            if (state.selectedId !== p.card.dataset.id || state.selectedKind !== 'event')
+              toggleHandSelect(p.card.dataset.id, 'event');
+            onPlace(+sl.dataset.slot);
+          }
+        }
+        return;
+      }
+      // 未拖动：触屏走点选，桌面交给手牌 onclick
+      if (p.touch) {
+        if (p.card) {
+          handledAt = Date.now();
+          toggleHandSelect(p.card.dataset.id, p.card.dataset.kind || undefined);
+        } else if (!p.keep) {
+          clearHandSelect();
+        }
+      }
+    }, true);
+
+    document.addEventListener('pointercancel', () => { press = null; clearDrag(); }, true);
+    // 切走 / 锁屏：收干净拖动高亮；触屏再清掉选中态
     window.addEventListener('blur', () => {
-      press = null;
+      press = null; clearDrag();
       if (coarse()) clearHandSelect();
     });
 
@@ -2429,7 +2503,7 @@
     else if (!prev) label = next.dy + ' 之前';
     else if (!next) label = prev.dy + ' 之后';
     else label = prev.dy + ' — ' + next.dy + ' 之间';
-    el.innerHTML = '<span class="slot-plus">＋</span><span class="slot-txt">' + verticalLabel(label) + '</span>';
+    el.innerHTML = '<span class="slot-drop"></span><span class="slot-plus">＋</span><span class="slot-txt">' + verticalLabel(label) + '</span>';
     el.setAttribute('aria-label', '插入位置 ' + (i + 1) + '：' + label);
     el.title = label;
     el.onclick = () => onPlace(i);

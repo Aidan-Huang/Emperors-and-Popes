@@ -260,6 +260,16 @@ small{font-size:.78em;opacity:.85}
   25%    {color:#ff9a95;text-shadow:0 0 10px rgba(226,80,75,.9);transform:scale(1.18)}
 }
 #hud-combo-box{color:var(--gold)}
+/* 首次引导：HUD 三项含义浮出几秒后自动收起，全局只显示一次；纯 CSS，不进 DOM 结构 */
+.hud{position:relative}
+.hud::after{
+  content:attr(data-guide);position:absolute;top:100%;right:0;margin-top:7px;
+  padding:5px 10px;border:1px solid var(--gold);border-radius:8px;
+  background:rgba(28,36,64,.96);color:var(--gold);font-size:11px;line-height:1.4;
+  white-space:nowrap;opacity:0;transform:translateY(-3px);pointer-events:none;
+  transition:opacity .3s ease,transform .3s ease;z-index:30;
+}
+.hud.guide-on::after{opacity:1;transform:translateY(0)}
 
 .timeline-wrap{
   flex:0 0 auto;display:flex;flex-direction:column;min-height:0;position:relative;
@@ -339,9 +349,25 @@ small{font-size:.78em;opacity:.85}
   background:rgba(255,204,0,.5);opacity:0;pointer-events:none;
   transition:opacity .14s ease;
 }
-.slot.armed::before{opacity:1}
+.slot.armed::before{opacity:0}  /* 让位给虚线卡槽 */
 .slot:hover::before{opacity:1;width:3px;background:var(--gold)}
 .slot.ghost::before{opacity:1;width:3px;background:var(--gold)}
+/* 选中手牌 / 拖动中：插入位浮出虚线卡槽，取代原来的细金线，更像「往槽里放」。
+   简单模式已有年代文字指路，不叠虚线槽。静态浮现，reduce 下保留。 */
+.slot-drop{
+  display:none;position:absolute;pointer-events:none;z-index:2;
+  left:50%;top:3%;bottom:3%;width:30px;transform:translateX(-50%);
+  border:2px dashed var(--gold);border-radius:11px;
+  background:rgba(255,204,0,.055);
+}
+.slot.armed .slot-drop,#view-game.dragging .slot-drop{display:block}
+.slot.with-hint .slot-drop{display:none!important}
+#view-game.dragging .slot::before{opacity:0}
+.slot.drop-target .slot-drop{
+  border-color:#ffe38a;border-style:solid;
+  background:rgba(255,204,0,.16);box-shadow:0 0 14px rgba(255,204,0,.25);
+}
+#hand .hand-card img{-webkit-user-drag:none;user-drag:none;pointer-events:none}
 
 /* 简单模式例外：教学向，保留间隔里的年代区间提示（「约 312 — 约 400 之间」）。
    只恢复文字和容纳它的空间，不恢复虚线框 / 横条底色 / 时间轴轨道；
@@ -967,6 +993,8 @@ small{font-size:.78em;opacity:.85}
     transform:translateY(-50%);
   }
   .slot:hover::before,.slot.ghost::before{width:auto;height:3px;background:var(--gold)}
+  /* 竖屏：虚线卡槽改成横向扁槽，宽度铺满插入位 */
+  .slot-drop{left:3%;right:3%;top:50%;bottom:auto;width:auto;height:26px;transform:translateY(-50%)}
   /* 简单模式：竖屏恢复横排年代提示，同样不加虚线框 */
   .slot.with-hint{
     flex:0 0 24px;height:24px;min-height:24px;color:#8792b4;font-size:16px;
