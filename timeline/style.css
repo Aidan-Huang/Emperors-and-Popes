@@ -392,19 +392,26 @@ small{font-size:.78em;opacity:.85}
   border:0;box-shadow:var(--card-shadow);overflow:hidden;position:relative;
   display:flex;flex-direction:column;cursor:pointer;
 }
-/* 拖动落位预览：和真卡等尺寸（桌面 140×210 / 手机 100%×80），插在目标插入位后，
-   后续卡牌被自然推开——所见即「把卡放这里之后」的效果。2px 虚线金色轮廓，
-   不用金边/光晕/大投影；pointer-events:none 保证命中仍落在插入位上。静态浮现，
-   reduce 下保留。 */
+/* 拖动落位预览：拖动一开始就给「每一个」插入位都插一张等大虚线占位卡
+   （桌面 140×210 / 手机 100%×80），把真卡推开成一排「真卡 + 空位」，玩家一眼看到
+   所有可放点。宽高/间距与真卡完全一致（同一 flex 容器 + gap），所见即落位效果。
+   JS 按指针到各占位卡的距离设 opacity：近亮远暗但都始终可见（不必精确拖到细缝）。
+   2px 金色虚线，不用金边/光晕/大投影；pointer-events:none 让命中仍穿过它。 */
 .tl-card.drag-ghost{
-  background:rgba(255,204,0,.05);border:2px dashed var(--gold);border-radius:8px;
-  box-shadow:none;opacity:1;cursor:default;pointer-events:none;
+  background:rgba(255,204,0,.06);border:2px dashed var(--gold);border-radius:8px;
+  box-shadow:none;opacity:.32;cursor:default;pointer-events:none;
   display:flex;align-items:center;justify-content:center;
 }
 .tl-card.drag-ghost::after{
   content:'放这里';writing-mode:vertical-rl;letter-spacing:3px;
-  color:rgba(255,215,90,.55);font-size:14px;font-weight:500;
+  color:rgba(255,215,90,.7);font-size:14px;font-weight:500;
 }
+/* 离指针最近的落点：实线 + 更亮底色，明确「松手放这张」 */
+.tl-card.drag-ghost.drop-target{
+  border-style:solid;border-color:#ffe38a;background:rgba(255,204,0,.2);
+}
+/* 拖动期间锁死文字选择，避免拖牌时选中一大片网页文字（见 body.no-select） */
+body.no-select,body.no-select *{-webkit-user-select:none!important;user-select:none!important}
 .tl-card .fstrip{height:3px;background:var(--local);flex:0 0 3px}
 .tl-card.f-church .fstrip{background:var(--church)}
 .tl-card.f-state .fstrip{background:var(--state)}

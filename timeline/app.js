@@ -1763,7 +1763,8 @@
     let press = null;
     let handledAt = 0;
     let lastTarget = null;
-    let dragGhost = null;   // 拖动落位预览：与真卡等尺寸的虚线占位卡
+    let ghosts = [];        // 所有插入位的等大虚线占位卡（拖动开始时一次性生成）
+    let selectLocked = false;
     const touch = e => !!e.pointerType && e.pointerType !== 'mouse';
     const inGame = () => state.view === 'game' && !!state.session;
     const near = (t, sel) => (t && t.closest) ? t.closest(sel) : null;
@@ -1771,40 +1772,77 @@
       try { return matchMedia('(hover:none),(pointer:coarse)').matches; }
       catch (e) { return false; }
     };
-    // 撤掉预览卡，让所有插入位回到未撑开的稳定布局。命中判定前必须先调用，
-    // 否则 ghost 撑开后会把后面的 slot 推走，导致目标点来回抖动。
-    const hideGhost = () => { if (dragGhost) { dragGhost.remove(); dragGhost = null; } };
-    const ensureGhost = () => {
-      if (!dragGhost) {
-        dragGhost = document.createElement('div');
-        dragGhost.className = 'tl-card drag-ghost';
-        dragGhost.setAttribute('aria-hidden', 'true');
-      }
-      return dragGhost;
+    // 拖动一开始就给每个 slot 后面插一张等大虚线占位卡，之后整段拖动都不再增删
+    // DOM（只改 opacity / drop-target），布局稳定、距离判定不会抖。
+    const showGhosts = () => {
+      if (ghosts.length) return;
+      const slots = $$('#timeline .slot');
+      ghosts = slots.map(sl => {
+        const g = document.createElement('div');
+        g.className = 'tl-card drag-ghost';
+        g.setAttribute('aria-hidden', 'true');
+        sl.parentNode.insertBefore(g, sl.nextSibling);
+        const r = g.getBoundingClientRect();   // 一次量好中心，避免每帧读布局
+        return { el: g, slot: sl, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+      });
+    };
+    const hideGhosts = () => {
+      ghosts.forEach(g => g.el.remove());
+      ghosts = [];
+    };
+    // 锁/放整页文字选择：从按下手牌起锁住，松手/取消/失焦放开
+    const lockSelect = () => {
+      if (selectLocked) return;
+      selectLocked = true;
+      document.body.classList.add('no-select');
+      try { const s = window.getSelection(); if (s) s.removeAllRanges(); } catch (e) {}
+    };
+    const unlockSelect = () => {
+      if (!selectLocked) return;
+      selectLocked = false;
+      document.body.classList.remove('no-select');
     };
     const clearDrag = () => {
       const vg = $('#view-game');
       if (vg) vg.classList.remove('dragging');
-      $$('#timeline .slot.drop-target').forEach(s => s.classList.remove('drop-target'));
-      hideGhost();
+      unlockSelect();
+      hideGhosts();
       lastTarget = null;
     };
-    const slotAt = (x, y) => {
-      const el = document.elementFromPoint(x, y);
-      return (el && el.closest) ? el.closest('#timeline .slot') : null;
+    // 按指针到各占位卡中心的距离设亮度（近亮远暗、保底可见），最近者实线高亮，
+    // 并把它对应的 slot 作为落点。桌面看横向距离、手机看纵向，取主轴即可。
+    const updateGhosts = (x, y) => {
+      if (!ghosts.length) return;
+      let best = null, bestD = Infinity;
+      ghosts.forEach(g => {
+        const d = Math.abs(g.cx - x) + Math.abs(g.cy - y);
+        if (d < bestD) { bestD = d; best = g; }
+      });
+      const maxD = Math.max(160, bestD * 1.9);   // 让亮度差拉开，近处更聚焦
+      ghosts.forEach(g => {
+        const d = Math.abs(g.cx - x) + Math.abs(g.cy - y);
+        const t = Math.max(0, 1 - d / maxD);
+        g.el.style.opacity = (0.3 + 0.7 * t).toFixed(3);
+        const isBest = g === best;
+        g.el.classList.toggle('drop-target', isBest);
+      });
+      lastTarget = best ? best.slot : null;
     };
 
     /* 点选手牌的还原沿用 pointerup；「拖到卡槽放下」也接在同一条 pointer 链上：
-       按住手牌移动超过阈值即进入拖动，目标插入位后面浮出一张和真卡等尺寸的虚线卡
-       （.drag-ghost），把后续卡牌推开，所见即放好后的样子；松手落在目标槽上就 onPlace。
-       命中前先撤掉 ghost 以免它把后面的 slot 推走造成目标抖动。桌面鼠标同样支持；
-       位移很小的普通点击仍交给手牌 onclick，两步点选完全保留。人物卡不落到事件卡槽。 */
+       按住手牌移动超过阈值即进入拖动，此时「所有」插入位一次性浮出和真卡等尺寸的
+       虚线占位卡（.drag-ghost），把真卡推开成一排可放点；离指针近的亮、远的暗，
+       最近的实线高亮即落点。松手落到最近占位卡对应的 slot 就 onPlace。
+       整段拖动只改亮度不增删 DOM，布局稳定。位移很小的普通点击仍交给手牌 onclick，
+       两步点选完全保留。人物卡不落到事件卡槽。 */
     document.addEventListener('pointerdown', e => {
       if (press && press.id !== e.pointerId) return;   // 多指：只认第一根
       press = null;
       if (!inGame() || state.locked) return;
       const t = e.target;
       const card = near(t, '.hand-card');
+      // 从按下手牌起就锁文字选择：拖动过程中不会再选中一大片网页文字
+      if (card) lockSelect();
       press = {
         id: e.pointerId, x: e.clientX, y: e.clientY, card: card,
         touch: touch(e), dragging: false,
@@ -1822,20 +1860,12 @@
         press.dragging = true;
         const vg = $('#view-game');
         if (vg) vg.classList.add('dragging');
+        if ((press.card.dataset.kind || 'event') === 'event') showGhosts();
       }
       if (e.cancelable) e.preventDefault();
       if ((press.card.dataset.kind || 'event') === 'event') {
-        // 先撤掉上一帧的预览卡，让 slot 回到稳定位置再命中，避免撑开后目标抖动
-        hideGhost();
-        const sl = slotAt(e.clientX, e.clientY);
-        if (sl !== lastTarget) {
-          if (lastTarget) lastTarget.classList.remove('drop-target');
-          if (sl) sl.classList.add('drop-target');
-          lastTarget = sl;
-        }
-        // 在目标插入位「后面」插一张等大虚线卡：放牌时真卡正是插到这个位置，
-        // 用同一 flex 容器与 gap，宽度/间距与最终落位完全一致。
-        if (sl) sl.parentNode.insertBefore(ensureGhost(), sl.nextSibling);
+        // 按指针距离更新所有占位卡的亮度 / 落点高亮（布局已稳定，不再增删 DOM）
+        updateGhosts(e.clientX, e.clientY);
       }
     }, true);
 
@@ -1845,22 +1875,23 @@
       if (!inGame() || state.locked) { clearDrag(); return; }
       const moved = Math.abs(e.clientX - p.x) > 10 || Math.abs(e.clientY - p.y) > 10;
       if (p.dragging || moved) {
+        // 先记落点（clearDrag 会把 lastTarget 清空）：最近的占位卡对应的 slot
+        const dropSlot = lastTarget;
         clearDrag();
         // 只有触屏会补发「落回起点」的合成 click 需要吞；桌面的 click 目标是
         // mousedown/mouseup 共同祖先，不会误 toggle 手牌，故桌面不设抑制，
         // 否则拖动后 500ms 内点下一张牌会被吞掉（快速连点会以为没点上）。
         if (p.touch) handledAt = Date.now();
-        if (p.card && (p.card.dataset.kind || 'event') === 'event') {
-          const sl = slotAt(e.clientX, e.clientY);
-          if (sl) {
-            // onPlace 依赖 selectedId：拖动放置前先把这张牌置为选中态
-            if (state.selectedId !== p.card.dataset.id || state.selectedKind !== 'event')
-              toggleHandSelect(p.card.dataset.id, 'event');
-            onPlace(+sl.dataset.slot);
-          }
+        if (p.card && (p.card.dataset.kind || 'event') === 'event' && dropSlot) {
+          // onPlace 依赖 selectedId：拖动放置前先把这张牌置为选中态
+          if (state.selectedId !== p.card.dataset.id || state.selectedKind !== 'event')
+            toggleHandSelect(p.card.dataset.id, 'event');
+          onPlace(+dropSlot.dataset.slot);
         }
         return;
       }
+      // 未拖动（纯点击/轻点）：也要放开文字选择锁
+      unlockSelect();
       // 未拖动：触屏走点选，桌面交给手牌 onclick
       if (p.touch) {
         if (p.card) {
