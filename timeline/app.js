@@ -1763,6 +1763,7 @@
     let press = null;
     let handledAt = 0;
     let lastTarget = null;
+    let dragGhost = null;   // 拖动落位预览：与真卡等尺寸的虚线占位卡
     const touch = e => !!e.pointerType && e.pointerType !== 'mouse';
     const inGame = () => state.view === 'game' && !!state.session;
     const near = (t, sel) => (t && t.closest) ? t.closest(sel) : null;
@@ -1770,10 +1771,22 @@
       try { return matchMedia('(hover:none),(pointer:coarse)').matches; }
       catch (e) { return false; }
     };
+    // 撤掉预览卡，让所有插入位回到未撑开的稳定布局。命中判定前必须先调用，
+    // 否则 ghost 撑开后会把后面的 slot 推走，导致目标点来回抖动。
+    const hideGhost = () => { if (dragGhost) { dragGhost.remove(); dragGhost = null; } };
+    const ensureGhost = () => {
+      if (!dragGhost) {
+        dragGhost = document.createElement('div');
+        dragGhost.className = 'tl-card drag-ghost';
+        dragGhost.setAttribute('aria-hidden', 'true');
+      }
+      return dragGhost;
+    };
     const clearDrag = () => {
       const vg = $('#view-game');
       if (vg) vg.classList.remove('dragging');
       $$('#timeline .slot.drop-target').forEach(s => s.classList.remove('drop-target'));
+      hideGhost();
       lastTarget = null;
     };
     const slotAt = (x, y) => {
@@ -1782,9 +1795,10 @@
     };
 
     /* 点选手牌的还原沿用 pointerup；「拖到卡槽放下」也接在同一条 pointer 链上：
-       按住手牌移动超过阈值即进入拖动，所有插入位浮出虚线卡槽，目标槽再单独点亮，
-       松手落在目标槽上就直接 onPlace。桌面鼠标同样支持；位移很小的普通点击仍交给
-       手牌 onclick，原有两步点选完全保留。人物卡不落到事件卡槽。 */
+       按住手牌移动超过阈值即进入拖动，目标插入位后面浮出一张和真卡等尺寸的虚线卡
+       （.drag-ghost），把后续卡牌推开，所见即放好后的样子；松手落在目标槽上就 onPlace。
+       命中前先撤掉 ghost 以免它把后面的 slot 推走造成目标抖动。桌面鼠标同样支持；
+       位移很小的普通点击仍交给手牌 onclick，两步点选完全保留。人物卡不落到事件卡槽。 */
     document.addEventListener('pointerdown', e => {
       if (press && press.id !== e.pointerId) return;   // 多指：只认第一根
       press = null;
@@ -1811,12 +1825,17 @@
       }
       if (e.cancelable) e.preventDefault();
       if ((press.card.dataset.kind || 'event') === 'event') {
+        // 先撤掉上一帧的预览卡，让 slot 回到稳定位置再命中，避免撑开后目标抖动
+        hideGhost();
         const sl = slotAt(e.clientX, e.clientY);
         if (sl !== lastTarget) {
           if (lastTarget) lastTarget.classList.remove('drop-target');
           if (sl) sl.classList.add('drop-target');
           lastTarget = sl;
         }
+        // 在目标插入位「后面」插一张等大虚线卡：放牌时真卡正是插到这个位置，
+        // 用同一 flex 容器与 gap，宽度/间距与最终落位完全一致。
+        if (sl) sl.parentNode.insertBefore(ensureGhost(), sl.nextSibling);
       }
     }, true);
 
@@ -1925,7 +1944,7 @@
     const tlSig = state.sessionSeq + '#' + (act5Test() ? 'T' : 'N') + '#' +
       g.timeline.map(c => c.id).join('|');
     const tlSlots = $$('#timeline .slot');
-    const tlCards = $$('#timeline .tl-card:not(.ghost)');
+    const tlCards = $$('#timeline .tl-card:not(.ghost):not(.drag-ghost)');
     if (tl.dataset.sig === tlSig &&
         tlSlots.length === g.timeline.length + 1 &&
         tlCards.length === g.timeline.length) {

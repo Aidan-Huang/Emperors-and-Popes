@@ -342,31 +342,21 @@ small{font-size:.78em;opacity:.85}
 }
 .slot .slot-plus,.slot .slot-txt{display:none}
 .slot::after{content:'';position:absolute;top:0;bottom:0;left:-8px;right:-8px}
-/* 选中手牌 → 细金线；hover → 加粗变亮（静态浮现，reduce 下照常保留） */
+/* 选中手牌 → 细金线；hover → 加粗变亮（静态浮现，reduce 下照常保留）。
+   点击选中只点亮这条细金线，不出现任何虚线占位——虚线只在真正拖动时出现。 */
 .slot::before{
   content:'';position:absolute;top:8%;bottom:8%;left:50%;
   width:2px;transform:translateX(-50%);border-radius:2px;
   background:rgba(255,204,0,.5);opacity:0;pointer-events:none;
   transition:opacity .14s ease;
 }
-.slot.armed::before{opacity:0}  /* 让位给虚线卡槽 */
-.slot:hover::before{opacity:1;width:3px;background:var(--gold)}
-.slot.ghost::before{opacity:1;width:3px;background:var(--gold)}
-/* 选中手牌 / 拖动中：插入位浮出虚线卡槽，取代原来的细金线，更像「往槽里放」。
-   简单模式已有年代文字指路，不叠虚线槽。静态浮现，reduce 下保留。 */
-.slot-drop{
-  display:none;position:absolute;pointer-events:none;z-index:2;
-  left:50%;top:3%;bottom:3%;width:30px;transform:translateX(-50%);
-  border:2px dashed var(--gold);border-radius:11px;
-  background:rgba(255,204,0,.055);
+.slot.armed::before,.slot:hover::before,.slot.ghost::before{
+  opacity:1;width:3px;background:var(--gold)
 }
-.slot.armed .slot-drop,#view-game.dragging .slot-drop{display:block}
-.slot.with-hint .slot-drop{display:none!important}
+/* 拖动中：所有细金线让位给「等大落位预览」虚线卡（.drag-ghost，见 .tl-card）。 */
 #view-game.dragging .slot::before{opacity:0}
-.slot.drop-target .slot-drop{
-  border-color:#ffe38a;border-style:solid;
-  background:rgba(255,204,0,.16);box-shadow:0 0 14px rgba(255,204,0,.25);
-}
+/* 旧的 30px 窄卡槽节点保留在 DOM 里但不再显示：拖动预览改用和真卡等尺寸的 .drag-ghost。 */
+.slot-drop{display:none!important}
 #hand .hand-card img{-webkit-user-drag:none;user-drag:none;pointer-events:none}
 
 /* 简单模式例外：教学向，保留间隔里的年代区间提示（「约 312 — 约 400 之间」）。
@@ -401,6 +391,19 @@ small{font-size:.78em;opacity:.85}
   flex:0 0 140px;height:210px;background:var(--card-bg);color:var(--card-ink);border-radius:8px;
   border:0;box-shadow:var(--card-shadow);overflow:hidden;position:relative;
   display:flex;flex-direction:column;cursor:pointer;
+}
+/* 拖动落位预览：和真卡等尺寸（桌面 140×210 / 手机 100%×80），插在目标插入位后，
+   后续卡牌被自然推开——所见即「把卡放这里之后」的效果。2px 虚线金色轮廓，
+   不用金边/光晕/大投影；pointer-events:none 保证命中仍落在插入位上。静态浮现，
+   reduce 下保留。 */
+.tl-card.drag-ghost{
+  background:rgba(255,204,0,.05);border:2px dashed var(--gold);border-radius:8px;
+  box-shadow:none;opacity:1;cursor:default;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;
+}
+.tl-card.drag-ghost::after{
+  content:'放这里';writing-mode:vertical-rl;letter-spacing:3px;
+  color:rgba(255,215,90,.55);font-size:14px;font-weight:500;
 }
 .tl-card .fstrip{height:3px;background:var(--local);flex:0 0 3px}
 .tl-card.f-church .fstrip{background:var(--church)}
@@ -994,7 +997,9 @@ small{font-size:.78em;opacity:.85}
   }
   .slot:hover::before,.slot.ghost::before{width:auto;height:3px;background:var(--gold)}
   /* 竖屏：虚线卡槽改成横向扁槽，宽度铺满插入位 */
-  .slot-drop{left:3%;right:3%;top:50%;bottom:auto;width:auto;height:26px;transform:translateY(-50%)}
+  /* 落位预览卡沿用手机横条卡尺寸；「放这里」改横排，别竖着挤在 80px 高的槽里 */
+  .tl-card.drag-ghost{border-radius:8px}
+  .tl-card.drag-ghost::after{writing-mode:horizontal-tb;letter-spacing:2px;font-size:12px}
   /* 简单模式：竖屏恢复横排年代提示，同样不加虚线框 */
   .slot.with-hint{
     flex:0 0 24px;height:24px;min-height:24px;color:#8792b4;font-size:16px;
